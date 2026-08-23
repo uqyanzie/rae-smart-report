@@ -24,11 +24,11 @@ All specifications are structured in `docs/`:
 - `docs/specs/excel-exporter-engine.md`
 - `docs/system-architecture.md`
 
-## Review & Implementation Guides
-Findings derived by validating the specs against `sample_data/`. Read before implementing:
-- `docs/SPEC-REVIEW.md` — spec vs verified sample-data reality; pinned column mappings, fixed-grid architecture, fold-back rule, resolved decisions
-- `docs/SKILLS-REVIEW.md` — per-skill audit and fix priorities
-- `docs/GRID-ALIGNMENT-GUIDE.md` — **authoritative ordering tables** for catalog/grid work; all values validated against the golden workbook
+## Implementation Plan Reference
+The execution plan and architecture specifications are documented in:
+- `docs/plan/ImplementationPlan.md`
+- `docs/system-architecture.md`
+- `docs/specs/`
 
 ## Active Agent Skills & Capabilities
 - `@data-engineering-deterministic`: Enforces zero-LLM math, exact regex variant extraction, and parent-row pruning.

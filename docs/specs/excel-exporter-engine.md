@@ -30,7 +30,11 @@ The report layout is a **fixed combinatorial template**, generated declaratively
 1. **Intra-Family Single Products:** All active shades for each product family (e.g. 11 shades for Glow Up Tint).
 2. **Intra-Family Combinatorial Bundles:** All unordered distinct pairs $C(n, 2)$ within the family (e.g. $C(11, 2) = 55$ rows for Bundling Glow Up Tint, $C(6, 2) = 15$ for Bundling Swipe To Glow).
 3. **Cross-Family Combinatorial Bundles (`Produk 2`):** Cartesian products of shades across two distinct families (e.g. $11 \times 6 = 66$ rows for Glow Up Tint & Over The Glaze; $6 \times 6 \times 3 = 108$ rows for Over The Glaze & Tinted Jelly Balm with 3 case colors).
-4. **Zero-Sale Variant Representation:** Every catalog combination is emitted. Combinations with zero transactions are populated with `0` quantity and `0` revenue (or left blank), preserving fixed layout row indices across reporting periods.
+4. **Asymmetric Density — Sparse Variants, Complete Groups:** The catalog defines the full combinatorial space and its canonical row order, but the two tables emit it at different densities:
+   - **Table 1 (variant rows) is sparse.** Only combinations with non-zero quantity are emitted; zero-sale combinations are omitted entirely. Measured survival for the reference period: `Produk S` 102/181, `Produk T` 92/181, `Produk 2 S` 7/516, `Produk 2 T` 13/840.
+   - **Table 2 (group summary) is complete.** Every catalog group is always emitted in `PRODUK_GROUP_ORDER` sequence, with `0` quantity and `0` revenue when it contributed no sales. This keeps the group list stable period-over-period and matches the reference template's group structure.
+5. **Empty-Group Rule:** When a group has zero emitted Table 1 rows, its Table 2 quantity and revenue cells must contain a literal `0`, **not** a `=SUM(...)` formula — a SUM over an absent range is a broken reference. Fully-zero groups are common rather than exceptional: in the reference period, `Produk S` and `Produk T` each had 1 of 16, while `Produk 2 S` had **7 of 10** and `Produk 2 T` had **7 of 13**.
+6. **Dynamic Anchors Only:** Because Table 1 is sparse, all formula ranges and `$H$n` anchors must be computed from actually-emitted row indices. Anchors transcribed from the reference workbook (e.g. `$H$18`, `sum(C2:C12)`) will reference the wrong rows.
 
 ---
 
@@ -88,8 +92,9 @@ Each product sheet contains two synchronized tables separated by an empty spacin
    ```
 5. **Dynamic Column Widths:** Auto-calculate column widths based on maximum rendered string length + 4 padding (skipping formula strings to avoid truncated `###` cells).
 6. **Defect Prevention In Formulas:**
-   - **No Double-Counting Range Overruns:** In `Produk 2 S`, ensure formula ranges strictly match exact group boundaries (do NOT replicate golden file defect where Group 9 summed $C374:C445 overrunning into Power Frosted).
-   - **Division by Zero Guard:** For sheets with zero-volume product groups (e.g. Lazada), ensure formulas or cells do not render `#DIV/0!`.
+   - **No Double-Counting Range Overruns:** In `Produk 2 S`, ensure formula ranges strictly match exact group boundaries (do NOT replicate the reference-file defect where Group 9 summed `C374:C445`, overrunning into Power Frosted).
+   - **Empty-Range Guard:** Never emit `=SUM(...)` for a group with no emitted variant rows; write a literal `0`. See section 3 rule 5.
+   - **Division by Zero Guard:** Contribution cells (Col E, Col J) divide by a group or grand total. When that divisor is `0`, write a literal `0` instead of a formula, so no cell can render `#DIV/0!` as the reference workbook does in `Produk L`.
 
 ---
 
