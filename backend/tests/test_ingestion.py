@@ -1,0 +1,230 @@
+"""Tests for multi-sheet spreadsheet ingestion, delimiter detection, and platform adapters."""
+
+from __future__ import annotations
+
+import io
+from pathlib import Path
+
+import pytest
+
+from app.modules.ingestion.exceptions import (
+    MissingRequiredColumnError,
+    SheetNotFoundError,
+    SpreadsheetEmptyError,
+    UnsupportedFormatError,
+)
+from app.modules.ingestion.reader import (
+    extract_spreadsheet_rows,
+    inspect_sheet_names,
+    read_spreadsheet,
+    select_default_sheet,
+)
+from app.modules.profiler.adapters import (
+    PlatformEnum,
+    ShopeeAdapter,
+    TikTokShopAdapter,
+    clean_brand_prefix,
+    detect_adapter,
+    get_adapter,
+    is_parent_or_summary_row,
+    parse_tiktok_concatenated_title,
+)
+from app.modules.profiler.fallback import (
+    ParentRowIgnoreCondition,
+    compute_header_signature,
+    profile_spreadsheet_headers,
+)
+
+
+
+class TestShopeeIngestion:
+    """Tests for Shopee sales performance workbook parsing and parent-row elimination."""
+
+    def test_shopee_sheet_detection_and_metadata(self, raw_shopee_path: Path):
+        assert raw_shopee_path.exists(), f"Missing fixture at {raw_shopee_path}"
+        meta = read_spreadsheet(raw_shopee_path)
+
+        assert meta.active_sheet == "Produk dengan Performa Terbaik"
+        assert len(meta.available_sheets) == 7
+        assert "Produk dengan Performa Terbaik" in meta.available_sheets
+        assert meta.total_rows == 1061
+        assert len(meta.raw_headers) == 40
+        assert "Produk" in meta.raw_headers
+        assert "Nama Variasi" in meta.raw_headers
+        assert "Produk (Pesanan Siap Dikirim)" in meta.raw_headers
+        assert "Penjualan (Pesanan Siap Dikirim) (IDR)" in meta.raw_headers
+        assert len(meta.sample_rows) == 10
+
+    def test_shopee_adapter_prunes_exact_295_parent_rows(self, raw_shopee_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_shopee_path)
+        assert len(rows) == 1061
+
+        adapter = ShopeeAdapter()
+        adapter.validate_headers(headers)
+        records = adapter.adapt(rows)
+
+        # 1061 total rows:
+        # - 295 rows have '-' variant
+        # - 110 of those belong to products WITH child variants (true parent summary duplicates -> pruned)
+        # - 185 belong to standalone products WITHOUT child variants (e.g. single Lipcare tubes -> preserved)
+        # - 766 child variant rows preserved
+        # Total preserved records = 766 child + 185 standalone = 951
+        assert len(records) == 951
+        dash_rows_count = sum(
+            1 for r in rows if is_parent_or_summary_row(r.get("Nama Variasi"), "EQUALS_DASH")
+        )
+        assert dash_rows_count == 295
+
+        for rec in records:
+            assert rec.platform == PlatformEnum.SHOPEE.value
+            assert rec.qty_sold >= 0
+            assert rec.revenue >= 0
+            assert not rec.product_title.lower().startswith("raecca ")
+
+    def test_shopee_adapter_detection(self, raw_shopee_path: Path):
+        headers, _ = extract_spreadsheet_rows(raw_shopee_path)
+        adapter = detect_adapter(headers)
+        assert isinstance(adapter, ShopeeAdapter)
+        assert adapter.platform == PlatformEnum.SHOPEE
+
+
+class TestTikTokShopIngestion:
+    """Tests for TikTok Shop export parsing and concatenated title splitting."""
+
+    def test_tiktok_metadata_and_row_count(self, raw_tts_path: Path):
+        assert raw_tts_path.exists(), f"Missing fixture at {raw_tts_path}"
+        meta = read_spreadsheet(raw_tts_path)
+
+        assert meta.active_sheet == "Sheet1"
+        assert meta.available_sheets == ["Sheet1"]
+        assert meta.total_rows == 270
+        assert "Produk" in meta.raw_headers
+        assert "Produk terjual" in meta.raw_headers
+        assert "GMV" in meta.raw_headers
+        assert len(meta.sample_rows) == 10
+
+    def test_tiktok_adapter_extracts_all_270_rows(self, raw_tts_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_tts_path)
+        assert len(rows) == 270
+
+        adapter = TikTokShopAdapter()
+        adapter.validate_headers(headers)
+        records = adapter.adapt(rows)
+
+        # All 270 rows are atomic SKU level; 0 parent rows pruned
+        assert len(records) == 270
+        for rec in records:
+            assert rec.platform == PlatformEnum.TIKTOK_SHOP.value
+            assert rec.qty_sold >= 0
+            assert rec.revenue >= 0
+            assert not rec.product_title.lower().startswith("raecca ")
+
+    def test_tiktok_adapter_detection(self, raw_tts_path: Path):
+        headers, _ = extract_spreadsheet_rows(raw_tts_path)
+        adapter = detect_adapter(headers)
+        assert isinstance(adapter, TikTokShopAdapter)
+        assert adapter.platform == PlatformEnum.TIKTOK_SHOP
+
+
+class TestCSVIngestionAndDelimiters:
+    """Tests for CSV parsing across comma, semicolon, tab, and character encodings."""
+
+    @pytest.mark.parametrize(
+        "delim,data",
+        [
+            (",", "Produk,Nama Variasi,Produk (Pesanan Siap Dikirim),Penjualan (Pesanan Siap Dikirim) (IDR)\nRaecca Glow Up Tint,05. Dynamic,10,149.000\n"),
+            (";", "Produk;Nama Variasi;Produk (Pesanan Siap Dikirim);Penjualan (Pesanan Siap Dikirim) (IDR)\nRaecca Glow Up Tint;05. Dynamic;10;149.000\n"),
+            ("\t", "Produk\tNama Variasi\tProduk (Pesanan Siap Dikirim)\tPenjualan (Pesanan Siap Dikirim) (IDR)\nRaecca Glow Up Tint\t05. Dynamic\t10\t149.000\n"),
+        ],
+    )
+    def test_csv_delimiters(self, delim: str, data: str):
+        content = data.encode("utf-8")
+        meta = read_spreadsheet(content, filename="test.csv")
+        assert meta.detected_delimiter == delim
+        assert meta.total_rows == 1
+        assert "Produk" in meta.raw_headers
+
+    def test_csv_mojibake_encoding_handling(self):
+        # Corrupted characters in title (e.g. Winona's Ombre Picks with replacement char)
+        csv_bytes = (
+            "Produk,Produk terjual,GMV\n"
+            "Raecca Winona\uFFFDs Ombre Picks: Dynamic,5,75000\n"
+        ).encode("utf-8")
+
+        meta = read_spreadsheet(csv_bytes, filename="mojibake.csv")
+        assert meta.total_rows == 1
+        assert "Produk" in meta.raw_headers
+        assert len(meta.sample_rows) == 1
+
+
+class TestProfilerAndHeaderSignatures:
+    """Tests for SHA-256 signature hashing and schema profiler models."""
+
+    def test_header_signature_order_invariance(self):
+        h1 = ["Produk", "Nama Variasi", "SKU Induk", "GMV"]
+        h2 = ["GMV", "SKU Induk", "Nama Variasi", "Produk"]
+        h3 = ["  produk  ", "NAMA VARIASI", "SKU INDUK", "gmv "]
+
+        sig1 = compute_header_signature(h1)
+        sig2 = compute_header_signature(h2)
+        sig3 = compute_header_signature(h3)
+
+        assert sig1 == sig2 == sig3
+        assert len(sig1) == 64  # SHA-256 hex string
+
+    def test_profiler_shopee_detection(self, raw_shopee_path: Path):
+        headers, _ = extract_spreadsheet_rows(raw_shopee_path)
+        profile = profile_spreadsheet_headers(headers)
+
+        assert profile.platform == PlatformEnum.SHOPEE
+        assert profile.confidence == 1.0
+        assert profile.column_mapping.product_group == "Produk"
+        assert profile.column_mapping.raw_variant == "Nama Variasi"
+        assert profile.parent_row_rule is not None
+        assert profile.parent_row_rule.ignore_condition == ParentRowIgnoreCondition.EQUALS_DASH
+
+    def test_profiler_tiktok_detection(self, raw_tts_path: Path):
+        headers, _ = extract_spreadsheet_rows(raw_tts_path)
+        profile = profile_spreadsheet_headers(headers)
+
+        assert profile.platform == PlatformEnum.TIKTOK_SHOP
+        assert profile.confidence == 1.0
+        assert profile.column_mapping.qty_sold == "Produk terjual"
+        assert profile.column_mapping.revenue == "GMV"
+        assert profile.parent_row_rule is None
+
+    def test_profiler_unknown_fallback(self):
+        unknown_headers = ["ColA", "ColB", "RandomHeader"]
+        profile = profile_spreadsheet_headers(unknown_headers)
+
+        assert profile.platform == PlatformEnum.UNKNOWN
+        assert profile.confidence == 0.0
+        assert profile.parent_row_rule is None
+
+
+class TestIngestionExceptions:
+    """Tests for structured error raising on invalid files, missing sheets, and missing columns."""
+
+    def test_unsupported_format_xls(self):
+        with pytest.raises(UnsupportedFormatError) as exc_info:
+            read_spreadsheet(b"fake-content", filename="report.xls")
+        assert "Unsupported file format" in str(exc_info.value)
+        assert ".xls" in str(exc_info.value)
+
+    def test_sheet_not_found(self, raw_shopee_path: Path):
+        with pytest.raises(SheetNotFoundError) as exc_info:
+            extract_spreadsheet_rows(raw_shopee_path, sheet_name="NonExistentSheet")
+        assert "NonExistentSheet" in str(exc_info.value)
+
+    def test_missing_required_column_in_shopee(self):
+        # Missing ready-to-ship columns (e.g. only contains created orders)
+        bad_headers = ["Produk", "Nama Variasi", "Pesanan Dibuat"]
+        adapter = ShopeeAdapter()
+        with pytest.raises(MissingRequiredColumnError) as exc_info:
+            adapter.validate_headers(bad_headers)
+        assert "Missing required column(s)" in str(exc_info.value)
+        assert "Produk (Pesanan Siap Dikirim)" in str(exc_info.value)
+
+    def test_empty_spreadsheet_raises(self):
+        with pytest.raises(SpreadsheetEmptyError):
+            read_spreadsheet(b"", filename="empty.csv")

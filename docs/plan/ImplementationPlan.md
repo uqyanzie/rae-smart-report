@@ -93,15 +93,15 @@ backend/
 
 ---
 
-### Phase 1: Core Foundation & Domain Catalog Core (with Lipcare Modeling)
+### Phase 1: Core Foundation & Domain Catalog Core (with Lipcare Modeling) [Completed]
 **Goal:** Build the bedrock components: locale-safe `id-ID` numeric parsing and the master product catalog supporting 3 distinct sequence orderings and custom multi-group families (Lipcare & Over The Glaze).
 
-- [ ] Implement `backend/app/core/numeric.py`:
+- [x] Implement `backend/app/core/numeric.py`:
   - `sanitize_currency(val, decimal_sep=",", default=0.0)` parsing Indonesian format (`.` = thousands, `,` = decimal).
   - Parenthetical negative handling (`(100.000)` $\to -100000$).
   - `sanitize_integer(val)` with half-away-from-zero rounding.
   - `sanitize_percent(val)` returning a $0\text{--}1$ ratio.
-- [ ] Implement `backend/app/domain/catalog.py`:
+- [x] Implement `backend/app/domain/catalog.py`:
   - Immutable `Family` dataclass supporting:
     - `name: str`
     - `shades: Tuple[str, ...]`
@@ -124,9 +124,9 @@ backend/
   - `PRODUK_GROUP_ORDER` (16 group names in emission sequence).
   - `CASE_COLORS` (`Fizzy Pop`, `Sweetie Pop`, `Cherry Pop`).
   - Fast lookup functions: `resolve_shade(token, family=None)`, `resolve_family(token)`.
-- [ ] Author `backend/tests/test_numeric.py`:
+- [x] Author `backend/tests/test_numeric.py`:
   - 14 table-driven regression tests including `'Rp 50.000'`, `'Rp 100.000'`, `'-Rp 1.000'`, `'(1.000)'`, `'261.911.314'`, `'261.911.314,50'`.
-- [ ] Author `backend/tests/test_domain_catalog.py`:
+- [x] Author `backend/tests/test_domain_catalog.py`:
   - Assert that `Family.order_for_singles()`, `Family.order_for_pairs()`, and `Family.order_for_cross()` match the expected sequences as **ordered lists**.
   - Assert that Lipcare correctly emits 4 report groups (`Lip Moist`, `Lip Exfoliant`, `Lip Sunscreen`, `Bundling Lipcare`) and exactly 7 explicit bundle labels.
 
@@ -136,22 +136,22 @@ backend/
 
 ---
 
-### Phase 2: Ingestion & Pinned Platform Adapters
+### Phase 2: Ingestion & Pinned Platform Adapters [Completed]
 **Goal:** Implement resilient multi-sheet spreadsheet ingestion (`.xlsx`, `.csv`) and deterministic column mapping adapters for Shopee and TikTok Shop.
 
-- [ ] Implement `backend/app/modules/ingestion/reader.py`:
+- [x] Implement `backend/app/modules/ingestion/reader.py`:
   - Read `.xlsx` and `.csv` into structured row dictionaries using openpyxl (scoped strictly to `.xlsx` and `.csv`; no `.xls`).
   - Sheet selector with default fallback (e.g. `Produk dengan Performa Terbaik` for Shopee 7-sheet workbook, `Sheet1` for TikTok Shop).
   - CSV delimiter sniffer (supporting `,`, `;`, `\t`).
-- [ ] Implement `backend/app/modules/profiler/adapters.py`:
+- [x] Implement `backend/app/modules/profiler/adapters.py`:
   - **Shopee Adapter:** Pinned to `Produk` (B), `Nama Variasi` (E), `SKU Induk` (H), `Produk (Pesanan Siap Dikirim)` (S), `Penjualan (Pesanan Siap Dikirim) (IDR)` (J).
   - **Shopee Parent-Row Pruning:** Drops rows where `Nama Variasi` is `"-"` or empty.
   - **TikTok Shop Adapter:** Pinned to `Produk` (C split on `:` into group and raw_variant), `SKU ID` (A), `Produk terjual` (G), `GMV` (E). No parent rows to prune.
   - Fail loudly with descriptive error if required ready-to-ship columns are missing.
-- [ ] Implement `backend/app/modules/profiler/fallback.py`:
+- [x] Implement `backend/app/modules/profiler/fallback.py`:
   - Compute canonical SHA-256 header signatures.
   - Mapping template cache lookup.
-- [ ] Author `backend/tests/test_ingestion.py`:
+- [x] Author `backend/tests/test_ingestion.py`:
   - Ingest `sample_data/raw/raw_shopee_13_19_Jul26.xlsx` and verify exactly 295 parent rows pruned from 1061 total rows (766 child rows).
   - Ingest `sample_data/raw/raw_tts_13_19_Jul26.xlsx` and verify 270 rows extracted.
 
@@ -161,27 +161,27 @@ backend/
 
 ---
 
-### Phase 3: Transformation, Normalization & Fixed Grid Generator
+### Phase 3: Transformation, Normalization & Fixed Grid Generator [Completed]
 **Goal:** Implement variant cleaning, 3D case color tagging, same-shade 2-pack fold-back arithmetic (scoped to Glow Up Tint), and combinatorial fixed-grid generation.
 
-- [ ] Implement `backend/app/modules/transformer/normalizer.py`:
+- [x] Implement `backend/app/modules/transformer/normalizer.py`:
   - Strip packaging noise (`random keychain`, `tanpa keychain`, `aplikator`).
   - Strip ordinal prefixes (`05. Dynamic` $\to$ `Dynamic`, `01 Peony` $\to$ `Peony`).
   - Split multiple delimiters (`,`, `+`, `/`).
   - Apply alias dictionary (`cheerfull` $\to$ `Cheerful`, `ov hype` $\to$ `Over Hype`, `bunpink` $\to$ `Bunny Pink`).
   - Resolve 3D case colors for Tinted Jelly Balm (`Fizzy Pop`, `Sweetie Pop`, `Cherry Pop`).
   - Surface unmapped tokens explicitly with line context rather than silently dropping revenue.
-- [ ] Implement `backend/app/modules/transformer/foldback.py`:
+- [x] Implement `backend/app/modules/transformer/foldback.py`:
   - Detect same-shade intra-family bundles (e.g. `Dynamic, 05. Dynamic`).
   - Scope: Glow Up Tint family (raise error if encountered on other families without verified rule).
   - Apply arithmetic: $1\times$ revenue, $2\times$ quantity added to corresponding single shade.
   - Aggregate duplicate same-shade rows (e.g. duplicate `Gorgeous, 08. Gorgeous`).
   - Raise `ValueError` on multiplicity $N > 2$.
-- [ ] Implement `backend/app/modules/transformer/grid.py`:
+- [x] Implement `backend/app/modules/transformer/grid.py`:
   - `generate_intra_family_grid(family_name)`: emits singles in `order_for_singles()` / `explicit_groups` and pairs in `order_for_pairs()` ($C(n,2)$) / `explicit_bundle_labels`.
   - `generate_cross_family_grid(f1, f2, include_case_colors)`: emits Cartesian pairs ($n \times m$) joining with `", "` and $n \times m \times 3$ joining with `" + "` then `", "`.
   - Normalise all output labels with `.rstrip()`.
-- [ ] Author `backend/tests/test_transformer.py`:
+- [x] Author `backend/tests/test_transformer.py`:
   - Execute full transformation over raw sample files.
   - Compare results against `backend/tests/fixtures/golden_totals.json` by matching `(variant_label -> qty, revenue)` pairs:
     - 22/22 exact match for TikTok (`Produk T`).
@@ -305,15 +305,19 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
 
 # Handoff Brief
 
-- **Current Phase:** Phase 1 (Core Foundation & Domain Catalog Core with Lipcare Modeling)
-- **What was done:** Completed Phase 0 (Setup, Fixtures & Workspace Cleanliness):
-  - Created `backend/requirements.txt` with lean dependencies (no pandas/polars/xlrd) and installed cleanly.
-  - Configured `backend/pyproject.toml` with pytest discovery and `pythonpath`.
-  - Extracted `backend/tests/fixtures/golden_totals.json` from `sample_data/expected_output/output_13_19_Jul26.xlsx` (181 variant totals for Shopee and TikTok, Active ratio `0.05974791292`, and fold-back addends).
-  - Synchronized `AGENTS.md` and `SETUP.md` with the new lean stack and domain structure.
-  - Verified with passing automated tests (`pytest backend/tests/`).
-- **What is next:** Execute Phase 1: Implement `numeric.py` (id-ID locale parsing), `catalog.py` (7 master product families, 3 distinct orderings, Lipcare 4 report groups & 7 explicit bundles, OTG 15 literal bundles), and write regression tests `test_numeric.py` and `test_domain_catalog.py`.
+- **Current Phase:** Phase 4 (SQLite Analytics Storage & CTE Repository)
+- **What was done:** Completed Phase 3 (Transformation, Normalization & Fixed Grid Generator):
+  - Implemented variant cleaning, noise stripping, and token normalizer in `backend/app/modules/transformer/normalizer.py`.
+  - Implemented same-shade 2-pack fold-back engine with strict family validation and arithmetic ($1\times$ revenue, $2\times$ quantity) in `backend/app/modules/transformer/foldback.py`.
+  - Implemented combinatorial fixed grid generator (181 rows for `Produk`, $C(n,2)$ intra-bundles, $n \times m$ and $n \times m \times 3$ cross-bundles) in `backend/app/modules/transformer/grid.py`.
+  - Authored comprehensive test suite in `backend/tests/test_transformer.py` with 100% exact numerical match against `golden_totals.json` for both Shopee and TikTok.
+  - Verified full test suite with 152/152 passing tests (`pytest backend/tests/ -v`).
+- **What is next:** Execute Phase 4 (SQLite Analytics Storage & CTE Repository):
+  - Configure transactional SQLite engine with WAL mode and dialect hooks in `backend/app/modules/storage/database.py`.
+  - Define SQLAlchemy ORM `TransactionItem` model with indexes in `backend/app/modules/storage/models.py`.
+  - Implement repository queries (Queries A-E) in `backend/app/modules/storage/repository.py` to calculate exact 0-1 unit shares.
+  - Author and verify `backend/tests/test_storage.py`.
 - **Artifacts:**
   - Plan: [ImplementationPlan.md](ImplementationPlan.md)
-  - Fixtures: `backend/tests/fixtures/golden_totals.json`
+
 

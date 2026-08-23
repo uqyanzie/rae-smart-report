@@ -1,0 +1,3129 @@
+{
+  "source_file": "sample_data/expected_output/output_13_19_Jul26.xlsx",
+  "description": "Deterministic oracle totals extracted from golden reference workbook",
+  "shopee_variants": [
+    {
+      "row_index": 2,
+      "family": "Glow Up Tint",
+      "variant": "Active",
+      "qty": 365,
+      "revenue": 25563604,
+      "contribution_ratio": 0.05974791292
+    },
+    {
+      "row_index": 3,
+      "family": "",
+      "variant": "Brave",
+      "qty": 306,
+      "revenue": 21446489,
+      "contribution_ratio": 0.0500900311
+    },
+    {
+      "row_index": 4,
+      "family": "",
+      "variant": "Cheerful",
+      "qty": 3818,
+      "revenue": 274773625,
+      "contribution_ratio": 0.6249795384
+    },
+    {
+      "row_index": 5,
+      "family": "",
+      "variant": "Confident",
+      "qty": 163,
+      "revenue": 11396018,
+      "contribution_ratio": 0.02668194467
+    },
+    {
+      "row_index": 6,
+      "family": "",
+      "variant": "Dynamic",
+      "qty": 99,
+      "revenue": 6982917,
+      "contribution_ratio": 0.0162055983
+    },
+    {
+      "row_index": 7,
+      "family": "",
+      "variant": "Energic",
+      "qty": 605,
+      "revenue": 42333630,
+      "contribution_ratio": 0.09903421182
+    },
+    {
+      "row_index": 8,
+      "family": "",
+      "variant": "Gorgeous",
+      "qty": 83,
+      "revenue": 5762727,
+      "contribution_ratio": 0.0135865117
+    },
+    {
+      "row_index": 9,
+      "family": "",
+      "variant": "Happy",
+      "qty": 44,
+      "revenue": 3089557,
+      "contribution_ratio": 0.007202488132
+    },
+    {
+      "row_index": 10,
+      "family": "",
+      "variant": "Incredible",
+      "qty": 71,
+      "revenue": 4972752,
+      "contribution_ratio": 0.01162219676
+    },
+    {
+      "row_index": 11,
+      "family": "",
+      "variant": "Joyful",
+      "qty": 416,
+      "revenue": 29124405,
+      "contribution_ratio": 0.06809625143
+    },
+    {
+      "row_index": 12,
+      "family": "",
+      "variant": "Strong",
+      "qty": 139,
+      "revenue": 9691126,
+      "contribution_ratio": 0.02275331478
+    },
+    {
+      "row_index": 13,
+      "family": "Bundling Glow Up Tint",
+      "variant": "Active + Brave",
+      "qty": 4,
+      "revenue": 522234,
+      "contribution_ratio": 0.01261829653
+    },
+    {
+      "row_index": 14,
+      "family": "",
+      "variant": "Active + Cheerful",
+      "qty": 22,
+      "revenue": 2932321,
+      "contribution_ratio": 0.06940063091
+    },
+    {
+      "row_index": 15,
+      "family": "",
+      "variant": "Active + Confident",
+      "qty": 3,
+      "revenue": 402734,
+      "contribution_ratio": 0.009463722397
+    },
+    {
+      "row_index": 16,
+      "family": "",
+      "variant": "Active + Dynamic",
+      "qty": 9,
+      "revenue": 1193968,
+      "contribution_ratio": 0.02839116719
+    },
+    {
+      "row_index": 17,
+      "family": "",
+      "variant": "Active + Energic",
+      "qty": 14,
+      "revenue": 1880236,
+      "contribution_ratio": 0.04416403785
+    },
+    {
+      "row_index": 18,
+      "family": "",
+      "variant": "Active + Gorgeous",
+      "qty": 2,
+      "revenue": 262000,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 19,
+      "family": "",
+      "variant": "Active + Strong",
+      "qty": 2,
+      "revenue": 256117,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 20,
+      "family": "",
+      "variant": "Active + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 21,
+      "family": "",
+      "variant": "Active + Incredible",
+      "qty": 6,
+      "revenue": 807154,
+      "contribution_ratio": 0.01892744479
+    },
+    {
+      "row_index": 22,
+      "family": "",
+      "variant": "Active + Joyful",
+      "qty": 5,
+      "revenue": 666968,
+      "contribution_ratio": 0.01577287066
+    },
+    {
+      "row_index": 23,
+      "family": "",
+      "variant": "Brave + Cheerful",
+      "qty": 6,
+      "revenue": 799751,
+      "contribution_ratio": 0.01892744479
+    },
+    {
+      "row_index": 24,
+      "family": "",
+      "variant": "Brave + Confident",
+      "qty": 2,
+      "revenue": 267234,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 25,
+      "family": "",
+      "variant": "Brave + Dynamic",
+      "qty": 24,
+      "revenue": 3281458,
+      "contribution_ratio": 0.07570977918
+    },
+    {
+      "row_index": 26,
+      "family": "",
+      "variant": "Brave + Energic",
+      "qty": 4,
+      "revenue": 525234,
+      "contribution_ratio": 0.01261829653
+    },
+    {
+      "row_index": 27,
+      "family": "",
+      "variant": "Brave + Gorgeous",
+      "qty": 4,
+      "revenue": 546468,
+      "contribution_ratio": 0.01261829653
+    },
+    {
+      "row_index": 28,
+      "family": "",
+      "variant": "Brave + Strong",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 29,
+      "family": "",
+      "variant": "Brave + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 30,
+      "family": "",
+      "variant": "Brave + Incredible",
+      "qty": 14,
+      "revenue": 1971241,
+      "contribution_ratio": 0.04416403785
+    },
+    {
+      "row_index": 31,
+      "family": "",
+      "variant": "Brave + Joyful",
+      "qty": 3,
+      "revenue": 403851,
+      "contribution_ratio": 0.009463722397
+    },
+    {
+      "row_index": 32,
+      "family": "",
+      "variant": "Cheerful + Confident",
+      "qty": 10,
+      "revenue": 1333868,
+      "contribution_ratio": 0.03154574132
+    },
+    {
+      "row_index": 33,
+      "family": "",
+      "variant": "Cheerful + Dynamic",
+      "qty": 11,
+      "revenue": 1476836,
+      "contribution_ratio": 0.03470031546
+    },
+    {
+      "row_index": 34,
+      "family": "",
+      "variant": "Cheerful + Energic",
+      "qty": 39,
+      "revenue": 5231726,
+      "contribution_ratio": 0.1230283912
+    },
+    {
+      "row_index": 35,
+      "family": "",
+      "variant": "Cheerful + Gorgeous",
+      "qty": 5,
+      "revenue": 673251,
+      "contribution_ratio": 0.01577287066
+    },
+    {
+      "row_index": 36,
+      "family": "",
+      "variant": "Cheerful + Strong",
+      "qty": 7,
+      "revenue": 924134,
+      "contribution_ratio": 0.02208201893
+    },
+    {
+      "row_index": 37,
+      "family": "",
+      "variant": "Cheerful + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 38,
+      "family": "",
+      "variant": "Cheerful + Incredible",
+      "qty": 4,
+      "revenue": 528117,
+      "contribution_ratio": 0.01261829653
+    },
+    {
+      "row_index": 39,
+      "family": "",
+      "variant": "Cheerful + Joyful",
+      "qty": 23,
+      "revenue": 3105564,
+      "contribution_ratio": 0.07255520505
+    },
+    {
+      "row_index": 40,
+      "family": "",
+      "variant": "Confident + Dynamic",
+      "qty": 3,
+      "revenue": 398617,
+      "contribution_ratio": 0.009463722397
+    },
+    {
+      "row_index": 41,
+      "family": "",
+      "variant": "Confident + Energic",
+      "qty": 2,
+      "revenue": 272400,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 42,
+      "family": "",
+      "variant": "Confident + Gorgeous",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 43,
+      "family": "",
+      "variant": "Confident + Strong",
+      "qty": 2,
+      "revenue": 262000,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 44,
+      "family": "",
+      "variant": "Confident + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 45,
+      "family": "",
+      "variant": "Confident + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 46,
+      "family": "",
+      "variant": "Confident + Joyful",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 47,
+      "family": "",
+      "variant": "Dynamic + Energic",
+      "qty": 12,
+      "revenue": 1589936,
+      "contribution_ratio": 0.03785488959
+    },
+    {
+      "row_index": 48,
+      "family": "",
+      "variant": "Dynamic + Gorgeous",
+      "qty": 7,
+      "revenue": 969217,
+      "contribution_ratio": 0.02208201893
+    },
+    {
+      "row_index": 49,
+      "family": "",
+      "variant": "Dynamic + Strong",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 50,
+      "family": "",
+      "variant": "Dynamic + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 51,
+      "family": "",
+      "variant": "Dynamic + Incredible",
+      "qty": 2,
+      "revenue": 270517,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 52,
+      "family": "",
+      "variant": "Dynamic + Joyful",
+      "qty": 2,
+      "revenue": 270234,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 53,
+      "family": "",
+      "variant": "Energic + Gorgeous",
+      "qty": 11,
+      "revenue": 1496685,
+      "contribution_ratio": 0.03470031546
+    },
+    {
+      "row_index": 54,
+      "family": "",
+      "variant": "Energic + Strong",
+      "qty": 2,
+      "revenue": 270234,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 55,
+      "family": "",
+      "variant": "Energic + Happy",
+      "qty": 5,
+      "revenue": 683368,
+      "contribution_ratio": 0.01577287066
+    },
+    {
+      "row_index": 56,
+      "family": "",
+      "variant": "Energic + Incredible",
+      "qty": 5,
+      "revenue": 679085,
+      "contribution_ratio": 0.01577287066
+    },
+    {
+      "row_index": 57,
+      "family": "",
+      "variant": "Energic + Joyful",
+      "qty": 25,
+      "revenue": 3348538,
+      "contribution_ratio": 0.07886435331
+    },
+    {
+      "row_index": 58,
+      "family": "",
+      "variant": "Gorgeous + Strong",
+      "qty": 2,
+      "revenue": 275517,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 59,
+      "family": "",
+      "variant": "Gorgeous + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 60,
+      "family": "",
+      "variant": "Gorgeous + Incredible",
+      "qty": 2,
+      "revenue": 252000,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 61,
+      "family": "",
+      "variant": "Gorgeous + Joyful",
+      "qty": 1,
+      "revenue": 136617,
+      "contribution_ratio": 0.003154574132
+    },
+    {
+      "row_index": 62,
+      "family": "",
+      "variant": "Strong + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 63,
+      "family": "",
+      "variant": "Strong + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 64,
+      "family": "",
+      "variant": "Strong + Joyful",
+      "qty": 4,
+      "revenue": 536351,
+      "contribution_ratio": 0.01261829653
+    },
+    {
+      "row_index": 65,
+      "family": "",
+      "variant": "Happy + Incredible",
+      "qty": 2,
+      "revenue": 259000,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 66,
+      "family": "",
+      "variant": "Happy + Joyful",
+      "qty": 3,
+      "revenue": 397435,
+      "contribution_ratio": 0.009463722397
+    },
+    {
+      "row_index": 67,
+      "family": "",
+      "variant": "Incredible + Joyful",
+      "qty": 2,
+      "revenue": 252000,
+      "contribution_ratio": 0.006309148265
+    },
+    {
+      "row_index": 68,
+      "family": "Swipe To Glow",
+      "variant": "Brunch",
+      "qty": 33,
+      "revenue": 2755663,
+      "contribution_ratio": 0.4583333333
+    },
+    {
+      "row_index": 69,
+      "family": "",
+      "variant": "Date",
+      "qty": 1,
+      "revenue": 87700,
+      "contribution_ratio": 0.01388888889
+    },
+    {
+      "row_index": 70,
+      "family": "",
+      "variant": "Holiday",
+      "qty": 13,
+      "revenue": 1103271,
+      "contribution_ratio": 0.1805555556
+    },
+    {
+      "row_index": 71,
+      "family": "",
+      "variant": "Party",
+      "qty": 9,
+      "revenue": 771337,
+      "contribution_ratio": 0.125
+    },
+    {
+      "row_index": 72,
+      "family": "",
+      "variant": "School",
+      "qty": 12,
+      "revenue": 1023702,
+      "contribution_ratio": 0.1666666667
+    },
+    {
+      "row_index": 73,
+      "family": "",
+      "variant": "Work",
+      "qty": 4,
+      "revenue": 352394,
+      "contribution_ratio": 0.05555555556
+    },
+    {
+      "row_index": 74,
+      "family": "Bundling Swipe To Glow",
+      "variant": "Date + Work",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 75,
+      "family": "",
+      "variant": "Date + School",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 76,
+      "family": "",
+      "variant": "Date + Brunch",
+      "qty": 1,
+      "revenue": 167097,
+      "contribution_ratio": 0.2
+    },
+    {
+      "row_index": 77,
+      "family": "",
+      "variant": "Date + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 78,
+      "family": "",
+      "variant": "Date + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 79,
+      "family": "",
+      "variant": "Work + School",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 80,
+      "family": "",
+      "variant": "Work + Brunch",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 81,
+      "family": "",
+      "variant": "Work + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 82,
+      "family": "",
+      "variant": "Work + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 83,
+      "family": "",
+      "variant": "School + Brunch",
+      "qty": 3,
+      "revenue": 410291,
+      "contribution_ratio": 0.6
+    },
+    {
+      "row_index": 84,
+      "family": "",
+      "variant": "School + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 85,
+      "family": "",
+      "variant": "School + Party",
+      "qty": 1,
+      "revenue": 170097,
+      "contribution_ratio": 0.2
+    },
+    {
+      "row_index": 86,
+      "family": "",
+      "variant": "Brunch + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 87,
+      "family": "",
+      "variant": "Brunch + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 88,
+      "family": "",
+      "variant": "Holiday + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 89,
+      "family": "Power Frosted Velvet Matte",
+      "variant": "Ambition Power",
+      "qty": 8,
+      "revenue": 658809,
+      "contribution_ratio": 0.1860465116
+    },
+    {
+      "row_index": 90,
+      "family": "",
+      "variant": "Classy Power",
+      "qty": 8,
+      "revenue": 685136,
+      "contribution_ratio": 0.1860465116
+    },
+    {
+      "row_index": 91,
+      "family": "",
+      "variant": "Heart Power",
+      "qty": 7,
+      "revenue": 625061,
+      "contribution_ratio": 0.1627906977
+    },
+    {
+      "row_index": 92,
+      "family": "",
+      "variant": "Honest Power",
+      "qty": 11,
+      "revenue": 991769,
+      "contribution_ratio": 0.2558139535
+    },
+    {
+      "row_index": 93,
+      "family": "",
+      "variant": "Kind Power",
+      "qty": 5,
+      "revenue": 437215,
+      "contribution_ratio": 0.1162790698
+    },
+    {
+      "row_index": 94,
+      "family": "",
+      "variant": "Smart Power",
+      "qty": 4,
+      "revenue": 344185,
+      "contribution_ratio": 0.09302325581
+    },
+    {
+      "row_index": 95,
+      "family": "Bundling Power Frosted Velvet Matte",
+      "variant": "Kind + Honest",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 96,
+      "family": "",
+      "variant": "Kind + Classy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 97,
+      "family": "",
+      "variant": "Kind + Smart",
+      "qty": 2,
+      "revenue": 334876,
+      "contribution_ratio": 0.5
+    },
+    {
+      "row_index": 98,
+      "family": "",
+      "variant": "Kind + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 99,
+      "family": "",
+      "variant": "Kind + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 100,
+      "family": "",
+      "variant": "Honest + Classy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 101,
+      "family": "",
+      "variant": "Honest + Smart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 102,
+      "family": "",
+      "variant": "Honest + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 103,
+      "family": "",
+      "variant": "Honest + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 104,
+      "family": "",
+      "variant": "Classy + Smart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 105,
+      "family": "",
+      "variant": "Classy + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 106,
+      "family": "",
+      "variant": "Classy + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 107,
+      "family": "",
+      "variant": "Smart + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 108,
+      "family": "",
+      "variant": "Smart + Ambition",
+      "qty": 1,
+      "revenue": 165500,
+      "contribution_ratio": 0.25
+    },
+    {
+      "row_index": 109,
+      "family": "",
+      "variant": "Heart + Ambition",
+      "qty": 1,
+      "revenue": 172561,
+      "contribution_ratio": 0.25
+    },
+    {
+      "row_index": 110,
+      "family": "Tinted Jelly Balm",
+      "variant": "Bunny Pink",
+      "qty": 15,
+      "revenue": 1370596,
+      "contribution_ratio": 0.625
+    },
+    {
+      "row_index": 111,
+      "family": "",
+      "variant": "Wild Mauve",
+      "qty": 3,
+      "revenue": 277674,
+      "contribution_ratio": 0.125
+    },
+    {
+      "row_index": 112,
+      "family": "",
+      "variant": "Nudy Caramel",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 113,
+      "family": "",
+      "variant": "Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 114,
+      "family": "",
+      "variant": "Red Babe",
+      "qty": 4,
+      "revenue": 375056,
+      "contribution_ratio": 0.1666666667
+    },
+    {
+      "row_index": 115,
+      "family": "",
+      "variant": "Hippie Rose",
+      "qty": 2,
+      "revenue": 211377,
+      "contribution_ratio": 0.08333333333
+    },
+    {
+      "row_index": 116,
+      "family": "Bundling Tinted Jelly Balm",
+      "variant": "Bunny Pink + Wild Mauve",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 117,
+      "family": "",
+      "variant": "Bunny Pink + Nudy Caramel",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 118,
+      "family": "",
+      "variant": "Bunny Pink + Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 119,
+      "family": "",
+      "variant": "Bunny Pink + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 120,
+      "family": "",
+      "variant": "Bunny Pink + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 121,
+      "family": "",
+      "variant": "Wild Mauve + Nudy Caramel",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 122,
+      "family": "",
+      "variant": "Wild Mauve + Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 123,
+      "family": "",
+      "variant": "Wild Mauve + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 124,
+      "family": "",
+      "variant": "Wild Mauve + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 125,
+      "family": "",
+      "variant": "Nudy Caramel + Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 126,
+      "family": "",
+      "variant": "Nudy Caramel + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 127,
+      "family": "",
+      "variant": "Nudy Caramel + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 128,
+      "family": "",
+      "variant": "Spill Nude + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 129,
+      "family": "",
+      "variant": "Spill Nude + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 130,
+      "family": "",
+      "variant": "Red Babe + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 131,
+      "family": "The Bloom Perfect Matte Lipstick",
+      "variant": "Peony",
+      "qty": 8,
+      "revenue": 999233,
+      "contribution_ratio": 0.1428571429
+    },
+    {
+      "row_index": 132,
+      "family": "",
+      "variant": "Gerbera",
+      "qty": 3,
+      "revenue": 352088,
+      "contribution_ratio": 0.05357142857
+    },
+    {
+      "row_index": 133,
+      "family": "",
+      "variant": "Daisy",
+      "qty": 4,
+      "revenue": 468454,
+      "contribution_ratio": 0.07142857143
+    },
+    {
+      "row_index": 134,
+      "family": "",
+      "variant": "Tulip",
+      "qty": 20,
+      "revenue": 2378845,
+      "contribution_ratio": 0.3571428571
+    },
+    {
+      "row_index": 135,
+      "family": "",
+      "variant": "Orchid",
+      "qty": 7,
+      "revenue": 832188,
+      "contribution_ratio": 0.125
+    },
+    {
+      "row_index": 136,
+      "family": "",
+      "variant": "Dahlia",
+      "qty": 14,
+      "revenue": 1663817,
+      "contribution_ratio": 0.25
+    },
+    {
+      "row_index": 137,
+      "family": "Bundling The Bloom Perfect Matte Lipstick",
+      "variant": "Peony + Gerbera",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 138,
+      "family": "",
+      "variant": "Peony + Daisy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 139,
+      "family": "",
+      "variant": "Peony + Tulip",
+      "qty": 1,
+      "revenue": 185197,
+      "contribution_ratio": 0.5
+    },
+    {
+      "row_index": 140,
+      "family": "",
+      "variant": "Peony + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 141,
+      "family": "",
+      "variant": "Peony + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 142,
+      "family": "",
+      "variant": "Gerbera + Daisy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 143,
+      "family": "",
+      "variant": "Gerbera + Tulip",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 144,
+      "family": "",
+      "variant": "Gerbera + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 145,
+      "family": "",
+      "variant": "Gerbera + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 146,
+      "family": "",
+      "variant": "Daisy + Tulip",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 147,
+      "family": "",
+      "variant": "Daisy + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 148,
+      "family": "",
+      "variant": "Daisy + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 149,
+      "family": "",
+      "variant": "Tulip + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 150,
+      "family": "",
+      "variant": "Tulip + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 151,
+      "family": "",
+      "variant": "Orchid + Dahlia",
+      "qty": 1,
+      "revenue": 235197,
+      "contribution_ratio": 0.5
+    },
+    {
+      "row_index": 152,
+      "family": "Over The Glaze",
+      "variant": "Over Cute",
+      "qty": 84,
+      "revenue": 7648505,
+      "contribution_ratio": 0.3766816143
+    },
+    {
+      "row_index": 153,
+      "family": "",
+      "variant": "Over Drama",
+      "qty": 22,
+      "revenue": 1977619,
+      "contribution_ratio": 0.09865470852
+    },
+    {
+      "row_index": 154,
+      "family": "",
+      "variant": "Over Hype",
+      "qty": 45,
+      "revenue": 4055238,
+      "contribution_ratio": 0.201793722
+    },
+    {
+      "row_index": 155,
+      "family": "",
+      "variant": "Over Lovie",
+      "qty": 21,
+      "revenue": 1862964,
+      "contribution_ratio": 0.09417040359
+    },
+    {
+      "row_index": 156,
+      "family": "",
+      "variant": "Over React",
+      "qty": 39,
+      "revenue": 3542664,
+      "contribution_ratio": 0.1748878924
+    },
+    {
+      "row_index": 157,
+      "family": "",
+      "variant": "Over Slay",
+      "qty": 12,
+      "revenue": 1113617,
+      "contribution_ratio": 0.05381165919
+    },
+    {
+      "row_index": 158,
+      "family": "Bundling Over The Glaze",
+      "variant": "Over Cute + Lovie",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 159,
+      "family": "",
+      "variant": "Over Cute + Over Drama",
+      "qty": 2,
+      "revenue": 341967,
+      "contribution_ratio": 0.1538461538
+    },
+    {
+      "row_index": 160,
+      "family": "",
+      "variant": "Over Cute + Over Hype",
+      "qty": 6,
+      "revenue": 1058668,
+      "contribution_ratio": 0.4615384615
+    },
+    {
+      "row_index": 161,
+      "family": "",
+      "variant": "Over Cute + Over React",
+      "qty": 1,
+      "revenue": 163500,
+      "contribution_ratio": 0.07692307692
+    },
+    {
+      "row_index": 162,
+      "family": "",
+      "variant": "Over Cute + Over Slay",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 163,
+      "family": "",
+      "variant": "Over Lovie + Over Slay",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 164,
+      "family": "",
+      "variant": "Over Lovie + Over Drama",
+      "qty": 1,
+      "revenue": 175467,
+      "contribution_ratio": 0.07692307692
+    },
+    {
+      "row_index": 165,
+      "family": "",
+      "variant": "Over Lovie + Over Hype",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 166,
+      "family": "",
+      "variant": "Over Lovie + Over React",
+      "qty": 1,
+      "revenue": 178467,
+      "contribution_ratio": 0.07692307692
+    },
+    {
+      "row_index": 167,
+      "family": "",
+      "variant": "Over Slay + Over Hype",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 168,
+      "family": "",
+      "variant": "Over Slay + Over React",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 169,
+      "family": "",
+      "variant": "Over Slay + Over Drama",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 170,
+      "family": "",
+      "variant": "Over Hype + Over Drama",
+      "qty": 1,
+      "revenue": 179900,
+      "contribution_ratio": 0.07692307692
+    },
+    {
+      "row_index": 171,
+      "family": "",
+      "variant": "Over Hype + Over React",
+      "qty": 1,
+      "revenue": 175467,
+      "contribution_ratio": 0.07692307692
+    },
+    {
+      "row_index": 172,
+      "family": "",
+      "variant": "Over React + Over Drama",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 173,
+      "family": "PHA Glow Lip Exfoliant",
+      "variant": "Lip Exfoliant",
+      "qty": 17,
+      "revenue": 1314772,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 174,
+      "family": "PDRN Glow Lip Moist",
+      "variant": "Lip Moist",
+      "qty": 7,
+      "revenue": 483821,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 175,
+      "family": "Sun Glow Protect Lip Sunscreen",
+      "variant": "Lip Sunscreen",
+      "qty": 2,
+      "revenue": 174850,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 176,
+      "family": "Bundling Lip Care",
+      "variant": "Lip Exfoliant (2pcs)",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 177,
+      "family": "",
+      "variant": "Lip Exfoliant + Sunscreen",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 178,
+      "family": "",
+      "variant": "Lip Moist (2pcs)",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 179,
+      "family": "",
+      "variant": "Lip Moist + Exfoliant",
+      "qty": 4,
+      "revenue": 582828,
+      "contribution_ratio": 0.25
+    },
+    {
+      "row_index": 180,
+      "family": "",
+      "variant": "Lip Moist + Exfoliant+ Sunscreen",
+      "qty": 10,
+      "revenue": 2287506,
+      "contribution_ratio": 0.625
+    },
+    {
+      "row_index": 181,
+      "family": "",
+      "variant": "Lip Moist + Sunscreen",
+      "qty": 2,
+      "revenue": 300714,
+      "contribution_ratio": 0.125
+    },
+    {
+      "row_index": 182,
+      "family": "",
+      "variant": "Lip Sunscreen (2pcs)",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    }
+  ],
+  "tiktok_variants": [
+    {
+      "row_index": 2,
+      "family": "Glow Up Tint",
+      "variant": "Active",
+      "qty": 854,
+      "revenue": 46581266,
+      "contribution_ratio": 0.07905943344
+    },
+    {
+      "row_index": 3,
+      "family": "",
+      "variant": "Brave",
+      "qty": 791,
+      "revenue": 44456697,
+      "contribution_ratio": 0.07322718015
+    },
+    {
+      "row_index": 4,
+      "family": "",
+      "variant": "Cheerful",
+      "qty": 4142,
+      "revenue": 224496475,
+      "contribution_ratio": 0.3834475097
+    },
+    {
+      "row_index": 5,
+      "family": "",
+      "variant": "Confident",
+      "qty": 513,
+      "revenue": 28345459,
+      "contribution_ratio": 0.04749120533
+    },
+    {
+      "row_index": 6,
+      "family": "",
+      "variant": "Dynamic",
+      "qty": 304,
+      "revenue": 16765296,
+      "contribution_ratio": 0.02814293649
+    },
+    {
+      "row_index": 7,
+      "family": "",
+      "variant": "Energic",
+      "qty": 1445,
+      "revenue": 77703549,
+      "contribution_ratio": 0.1337715238
+    },
+    {
+      "row_index": 8,
+      "family": "",
+      "variant": "Gorgeous",
+      "qty": 261,
+      "revenue": 14306172,
+      "contribution_ratio": 0.02416219219
+    },
+    {
+      "row_index": 9,
+      "family": "",
+      "variant": "Happy",
+      "qty": 149,
+      "revenue": 8240386,
+      "contribution_ratio": 0.0137937419
+    },
+    {
+      "row_index": 10,
+      "family": "",
+      "variant": "Incredible",
+      "qty": 258,
+      "revenue": 14432537,
+      "contribution_ratio": 0.02388446584
+    },
+    {
+      "row_index": 11,
+      "family": "",
+      "variant": "Joyful",
+      "qty": 1791,
+      "revenue": 98390229,
+      "contribution_ratio": 0.1658026291
+    },
+    {
+      "row_index": 12,
+      "family": "",
+      "variant": "Strong",
+      "qty": 294,
+      "revenue": 15907346,
+      "contribution_ratio": 0.027217182
+    },
+    {
+      "row_index": 13,
+      "family": "Bundling Glow Up Tint",
+      "variant": "Active + Brave",
+      "qty": 2,
+      "revenue": 233116,
+      "contribution_ratio": 0.01104972376
+    },
+    {
+      "row_index": 14,
+      "family": "",
+      "variant": "Active + Cheerful",
+      "qty": 11,
+      "revenue": 1293253,
+      "contribution_ratio": 0.06077348066
+    },
+    {
+      "row_index": 15,
+      "family": "",
+      "variant": "Active + Confident",
+      "qty": 3,
+      "revenue": 383015,
+      "contribution_ratio": 0.01657458564
+    },
+    {
+      "row_index": 16,
+      "family": "",
+      "variant": "Active + Dynamic",
+      "qty": 2,
+      "revenue": 243424,
+      "contribution_ratio": 0.01104972376
+    },
+    {
+      "row_index": 17,
+      "family": "",
+      "variant": "Active + Energic",
+      "qty": 13,
+      "revenue": 1531445,
+      "contribution_ratio": 0.07182320442
+    },
+    {
+      "row_index": 18,
+      "family": "",
+      "variant": "Active + Gorgeous",
+      "qty": 1,
+      "revenue": 25805,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 19,
+      "family": "",
+      "variant": "Active + Strong",
+      "qty": 5,
+      "revenue": 617236,
+      "contribution_ratio": 0.02762430939
+    },
+    {
+      "row_index": 20,
+      "family": "",
+      "variant": "Active + Happy",
+      "qty": 2,
+      "revenue": 252636,
+      "contribution_ratio": 0.01104972376
+    },
+    {
+      "row_index": 21,
+      "family": "",
+      "variant": "Active + Incredible",
+      "qty": 6,
+      "revenue": 784643,
+      "contribution_ratio": 0.03314917127
+    },
+    {
+      "row_index": 22,
+      "family": "",
+      "variant": "Active + Joyful",
+      "qty": 4,
+      "revenue": 476613,
+      "contribution_ratio": 0.02209944751
+    },
+    {
+      "row_index": 23,
+      "family": "",
+      "variant": "Brave + Cheerful",
+      "qty": 1,
+      "revenue": 122918,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 24,
+      "family": "",
+      "variant": "Brave + Confident",
+      "qty": 2,
+      "revenue": 229923,
+      "contribution_ratio": 0.01104972376
+    },
+    {
+      "row_index": 25,
+      "family": "",
+      "variant": "Brave + Dynamic",
+      "qty": 5,
+      "revenue": 695212,
+      "contribution_ratio": 0.02762430939
+    },
+    {
+      "row_index": 26,
+      "family": "",
+      "variant": "Brave + Energic",
+      "qty": 2,
+      "revenue": 247052,
+      "contribution_ratio": 0.01104972376
+    },
+    {
+      "row_index": 27,
+      "family": "",
+      "variant": "Brave + Gorgeous",
+      "qty": 1,
+      "revenue": 111550,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 28,
+      "family": "",
+      "variant": "Brave + Strong",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 29,
+      "family": "",
+      "variant": "Brave + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 30,
+      "family": "",
+      "variant": "Brave + Incredible",
+      "qty": 1,
+      "revenue": 127658,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 31,
+      "family": "",
+      "variant": "Brave + Joyful",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 32,
+      "family": "",
+      "variant": "Cheerful + Confident",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 33,
+      "family": "",
+      "variant": "Cheerful + Dynamic",
+      "qty": 5,
+      "revenue": 624192,
+      "contribution_ratio": 0.02762430939
+    },
+    {
+      "row_index": 34,
+      "family": "",
+      "variant": "Cheerful + Energic",
+      "qty": 44,
+      "revenue": 5648921,
+      "contribution_ratio": 0.2430939227
+    },
+    {
+      "row_index": 35,
+      "family": "",
+      "variant": "Cheerful + Gorgeous",
+      "qty": 3,
+      "revenue": 382416,
+      "contribution_ratio": 0.01657458564
+    },
+    {
+      "row_index": 36,
+      "family": "",
+      "variant": "Cheerful + Strong",
+      "qty": 3,
+      "revenue": 349584,
+      "contribution_ratio": 0.01657458564
+    },
+    {
+      "row_index": 37,
+      "family": "",
+      "variant": "Cheerful + Happy",
+      "qty": 1,
+      "revenue": 122234,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 38,
+      "family": "",
+      "variant": "Cheerful + Incredible",
+      "qty": 4,
+      "revenue": 525200,
+      "contribution_ratio": 0.02209944751
+    },
+    {
+      "row_index": 39,
+      "family": "",
+      "variant": "Cheerful + Joyful",
+      "qty": 27,
+      "revenue": 3250726,
+      "contribution_ratio": 0.1491712707
+    },
+    {
+      "row_index": 40,
+      "family": "",
+      "variant": "Confident + Dynamic",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 41,
+      "family": "",
+      "variant": "Confident + Energic",
+      "qty": 1,
+      "revenue": 130815,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 42,
+      "family": "",
+      "variant": "Confident + Gorgeous",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 43,
+      "family": "",
+      "variant": "Confident + Strong",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 44,
+      "family": "",
+      "variant": "Confident + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 45,
+      "family": "",
+      "variant": "Confident + Incredible",
+      "qty": 1,
+      "revenue": 143824,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 46,
+      "family": "",
+      "variant": "Confident + Joyful",
+      "qty": 1,
+      "revenue": 109200,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 47,
+      "family": "",
+      "variant": "Dynamic + Energic",
+      "qty": 8,
+      "revenue": 1114065,
+      "contribution_ratio": 0.04419889503
+    },
+    {
+      "row_index": 48,
+      "family": "",
+      "variant": "Dynamic + Gorgeous",
+      "qty": 4,
+      "revenue": 502441,
+      "contribution_ratio": 0.02209944751
+    },
+    {
+      "row_index": 49,
+      "family": "",
+      "variant": "Dynamic + Strong",
+      "qty": 1,
+      "revenue": 134868,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 50,
+      "family": "",
+      "variant": "Dynamic + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 51,
+      "family": "",
+      "variant": "Dynamic + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 52,
+      "family": "",
+      "variant": "Dynamic + Joyful",
+      "qty": 1,
+      "revenue": 118689,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 53,
+      "family": "",
+      "variant": "Energic + Gorgeous",
+      "qty": 4,
+      "revenue": 462473,
+      "contribution_ratio": 0.02209944751
+    },
+    {
+      "row_index": 54,
+      "family": "",
+      "variant": "Energic + Strong",
+      "qty": 1,
+      "revenue": 110191,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 55,
+      "family": "",
+      "variant": "Energic + Happy",
+      "qty": 5,
+      "revenue": 620089,
+      "contribution_ratio": 0.02762430939
+    },
+    {
+      "row_index": 56,
+      "family": "",
+      "variant": "Energic + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 57,
+      "family": "",
+      "variant": "Energic + Joyful",
+      "qty": 3,
+      "revenue": 377002,
+      "contribution_ratio": 0.01657458564
+    },
+    {
+      "row_index": 58,
+      "family": "",
+      "variant": "Gorgeous + Strong",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 59,
+      "family": "",
+      "variant": "Gorgeous + Happy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 60,
+      "family": "",
+      "variant": "Gorgeous + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 61,
+      "family": "",
+      "variant": "Gorgeous + Joyful",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 62,
+      "family": "",
+      "variant": "Strong + Happy",
+      "qty": 1,
+      "revenue": 112310,
+      "contribution_ratio": 0.005524861878
+    },
+    {
+      "row_index": 63,
+      "family": "",
+      "variant": "Strong + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 64,
+      "family": "",
+      "variant": "Strong + Joyful",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 65,
+      "family": "",
+      "variant": "Happy + Incredible",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 66,
+      "family": "",
+      "variant": "Happy + Joyful",
+      "qty": 2,
+      "revenue": 226561,
+      "contribution_ratio": 0.01104972376
+    },
+    {
+      "row_index": 67,
+      "family": "",
+      "variant": "Incredible + Joyful",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 68,
+      "family": "Swipe To Glow",
+      "variant": "Brunch",
+      "qty": 18,
+      "revenue": 1282184,
+      "contribution_ratio": 0.2727272727
+    },
+    {
+      "row_index": 69,
+      "family": "",
+      "variant": "Date",
+      "qty": 4,
+      "revenue": 313656,
+      "contribution_ratio": 0.06060606061
+    },
+    {
+      "row_index": 70,
+      "family": "",
+      "variant": "Holiday",
+      "qty": 2,
+      "revenue": 176848,
+      "contribution_ratio": 0.0303030303
+    },
+    {
+      "row_index": 71,
+      "family": "",
+      "variant": "Party",
+      "qty": 21,
+      "revenue": 1495072,
+      "contribution_ratio": 0.3181818182
+    },
+    {
+      "row_index": 72,
+      "family": "",
+      "variant": "School",
+      "qty": 16,
+      "revenue": 1100632,
+      "contribution_ratio": 0.2424242424
+    },
+    {
+      "row_index": 73,
+      "family": "",
+      "variant": "Work",
+      "qty": 5,
+      "revenue": 358215,
+      "contribution_ratio": 0.07575757576
+    },
+    {
+      "row_index": 74,
+      "family": "Bundling Swipe To Glow",
+      "variant": "Date + Work",
+      "qty": 1,
+      "revenue": 156449,
+      "contribution_ratio": 0.5
+    },
+    {
+      "row_index": 75,
+      "family": "",
+      "variant": "Date + School",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 76,
+      "family": "",
+      "variant": "Date + Brunch",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 77,
+      "family": "",
+      "variant": "Date + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 78,
+      "family": "",
+      "variant": "Date + Party",
+      "qty": 1,
+      "revenue": 163719,
+      "contribution_ratio": 0.5
+    },
+    {
+      "row_index": 79,
+      "family": "",
+      "variant": "Work + School",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 80,
+      "family": "",
+      "variant": "Work + Brunch",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 81,
+      "family": "",
+      "variant": "Work + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 82,
+      "family": "",
+      "variant": "Work + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 83,
+      "family": "",
+      "variant": "School + Brunch",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 84,
+      "family": "",
+      "variant": "School + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 85,
+      "family": "",
+      "variant": "School + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 86,
+      "family": "",
+      "variant": "Brunch + Holiday",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 87,
+      "family": "",
+      "variant": "Brunch + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 88,
+      "family": "",
+      "variant": "Holiday + Party",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 89,
+      "family": "Power Frosted Velvet Matte",
+      "variant": "Ambition Power",
+      "qty": 2,
+      "revenue": 140084,
+      "contribution_ratio": 0.06896551724
+    },
+    {
+      "row_index": 90,
+      "family": "",
+      "variant": "Classy Power",
+      "qty": 12,
+      "revenue": 880850,
+      "contribution_ratio": 0.4137931034
+    },
+    {
+      "row_index": 91,
+      "family": "",
+      "variant": "Heart Power",
+      "qty": 5,
+      "revenue": 399598,
+      "contribution_ratio": 0.1724137931
+    },
+    {
+      "row_index": 92,
+      "family": "",
+      "variant": "Honest Power",
+      "qty": 6,
+      "revenue": 425212,
+      "contribution_ratio": 0.2068965517
+    },
+    {
+      "row_index": 93,
+      "family": "",
+      "variant": "Kind Power",
+      "qty": 3,
+      "revenue": 237703,
+      "contribution_ratio": 0.1034482759
+    },
+    {
+      "row_index": 94,
+      "family": "",
+      "variant": "Smart Power",
+      "qty": 1,
+      "revenue": 61862,
+      "contribution_ratio": 0.03448275862
+    },
+    {
+      "row_index": 95,
+      "family": "Bundling Power Frosted Velvet Matte",
+      "variant": "Kind + Honest",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 96,
+      "family": "",
+      "variant": "Kind + Classy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 97,
+      "family": "",
+      "variant": "Kind + Smart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 98,
+      "family": "",
+      "variant": "Kind + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 99,
+      "family": "",
+      "variant": "Kind + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 100,
+      "family": "",
+      "variant": "Honest + Classy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 101,
+      "family": "",
+      "variant": "Honest + Smart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 102,
+      "family": "",
+      "variant": "Honest + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 103,
+      "family": "",
+      "variant": "Honest + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 104,
+      "family": "",
+      "variant": "Classy + Smart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 105,
+      "family": "",
+      "variant": "Classy + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 106,
+      "family": "",
+      "variant": "Classy + Ambition",
+      "qty": 1,
+      "revenue": 141863,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 107,
+      "family": "",
+      "variant": "Smart + Heart",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 108,
+      "family": "",
+      "variant": "Smart + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 109,
+      "family": "",
+      "variant": "Heart + Ambition",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 110,
+      "family": "Tinted Jelly Balm",
+      "variant": "Bunny Pink",
+      "qty": 13,
+      "revenue": 1140156,
+      "contribution_ratio": 0.3170731707
+    },
+    {
+      "row_index": 111,
+      "family": "",
+      "variant": "Wild Mauve",
+      "qty": 6,
+      "revenue": 502564,
+      "contribution_ratio": 0.1463414634
+    },
+    {
+      "row_index": 112,
+      "family": "",
+      "variant": "Nudy Caramel",
+      "qty": 2,
+      "revenue": 139398,
+      "contribution_ratio": 0.0487804878
+    },
+    {
+      "row_index": 113,
+      "family": "",
+      "variant": "Spill Nude",
+      "qty": 1,
+      "revenue": 59893,
+      "contribution_ratio": 0.0243902439
+    },
+    {
+      "row_index": 114,
+      "family": "",
+      "variant": "Red Babe",
+      "qty": 12,
+      "revenue": 894464,
+      "contribution_ratio": 0.2926829268
+    },
+    {
+      "row_index": 115,
+      "family": "",
+      "variant": "Hippie Rose",
+      "qty": 7,
+      "revenue": 488290,
+      "contribution_ratio": 0.1707317073
+    },
+    {
+      "row_index": 116,
+      "family": "Bundling Tinted Jelly Balm",
+      "variant": "Bunny Pink + Wild Mauve",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 117,
+      "family": "",
+      "variant": "Bunny Pink + Nudy Caramel",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 118,
+      "family": "",
+      "variant": "Bunny Pink + Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 119,
+      "family": "",
+      "variant": "Bunny Pink + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 120,
+      "family": "",
+      "variant": "Bunny Pink + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 121,
+      "family": "",
+      "variant": "Wild Mauve + Nudy Caramel",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 122,
+      "family": "",
+      "variant": "Wild Mauve + Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 123,
+      "family": "",
+      "variant": "Wild Mauve + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 124,
+      "family": "",
+      "variant": "Wild Mauve + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 125,
+      "family": "",
+      "variant": "Nudy Caramel + Spill Nude",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 126,
+      "family": "",
+      "variant": "Nudy Caramel + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 127,
+      "family": "",
+      "variant": "Nudy Caramel + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 128,
+      "family": "",
+      "variant": "Spill Nude + Red Babe",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 129,
+      "family": "",
+      "variant": "Spill Nude + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 130,
+      "family": "",
+      "variant": "Red Babe + Hippie Rose",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 131,
+      "family": "The Bloom Perfect Matte Lipstick",
+      "variant": "Dahlia",
+      "qty": 4,
+      "revenue": 374315,
+      "contribution_ratio": 0.06557377049
+    },
+    {
+      "row_index": 132,
+      "family": "",
+      "variant": "Daisy",
+      "qty": 13,
+      "revenue": 1286902,
+      "contribution_ratio": 0.2131147541
+    },
+    {
+      "row_index": 133,
+      "family": "",
+      "variant": "Gerbera",
+      "qty": 4,
+      "revenue": 390798,
+      "contribution_ratio": 0.06557377049
+    },
+    {
+      "row_index": 134,
+      "family": "",
+      "variant": "Orchid",
+      "qty": 7,
+      "revenue": 702860,
+      "contribution_ratio": 0.1147540984
+    },
+    {
+      "row_index": 135,
+      "family": "",
+      "variant": "Peony",
+      "qty": 5,
+      "revenue": 430442,
+      "contribution_ratio": 0.08196721311
+    },
+    {
+      "row_index": 136,
+      "family": "",
+      "variant": "Tulip",
+      "qty": 28,
+      "revenue": 2637280,
+      "contribution_ratio": 0.4590163934
+    },
+    {
+      "row_index": 137,
+      "family": "Bundling The Bloom Perfect Matte Lipstick",
+      "variant": "Peony + Gerbera",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 138,
+      "family": "",
+      "variant": "Peony + Daisy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 139,
+      "family": "",
+      "variant": "Peony + Tulip",
+      "qty": 3,
+      "revenue": 693238,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 140,
+      "family": "",
+      "variant": "Peony + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 141,
+      "family": "",
+      "variant": "Peony + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 142,
+      "family": "",
+      "variant": "Gerbera + Daisy",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 143,
+      "family": "",
+      "variant": "Gerbera + Tulip",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 144,
+      "family": "",
+      "variant": "Gerbera + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 145,
+      "family": "",
+      "variant": "Gerbera + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 146,
+      "family": "",
+      "variant": "Daisy + Tulip",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 147,
+      "family": "",
+      "variant": "Daisy + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 148,
+      "family": "",
+      "variant": "Daisy + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 149,
+      "family": "",
+      "variant": "Tulip + Orchid",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 150,
+      "family": "",
+      "variant": "Tulip + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 151,
+      "family": "",
+      "variant": "Orchid + Dahlia",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 152,
+      "family": "Over The Glaze",
+      "variant": "Over Cute",
+      "qty": 127,
+      "revenue": 9299316,
+      "contribution_ratio": 0.3813813814
+    },
+    {
+      "row_index": 153,
+      "family": "",
+      "variant": "Over Drama",
+      "qty": 40,
+      "revenue": 3103393,
+      "contribution_ratio": 0.1201201201
+    },
+    {
+      "row_index": 154,
+      "family": "",
+      "variant": "Over Hype",
+      "qty": 81,
+      "revenue": 6006548,
+      "contribution_ratio": 0.2432432432
+    },
+    {
+      "row_index": 155,
+      "family": "",
+      "variant": "Over Lovie",
+      "qty": 21,
+      "revenue": 1463188,
+      "contribution_ratio": 0.06306306306
+    },
+    {
+      "row_index": 156,
+      "family": "",
+      "variant": "Over React",
+      "qty": 51,
+      "revenue": 3605406,
+      "contribution_ratio": 0.1531531532
+    },
+    {
+      "row_index": 157,
+      "family": "",
+      "variant": "Over Slay",
+      "qty": 13,
+      "revenue": 967850,
+      "contribution_ratio": 0.03903903904
+    },
+    {
+      "row_index": 158,
+      "family": "Bundling Over The Glaze",
+      "variant": "Over Cute + Lovie",
+      "qty": 1,
+      "revenue": 176723,
+      "contribution_ratio": 0.1666666667
+    },
+    {
+      "row_index": 159,
+      "family": "",
+      "variant": "Over Cute + Over Drama",
+      "qty": 2,
+      "revenue": 328002,
+      "contribution_ratio": 0.3333333333
+    },
+    {
+      "row_index": 160,
+      "family": "",
+      "variant": "Over Cute + Over Hype",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 161,
+      "family": "",
+      "variant": "Over Cute + Over React",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 162,
+      "family": "",
+      "variant": "Over Cute + Over Slay",
+      "qty": 1,
+      "revenue": 99798,
+      "contribution_ratio": 0.1666666667
+    },
+    {
+      "row_index": 163,
+      "family": "",
+      "variant": "Over Lovie + Over Slay",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 164,
+      "family": "",
+      "variant": "Over Lovie + Over Drama",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 165,
+      "family": "",
+      "variant": "Over Lovie + Over Hype",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 166,
+      "family": "",
+      "variant": "Over Lovie + Over React",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 167,
+      "family": "",
+      "variant": "Over Slay + Over Hype",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 168,
+      "family": "",
+      "variant": "Over Slay + Over React",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 169,
+      "family": "",
+      "variant": "Over Slay + Over Drama",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 170,
+      "family": "",
+      "variant": "Over Hype + Over Drama",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 171,
+      "family": "",
+      "variant": "Over Hype + Over React",
+      "qty": 1,
+      "revenue": 154975,
+      "contribution_ratio": 0.1666666667
+    },
+    {
+      "row_index": 172,
+      "family": "",
+      "variant": "Over React + Over Drama",
+      "qty": 1,
+      "revenue": 171640,
+      "contribution_ratio": 0.1666666667
+    },
+    {
+      "row_index": 173,
+      "family": "PHA Glow Lip Exfoliant",
+      "variant": "Lip Exfoliant",
+      "qty": 18,
+      "revenue": 1216615,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 174,
+      "family": "Sun Glow Protect Lip Sunscreen",
+      "variant": "Lip Sunscreen",
+      "qty": 12,
+      "revenue": 917414,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 175,
+      "family": "PDRN Glow Lip Moist",
+      "variant": "Lip Moist",
+      "qty": 15,
+      "revenue": 872511,
+      "contribution_ratio": 1.0
+    },
+    {
+      "row_index": 176,
+      "family": "Bundling Lip Care",
+      "variant": "Lip Exfoliant (2pcs)",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 177,
+      "family": "",
+      "variant": "Lip Exfoliant + Sunscreen",
+      "qty": 2,
+      "revenue": 316727,
+      "contribution_ratio": 0.4
+    },
+    {
+      "row_index": 178,
+      "family": "",
+      "variant": "Lip Moist (2pcs)",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 179,
+      "family": "",
+      "variant": "Lip Moist + Exfoliant",
+      "qty": 1,
+      "revenue": 142972,
+      "contribution_ratio": 0.2
+    },
+    {
+      "row_index": 180,
+      "family": "",
+      "variant": "Lip Moist + Exfoliant+ Sunscreen",
+      "qty": 2,
+      "revenue": 474480,
+      "contribution_ratio": 0.4
+    },
+    {
+      "row_index": 181,
+      "family": "",
+      "variant": "Lip Moist + Sunscreen",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    },
+    {
+      "row_index": 182,
+      "family": "",
+      "variant": "Lip Sunscreen (2pcs)",
+      "qty": 0,
+      "revenue": 0,
+      "contribution_ratio": 0.0
+    }
+  ],
+  "shopee_summary_groups": [
+    {
+      "group_name": "Glow Up Tint",
+      "qty": 6109,
+      "revenue": 435136850,
+      "share": 0.884081042
+    },
+    {
+      "group_name": "Bundling Glow Up Tint",
+      "qty": 317,
+      "revenue": 42612216,
+      "share": 0.04587554269
+    },
+    {
+      "group_name": "Swipe To Glow",
+      "qty": 72,
+      "revenue": 6094067,
+      "share": 0.01041968162
+    },
+    {
+      "group_name": "Bundling Swipe To Glow",
+      "qty": 5,
+      "revenue": 747485,
+      "share": 0.0007235890014
+    },
+    {
+      "group_name": "Power Frosted Velvet Matte",
+      "qty": 43,
+      "revenue": 3742175,
+      "share": 0.006222865412
+    },
+    {
+      "group_name": "Bundling Power Frosted Velvet Matte",
+      "qty": 4,
+      "revenue": 672937,
+      "share": 0.0005788712012
+    },
+    {
+      "group_name": "Tinted Jelly Balm",
+      "qty": 24,
+      "revenue": 2234703,
+      "share": 0.003473227207
+    },
+    {
+      "group_name": "Bundling Tinted Jelly Balm",
+      "qty": 0,
+      "revenue": 0,
+      "share": 0.0
+    },
+    {
+      "group_name": "The Bloom Perfect Matte Lipstick",
+      "qty": 56,
+      "revenue": 6694625,
+      "share": 0.008104196816
+    },
+    {
+      "group_name": "Bundling The Bloom Perfect Matte Lipstick",
+      "qty": 2,
+      "revenue": 420394,
+      "share": 0.0002894356006
+    },
+    {
+      "group_name": "Over The Glaze",
+      "qty": 223,
+      "revenue": 20200607,
+      "share": 0.03227206946
+    },
+    {
+      "group_name": "Bundling Over The Glaze",
+      "qty": 13,
+      "revenue": 2273436,
+      "share": 0.001881331404
+    },
+    {
+      "group_name": "Lip Moist",
+      "qty": 17,
+      "revenue": 1314772,
+      "share": 0.002460202605
+    },
+    {
+      "group_name": "Lip Exfoliant",
+      "qty": 7,
+      "revenue": 483821,
+      "share": 0.001013024602
+    },
+    {
+      "group_name": "Lip Sunscreen",
+      "qty": 2,
+      "revenue": 174850,
+      "share": 0.0002894356006
+    },
+    {
+      "group_name": "Bundling Lipcare",
+      "qty": 16,
+      "revenue": 3171048,
+      "share": 0.002315484805
+    },
+    {
+      "group_name": "TOTAL",
+      "qty": 6910,
+      "revenue": 525973986,
+      "share": 0.0
+    }
+  ],
+  "tiktok_summary_groups": [
+    {
+      "group_name": "Glow Up Tint",
+      "qty": 10802,
+      "revenue": 589625412,
+      "share": 0.9332181425
+    },
+    {
+      "group_name": "Bundling Glow Up Tint",
+      "qty": 181,
+      "revenue": 22441300,
+      "share": 0.01563714903
+    },
+    {
+      "group_name": "Swipe To Glow",
+      "qty": 66,
+      "revenue": 4726607,
+      "share": 0.005701943844
+    },
+    {
+      "group_name": "Bundling Swipe To Glow",
+      "qty": 2,
+      "revenue": 320168,
+      "share": 0.0001727861771
+    },
+    {
+      "group_name": "Power Frosted Velvet Matte",
+      "qty": 29,
+      "revenue": 2145309,
+      "share": 0.002505399568
+    },
+    {
+      "group_name": "Bundling Power Frosted Velvet Matte",
+      "qty": 1,
+      "revenue": 141863,
+      "share": 8.639308855e-05
+    },
+    {
+      "group_name": "Tinted Jelly Balm",
+      "qty": 41,
+      "revenue": 3224765,
+      "share": 0.003542116631
+    },
+    {
+      "group_name": "Bundling Tinted Jelly Balm",
+      "qty": 0,
+      "revenue": 0,
+      "share": 0.0
+    },
+    {
+      "group_name": "The Bloom Perfect Matte Lipstick",
+      "qty": 61,
+      "revenue": 5822597,
+      "share": 0.005269978402
+    },
+    {
+      "group_name": "Bundling The Bloom Perfect Matte Lipstick",
+      "qty": 3,
+      "revenue": 693238,
+      "share": 0.0002591792657
+    },
+    {
+      "group_name": "Over The Glaze",
+      "qty": 333,
+      "revenue": 24445701,
+      "share": 0.02876889849
+    },
+    {
+      "group_name": "Bundling Over The Glaze",
+      "qty": 6,
+      "revenue": 931138,
+      "share": 0.0005183585313
+    },
+    {
+      "group_name": "Lip Moist",
+      "qty": 18,
+      "revenue": 1216615,
+      "share": 0.001555075594
+    },
+    {
+      "group_name": "Lip Exfoliant",
+      "qty": 12,
+      "revenue": 917414,
+      "share": 0.001036717063
+    },
+    {
+      "group_name": "Lip Sunscreen",
+      "qty": 15,
+      "revenue": 872511,
+      "share": 0.001295896328
+    },
+    {
+      "group_name": "Bundling Lipcare",
+      "qty": 5,
+      "revenue": 934179,
+      "share": 0.0004319654428
+    },
+    {
+      "group_name": "TOTAL",
+      "qty": 11575,
+      "revenue": 658458817,
+      "share": 0.0
+    }
+  ],
+  "active_contribution_ratio": 0.05974791292,
+  "foldback_addends": {
+    "Dynamic": {
+      "qty_addend": 0,
+      "revenue_addend": 139900
+    },
+    "Energic": {
+      "qty_addend": 10,
+      "revenue_addend": 654649
+    }
+  },
+  "counts": {
+    "shopee_variant_count": 181,
+    "tiktok_variant_count": 181,
+    "shopee_summary_group_count": 17,
+    "tiktok_summary_group_count": 17
+  }
+}
