@@ -53,7 +53,7 @@ Variant strings undergo multi-pass cleaning and canonical alias resolution:
 | **Misspelling** | `Cheerfull` | `Cheerful` | Global alias lookup table |
 | **Abbreviation** | `Ov Hype`, `BunPink`, `WildMauv`, `HipRose` | `Over Hype`, `Bunny Pink`, `Wild Mauve`, `Hippie Rose` | Family-scoped alias lookup table |
 | **Suffix Elision** | `Kind` (under Power Frosted) | `Kind Power` | Family-scoped alias lookup table |
-| **Case Colour (3D)** | `Over Cute + Bunny Pink, Fizzy Pop` | Variant: `Over Cute + Bunny Pink`<br>Case Color: `Fizzy Pop` | Extract trailing case color into distinct dimension |
+| **Case Colour** | `Bunny Pink,Matcha Strawberry` | Variant: `Bunny Pink`<br>Case Color: `Matcha Strawberry` | Extract into `case_color` for traceability, then **ignore for reporting** — TJB totals aggregate by shade across all colours. Unknown colour names are safe to skip. |
 | **Pack Annotation** | `Lip Moist (2pcs)` | `Lip Moist` (Multiplier = 2) | Extract unit multiplier |
 | **Delimiters** | `Active / Tanpa Keychain`, `Active, Brave` | Split on `/`, `,`, and `+` | Multi-token delimiter parsing |
 

@@ -34,12 +34,15 @@ class TransactionItem(Base):
     clean_variant = Column(String(255), nullable=False, index=True)
     is_bundling = Column(Boolean, default=False, nullable=False)
     is_cross_bundling = Column(Boolean, default=False, nullable=False, index=True) # Bundling Silang
-    # 3rd dimension: Tinted Jelly Balm ships in a coloured case (Fizzy Pop /
-    # Sweetie Pop / Cherry Pop). Cross-family grids involving TJB expand to
-    # n x m x 3 rows, so the colour must be stored separately rather than being
-    # folded into clean_variant. NULL for every other family.
-    # Not independently indexed: it is only ever queried as part of the grid
-    # key below, and a 3-value column has near-zero selectivity on its own.
+    # SKU-level provenance ONLY: Tinted Jelly Balm ships in a coloured case
+    # ("Fizzy Pop", "Sweetie Pop", "Cherry Pop", "Buttered Yellow",
+    # "Matcha Strawberry", plus any future colour). NULL for every other family.
+    #
+    # NOT A REPORTING DIMENSION. TJB totals are aggregated by shade across all
+    # case colours. Verified: reference workbook reports "Bunny Pink" = 15 units
+    # spanning four distinct case colours as a SINGLE row. Never place this
+    # column in a reporting GROUP BY; doing so splits one expected row into
+    # several. Retained for traceability and future ad-hoc analysis.
     case_color = Column(String(32), nullable=True)
     sku = Column(String(100), nullable=True)
 
@@ -52,10 +55,9 @@ class TransactionItem(Base):
     __table_args__ = (
         Index("ix_transaction_batch_prod_cross", "import_batch_id", "is_cross_bundling", "product_group"),
         Index("ix_transaction_platform_period", "platform", "period_start", "period_end"),
-        # Grid population joins on (product_group, clean_variant, case_color)
-        # within a batch. The colour participates so Tinted Jelly Balm cross
-        # grids resolve to one row per case colour rather than collapsing.
-        Index("ix_transaction_grid_key", "import_batch_id", "product_group", "clean_variant", "case_color"),
+        # Grid population joins on (product_group, clean_variant) within a batch.
+        # case_color is excluded: it is not part of the reporting key.
+        Index("ix_transaction_grid_key", "import_batch_id", "product_group", "clean_variant"),
     )
 
 class MappingTemplate(Base):

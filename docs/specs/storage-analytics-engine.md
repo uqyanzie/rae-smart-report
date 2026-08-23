@@ -64,12 +64,15 @@ class TransactionItem(Base):
     clean_variant = Column(String(255), nullable=False, index=True)  # e.g. "Active", "Brave"
     is_bundling = Column(Boolean, default=False, nullable=False)
     is_cross_bundling = Column(Boolean, default=False, nullable=False, index=True)  # Bundling Silang
-    # 3rd dimension: Tinted Jelly Balm case colour ("Fizzy Pop" / "Sweetie Pop"
-    # / "Cherry Pop"). Cross-family grids involving TJB expand to n x m x 3
-    # rows, so the colour is stored separately instead of being folded into
-    # clean_variant. NULL for every other family. Not independently indexed --
-    # it is only queried as part of the grid key below, and a 3-value column
-    # has near-zero selectivity alone.
+    # SKU-level provenance ONLY: Tinted Jelly Balm ships in a coloured case
+    # ("Fizzy Pop", "Sweetie Pop", "Cherry Pop", "Buttered Yellow",
+    # "Matcha Strawberry", and any future colour). NULL for every other family.
+    #
+    # NOT A REPORTING DIMENSION. TJB totals are aggregated by shade across all
+    # case colours. Verified against the reference workbook: "Bunny Pink" = 15
+    # units spanning four distinct case colours, reported as ONE row. Never
+    # include this column in a reporting GROUP BY -- doing so splits one
+    # expected row into several. Stored for traceability and future analysis.
     case_color = Column(String(32), nullable=True)
     sku = Column(String(100), nullable=True)
 
@@ -82,10 +85,9 @@ class TransactionItem(Base):
     __table_args__ = (
         Index("ix_transaction_batch_prod_cross", "import_batch_id", "is_cross_bundling", "product_group"),
         Index("ix_transaction_platform_period", "platform", "period_start", "period_end"),
-        # Grid population joins on (product_group, clean_variant, case_color)
-        # within a batch. The colour participates so TJB cross grids resolve to
-        # one row per case colour rather than collapsing into one.
-        Index("ix_transaction_grid_key", "import_batch_id", "product_group", "clean_variant", "case_color"),
+        # Grid population joins on (product_group, clean_variant) within a batch.
+        # case_color is excluded -- it is not part of the reporting key.
+        Index("ix_transaction_grid_key", "import_batch_id", "product_group", "clean_variant"),
     )
 
 
@@ -121,7 +123,6 @@ WITH product_totals AS (
 SELECT 
     t.product_group,
     t.clean_variant,
-    t.case_color,
     t.is_bundling,
     t.is_cross_bundling,
     SUM(t.qty_sold) AS total_qty,
@@ -134,7 +135,7 @@ SELECT
 FROM transaction_items t
 JOIN product_totals pt ON t.product_group = pt.product_group
 WHERE t.import_batch_id = :batch_id
-GROUP BY t.product_group, t.clean_variant, t.case_color, t.is_bundling, t.is_cross_bundling, pt.total_product_qty
+GROUP BY t.product_group, t.clean_variant, t.is_bundling, t.is_cross_bundling, pt.total_product_qty
 ORDER BY t.product_group ASC, t.is_bundling ASC, total_revenue DESC;
 ```
 

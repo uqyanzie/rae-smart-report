@@ -29,7 +29,7 @@ The report layout is a **fixed combinatorial template**, generated declaratively
 
 1. **Intra-Family Single Products:** All active shades for each product family (e.g. 11 shades for Glow Up Tint).
 2. **Intra-Family Combinatorial Bundles:** All unordered distinct pairs $C(n, 2)$ within the family (e.g. $C(11, 2) = 55$ rows for Bundling Glow Up Tint, $C(6, 2) = 15$ for Bundling Swipe To Glow).
-3. **Cross-Family Combinatorial Bundles (`Produk 2`):** Cartesian products of shades across two distinct families (e.g. $11 \times 6 = 66$ rows for Glow Up Tint & Over The Glaze; $6 \times 6 \times 3 = 108$ rows for Over The Glaze & Tinted Jelly Balm with 3 case colors).
+3. **Cross-Family Combinatorial Bundles (`Produk 2`):** Cartesian products of shades across two distinct families (e.g. $11 \times 6 = 66$ rows for Glow Up Tint & Over The Glaze). **Case colour does NOT expand the grid.** Tinted Jelly Balm totals aggregate by shade across all case colours, so a TJB cross grid is $n \times m$, not $n \times m \times 3$. The reference workbook's three 108-row TJB case grids (324 rows total) are empty scaffolding that has never carried data, and no raw export contains a cross-family TJB bundle sale.
 4. **Asymmetric Density — Sparse Variants, Complete Groups:** The catalog defines the full combinatorial space and its canonical row order, but the two tables emit it at different densities:
    - **Table 1 (variant rows) is sparse.** Only combinations with non-zero quantity are emitted; zero-sale combinations are omitted entirely. Measured survival for the reference period: `Produk S` 102/181, `Produk T` 92/181, `Produk 2 S` 7/516, `Produk 2 T` 13/840.
    - **Table 2 (group summary) is complete.** Every catalog group is always emitted in `PRODUK_GROUP_ORDER` sequence, with `0` quantity and `0` revenue when it contributed no sales. This keeps the group list stable period-over-period and matches the reference template's group structure.
@@ -61,7 +61,7 @@ Each product sheet contains two synchronized tables separated by an empty spacin
 * **Col B (`Nama Variasi`):** Clean variant label.
   * **Intra-Family Separator:** Joins with ` + ` (e.g., `Active + Brave`).
   * **Cross-Family Separator:** Joins with `, ` (e.g., `Active, Over Cute`).
-  * **Cross-Family + Case Colour:** ` + ` between shades, then `, ` before the case colour (e.g., `Over Cute + Bunny Pink, Fizzy Pop`).
+  * **Case Colour:** Not part of any label or grid dimension. It is captured on the stored record for traceability but never rendered, and never used to split a row. Tinted Jelly Balm rows aggregate by shade across all case colours.
   * **Short-Form Exception:** `Power Frosted Velvet Matte` intra-family bundles drop the ` Power` suffix (`Kind + Honest`, not `Kind Power + Honest Power`). Cross-family labels retain it (`Kind Power, Peony`).
   * **Trailing Whitespace:** Do **not** reproduce the reference workbook's trailing spaces (57 occur in `Produk S` alone, from manual entry). Emit `.rstrip()`-normalised labels and normalise both sides of any comparison.
   * **Row Order:** Labels are emitted in the catalog's **display order**, which differs from its singles order. The authoritative sequences and the `order_for_singles()` / `order_for_pairs()` / `order_for_cross()` accessors live in `.agents/skills/rae-report-template/references/catalog_spec.py`.

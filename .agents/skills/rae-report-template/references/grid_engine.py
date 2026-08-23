@@ -1,9 +1,22 @@
 """Combinatorial grid generator and same-shade fold-back engine.
 
-Generates the fixed 3D declarative grid for executive sales reports:
+Generates the declarative report grid:
 1. Intra-family singles and C(n, 2) pair combinations.
-2. Cross-family n x m and n x m x 3 (case colors) combinations.
+2. Cross-family n x m combinations.
 3. Same-shade fold-back arithmetic (x2 qty, x1 rev, aggregate duplicates).
+
+CASE COLOUR IS NOT A GRID DIMENSION
+-----------------------------------
+Tinted Jelly Balm case colours are SKU metadata, not a reporting axis. TJB
+totals aggregate by shade across every colour, so cross-family TJB grids are
+``n x m``, never ``n x m x 3``. Verified: the reference workbook reports shade
+"Bunny Pink" = 15 units spanning four distinct case colours as ONE row, its
+three 108-row case grids (324 rows) are entirely empty, and no raw export
+contains a single cross-family TJB bundle sale.
+
+``include_case_colors=True`` is retained only for backward compatibility and
+should not be used for report generation -- it emits rows that can never carry
+data.
 """
 
 from typing import List, Dict, Any, Tuple, Optional
@@ -79,17 +92,20 @@ def generate_cross_family_grid(
     include_case_colors: bool = False
 ) -> List[Dict[str, Any]]:
     """
-    Generates cross-category bundling (Bundling Silang) combinations:
-    - Standard: n x m rows (e.g. 11 x 6 = 66 rows for GUT & OTG)
-    - With Case Colors: n x m x 3 rows (e.g. 6 x 6 x 3 = 108 rows for OTG & TJB)
+    Generates cross-category bundling (Bundling Silang) combinations.
+
+    Standard and correct usage: ``n x m`` rows (e.g. 11 x 6 = 66 for GUT & OTG),
+    labels joined with ``", "`` (e.g. 'Active, Over Cute').
 
     Token order comes from ``order_for_cross()``, which differs from BOTH the
     singles and the intra-family pair orderings.
 
-    Separators: plain cross-family pairs join with ``", "`` (e.g.
-    'Active, Over Cute'). With case colours the two shades join with ``" + "``
-    and the colour follows after ``", "`` (e.g.
-    'Over Cute + Bunny Pink, Fizzy Pop').
+    Args:
+        include_case_colors: **Deprecated, do not use for reporting.** Expands
+            to ``n x m x len(CASE_COLORS)`` with labels shaped
+            'Over Cute + Bunny Pink, Fizzy Pop'. Case colour is not a reporting
+            dimension (see module docstring), so every row this produces is
+            guaranteed empty. Retained only so existing callers do not break.
     """
     f1 = FAMILY_BY_NAME.get(family_name_1)
     f2 = FAMILY_BY_NAME.get(family_name_2)

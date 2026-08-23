@@ -5,10 +5,11 @@
 
 -- Query A: Variant-Level Performance & Contribution Ratio (Table 1)
 -- Parameter :is_cross_bundling: 0 for Sheet 'Produk S'/'Produk T', 1 for Sheet 'Produk 2 S'/'Produk 2 T'
--- NOTE: case_color participates in the grouping key. Tinted Jelly Balm cross
--- grids expand to n x m x 3 rows (one per case colour), so omitting it here
--- would collapse three distinct report rows into one and triple their totals.
--- It is NULL for every other family, which groups harmlessly.
+-- NOTE: case_color is deliberately EXCLUDED from the grouping key. Tinted Jelly
+-- Balm totals are reported by shade, aggregated across every case colour.
+-- Verified against the reference workbook: 'Bunny Pink' = 15 units spanning
+-- four distinct case colours, reported as ONE row. Adding case_color here would
+-- split that single expected row into four.
 WITH product_totals AS (
     SELECT 
         product_group,
@@ -21,7 +22,6 @@ WITH product_totals AS (
 SELECT 
     t.product_group,
     t.clean_variant,
-    t.case_color,
     t.is_bundling,
     t.is_cross_bundling,
     SUM(t.qty_sold) AS total_qty,
@@ -35,14 +35,13 @@ FROM transaction_items t
 JOIN product_totals pt ON t.product_group = pt.product_group
 WHERE t.import_batch_id = :batch_id
   AND t.is_cross_bundling = :is_cross_bundling
-GROUP BY t.product_group, t.clean_variant, t.case_color, t.is_bundling, t.is_cross_bundling, pt.total_product_qty
+GROUP BY t.product_group, t.clean_variant, t.is_bundling, t.is_cross_bundling, pt.total_product_qty
 ORDER BY t.product_group ASC, t.is_bundling ASC, total_qty DESC;
 
 
 -- Query B: Master Product Group Summary (Table 2)
 -- Summarizes grand performance across master product groups and calculates overall quantity share.
--- case_color is deliberately NOT in the grouping key here: this is a
--- group-level rollup, so all case colours belong in the same product-group row.
+-- Group-level rollup: neither clean_variant nor case_color participates.
 WITH grand_total AS (
     SELECT COALESCE(SUM(qty_sold), 0) AS grand_qty 
     FROM transaction_items 
@@ -66,7 +65,7 @@ ORDER BY total_qty DESC;
 
 
 -- Query C: Multi-Batch / Date-Range Multi-Platform Aggregation
--- case_color is part of the grouping key for the same reason as Query A.
+-- case_color excluded from the grouping key, same rule as Query A.
 WITH grand_total AS (
     SELECT COALESCE(SUM(qty_sold), 0) AS grand_qty 
     FROM transaction_items 
@@ -79,7 +78,6 @@ SELECT
     platform,
     product_group,
     clean_variant,
-    case_color,
     SUM(qty_sold) AS total_qty,
     SUM(revenue) AS total_revenue,
     CASE 
@@ -92,7 +90,7 @@ WHERE (:platform IS NULL OR platform = :platform)
   AND (:start_date IS NULL OR period_start >= :start_date)
   AND (:end_date IS NULL OR period_end <= :end_date)
   AND (:is_cross_bundling IS NULL OR is_cross_bundling = :is_cross_bundling)
-GROUP BY platform, product_group, clean_variant, case_color
+GROUP BY platform, product_group, clean_variant
 ORDER BY total_qty DESC;
 
 

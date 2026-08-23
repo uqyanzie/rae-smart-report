@@ -4,7 +4,7 @@ Single source of truth for:
 1. Master Product Families and ordered shades.
 2. Shade aliases and misspellings observed across marketplaces.
 3. Packaging noise tokens to strip.
-4. Tinted Jelly Balm case colors (3rd dimension).
+4. Tinted Jelly Balm case colors (SKU metadata; NOT a reporting dimension).
 5. The THREE distinct orderings each family carries (see below).
 6. Per-family short shade forms used only in intra-family bundle labels.
 
@@ -326,7 +326,19 @@ FAMILY_BY_NAME: Final[Mapping[str, Family]] = MappingProxyType(
     {family.name: family for family in FAMILIES}
 )
 
-CASE_COLORS: Final[Tuple[str, ...]] = ("Fizzy Pop", "Sweetie Pop", "Cherry Pop")
+# Tinted Jelly Balm ships in a coloured case. This is SKU metadata for
+# traceability, NOT a reporting dimension: TJB report totals aggregate by shade
+# across every case colour. Verified against the reference workbook -- shade
+# "Bunny Pink" = 15 units spanning four distinct case colours, reported as ONE
+# row -- and its three n x m x 3 case grids (324 rows) are empty scaffolding
+# that has never carried data.
+#
+# The list is therefore NOT exhaustive and does not need to be: new colours
+# (e.g. "Buttered Yellow", "Matcha Strawberry") are safe to leave out because
+# the shade total already includes their sales. Never use this to expand a grid.
+CASE_COLORS: Final[Tuple[str, ...]] = (
+    "Fizzy Pop", "Sweetie Pop", "Cherry Pop", "Buttered Yellow", "Matcha Strawberry",
+)
 
 PACKAGING_TOKENS: Final[Tuple[str, ...]] = (
     "random keychain",
