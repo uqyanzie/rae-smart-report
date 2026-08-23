@@ -1,66 +1,98 @@
 # Module Specification: Excel Exporter Engine
 
 ## 1. Overview
-The Excel Exporter engine transforms SQL query results into formatted `.xlsx` workbooks containing styled side-by-side dual tables, appropriate number formatting (accounting IDR and percentage formats), and structured multi-sheet representations matching executive reporting standards.
+The Excel Exporter engine transforms SQL query results and declarative master product catalog grids into executive-grade `.xlsx` workbooks using OpenPyXL. It generates side-by-side dual tables, applies native Indonesian accounting currency and percentage number formatting, constructs exact dynamic Excel formulas, and outputs a multi-sheet structure matching executive reporting standards.
 
 ---
 
-## 2. Multi-Sheet Taxonomy & Structure
+## 2. Master 16-Sheet Taxonomy & Delivery Phases
 
-The generated workbook outputs dedicated sheets per platform:
-* **`Produk S` (Shopee Single & Intra-Product Bundling):** Contains single products and single-line bundles (e.g. `Glow Up Tint`, `Bundling Glow Up Tint`).
-* **`Produk 2 S` (Shopee Cross-Product Bundling / *Bundling Silang*):** Contains cross-product combinations (e.g. `Bundling Glow Up Tint & Over The Glaze`).
-* **`Produk T` (TikTok Shop Single & Intra-Product Bundling):** Single products and intra-product bundles from TikTok Shop.
-* **`Produk 2 T` (TikTok Shop Cross-Product Bundling / *Bundling Silang*):** Cross-product combos from TikTok Shop.
+The complete reporting system encompasses 16 sheets across 4 e-commerce platforms:
+
+| Sheet Type | Suffix `S` (Shopee) | Suffix `T` (TikTok Shop) | Suffix `TP` (Tokopedia) | Suffix `L` (Lazada) | Phase Scope |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **`Produk`** (Single & Intra-Family Bundles) | Y | Y | Y | Y | **Phase 1 (`S`, `T`)** / Phase 2 (`TP`, `L`) |
+| **`Produk 2`** (Cross-Family Bundles / *Bundling Silang*) | Y | Y | — | — | **Phase 1 (`S`, `T`)** |
+| **`Tinjauan Data`** (Daily Performance Series) | Y | Y | Y | Y | Phase 2 |
+| **`Promosi`** (Discounts & Flash Sales) | Y | Y | Y | Y | Phase 2 |
+| **`BC`** (Broadcast Chat Performance) | Y | — | — | — | Phase 2 |
+| **`Ekspor`** (Destination Country Breakdown) | Y | — | — | — | Phase 2 |
+
+> [!IMPORTANT]
+> **Phase 1 Target:** Focuses exclusively on the four product performance sheets with complete raw exports and verified golden oracle workbooks: `Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`.
 
 ---
 
-## 3. Side-by-Side Dual-Table Layout Geometry
+## 3. Fixed Combinatorial Grid Architecture
 
-Each sheet contains two synchronized tables placed side-by-side with a 1-column separator (Column F):
+The report layout is a **fixed combinatorial template**, generated declaratively from the master product catalog:
+
+1. **Intra-Family Single Products:** All active shades for each product family (e.g. 11 shades for Glow Up Tint).
+2. **Intra-Family Combinatorial Bundles:** All unordered distinct pairs $C(n, 2)$ within the family (e.g. $C(11, 2) = 55$ rows for Bundling Glow Up Tint, $C(6, 2) = 15$ for Bundling Swipe To Glow).
+3. **Cross-Family Combinatorial Bundles (`Produk 2`):** Cartesian products of shades across two distinct families (e.g. $11 \times 6 = 66$ rows for Glow Up Tint & Over The Glaze; $6 \times 6 \times 3 = 108$ rows for Over The Glaze & Tinted Jelly Balm with 3 case colors).
+4. **Zero-Sale Variant Representation:** Every catalog combination is emitted. Combinations with zero transactions are populated with `0` quantity and `0` revenue (or left blank), preserving fixed layout row indices across reporting periods.
+
+---
+
+## 4. Side-by-Side Dual-Table Layout Geometry
+
+Each product sheet contains two synchronized tables separated by an empty spacing column (Column F):
 
 ```text
-+---------------------------------------------+   +------------------------------------------------------=+
++---------------------------------------------+   +-------------------------------------------------------+
 |        LEFT TABLE: VARIANT BREAKDOWN        |   |       RIGHT TABLE: PRODUCT GROUP SUMMARY              |
-| Cols A - E                                  |   | Cols G - L                                            |
+| Cols A - E                                  |   | Cols G - J                                            |
 +---------------------------------------------+   +-------------------------------------------------------+
 | Product Group | Variant | Qty | Rev | Cont% |   | Product Group          | Total Qty | Total Rev | Sh%  |
 |---------------+---------+-----+-----+-------|   |------------------------+-----------+-----------+------|
-| Glow Up Tint  | Active  | 854 | 46M | =(C/H)|   | Glow Up Tint           | =SUM(C:C) | =SUM(D:D) | %    |
-|               | Brave   | 791 | 44M | =(C/H)|   | Bundling Glow Up Tint  | =SUM(C:C) | =SUM(D:D) | %    |
+| Glow Up Tint  | Active  | 365 | 25M | =(C/H)|   | Glow Up Tint           | =SUM(C:C) | =SUM(D:D) | %    |
+|               | Brave   | 340 | 24M | =(C/H)|   | Bundling Glow Up Tint  | =SUM(C:C) | =SUM(D:D) | %    |
 +---------------------------------------------+   | ...                    |           |           |      |
                                                   | TOTAL                  | =SUM(H:H) | =SUM(I:I) | 100% |
                                                   +-------------------------------------------------------+
 ```
 
-### Table 1 (Left Table: Columns A – E)
-* **Col A (`Produk`):** Master Product Group Name (written on the first row of the group; subsequent rows for that group are blank).
-* **Col B (`Nama Variasi`):** Clean variant name (e.g., `Active`, `Brave`, `Active + Brave`, `Active, Over Cute`).
-* **Col C (`Produk Terjual`):** Quantity sold (raw integer value formatted as `#,##0`).
-* **Col D (`Revenue`):** Total sales revenue (raw float value formatted as `_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)`).
-* **Col E (`Kontribusi`):** Variant percentage contribution relative to its product group, calculated via Excel formula: `=(C{row}/$H${summary_row})*100%` (formatted as `0.00%`).
+### Table 1: Variant Breakdown (Columns A – E)
+* **Col A (`Produk`):** Product Group Name (written only on the first row of the group; subsequent rows for that group are blank).
+* **Col B (`Nama Variasi`):** Clean variant label.
+  * **Intra-Family Separator:** Joins with ` + ` (e.g., `Active + Brave`).
+  * **Cross-Family Separator:** Joins with `, ` (e.g., `Active, Over Cute`).
+  * **Cross-Family + Case Colour:** ` + ` between shades, then `, ` before the case colour (e.g., `Over Cute + Bunny Pink, Fizzy Pop`).
+  * **Short-Form Exception:** `Power Frosted Velvet Matte` intra-family bundles drop the ` Power` suffix (`Kind + Honest`, not `Kind Power + Honest Power`). Cross-family labels retain it (`Kind Power, Peony`).
+  * **Trailing Whitespace:** Do **not** reproduce the reference workbook's trailing spaces (57 occur in `Produk S` alone, from manual entry). Emit `.rstrip()`-normalised labels and normalise both sides of any comparison.
+  * **Row Order:** Labels are emitted in the catalog's **display order**, which differs from its singles order. The authoritative sequences and the `order_for_singles()` / `order_for_pairs()` / `order_for_cross()` accessors live in `.agents/skills/rae-report-template/references/catalog_spec.py`.
+* **Col C (`Produk Terjual`):** Quantity sold (integer formatted as `#,##0`).
+* **Col D (`Revenue`):** Total sales revenue (raw float formatted as `_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)`).
+* **Col E (`Kontribusi`):** Variant **quantity share** relative to its group total, calculated via Excel formula: `=(C{row}/$H${summary_row})*100%` (formatted as `0.00%`).
 
-### Table 2 (Right Table: Columns G – J)
+### Table 2: Product Group Summary (Columns G – J)
 * **Col G (`Produk`):** Master Product Group Name.
-* **Col H (`Produk Terjual`):** Group total quantity calculated via Excel formula: `=SUM(C{start_row}:C{end_row})`.
-* **Col I (`Revenue`):** Group total revenue calculated via Excel formula: `=SUM(D{start_row}:D{end_row})`.
-* **Col J (`Kontribusi`):** Product group share of overall platform sales calculated via Excel formula: `=(H{row}/$H${grand_total_row})*100%`.
-* **Grand Total Row:** Placed at the bottom with `=SUM(H2:H{last_row})` and `=SUM(I2:I{last_row})`.
+* **Col H (`Produk Terjual`):** Group total quantity via formula: `=SUM(C{start_row}:C{end_row})`.
+* **Col I (`Revenue`):** Group total revenue via formula: `=SUM(D{start_row}:D{end_row})`.
+* **Col J (`Kontribusi`):** Product group **quantity share** of platform total via formula: `=(H{row}/$H${grand_total_row})*100%`.
+* **Grand Total Row:** Placed immediately below the summary table with `=SUM(H2:H{last_row})` and `=SUM(I2:I{last_row})`.
 
 ---
 
-## 4. Visual Styling & Formatting Specifications
+## 5. Visual Styling & Workbook Construction Rules
 
-* **Header Fill:** Slate Navy (`#1E293B`) with white bold text (`#FFFFFF`), centered alignment.
-* **Number Formats:**
-  * Currency (IDR): `_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)`
-  * Percentage: `0.00%`
-  * Quantities: `#,##0`
-* **Borders:** Thin slate borders (`#CBD5E1`) for data cells; accounting double bottom border for Grand Total rows.
-* **Worksheet Views:** Explicitly enable gridlines (`ws.views.sheetView[0].showGridLines = True`).
-* **Auto-Column Widths:** Dynamically calculate max character length + 4 padding to prevent `###` truncated cells.
+1. **Header Palette:** Dark Slate Navy fill (`#1E293B`) with white bold text (`#FFFFFF`), centered alignment.
+2. **Number Formats (Native Accounting):**
+   * Currency (IDR): `_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)`
+   * Percentage: `0.00%`
+   * Quantity / Integer: `#,##0`
+3. **Borders:** Thin slate borders (`#CBD5E1`) for data cells; double bottom accounting border for Grand Total row.
+4. **Worksheet Views:** Explicitly enable grid lines:
+   ```python
+   ws.sheet_view.showGridLines = True
+   ```
+5. **Dynamic Column Widths:** Auto-calculate column widths based on maximum rendered string length + 4 padding (skipping formula strings to avoid truncated `###` cells).
+6. **Defect Prevention In Formulas:**
+   - **No Double-Counting Range Overruns:** In `Produk 2 S`, ensure formula ranges strictly match exact group boundaries (do NOT replicate golden file defect where Group 9 summed $C374:C445 overrunning into Power Frosted).
+   - **Division by Zero Guard:** For sheets with zero-volume product groups (e.g. Lazada), ensure formulas or cells do not render `#DIV/0!`.
 
 ---
 
-## 5. Reference Skill
-- Detailed implementation patterns and generator scripts are located in [../../.agents/skills/excel-styling-formatter/SKILL.md](../../.agents/skills/excel-styling-formatter/SKILL.md).
+## 6. Reference Implementation
+- Authoritative master product catalog, combinatorial pairing rules, and shade aliases are maintained in `@rae-report-template`.
+- Formatting constants and openpyxl styling routines are maintained in `@excel-styling-formatter`.

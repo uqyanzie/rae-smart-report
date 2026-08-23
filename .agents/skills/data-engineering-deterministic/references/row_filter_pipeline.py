@@ -1,7 +1,11 @@
 import re
 from typing import List, Dict, Any, Tuple, Optional
 import pandas as pd
-from .currency_sanitizer import sanitize_currency, sanitize_integer
+
+try:
+    from .currency_sanitizer import sanitize_currency, sanitize_integer
+except (ImportError, ValueError):
+    from currency_sanitizer import sanitize_currency, sanitize_integer
 
 BUNDLE_KEYWORDS = [
     "+", "&", "bundling", "bundle", "combo",
@@ -18,15 +22,15 @@ def is_parent_or_summary_row(raw_variant: Optional[str], ignore_condition: str =
         return True
     
     cleaned = str(raw_variant).strip()
-    if cleaned in ("", "-", "--", "None", "nan", "null"):
+    if cleaned in ("None", "nan", "null"):
         return True
     
-    if ignore_condition == "EQUALS_DASH" and cleaned == "-":
-        return True
-    elif ignore_condition == "IS_EMPTY" and not cleaned:
-        return True
-    elif ignore_condition == "CONTAINS_TOTAL" and any(k in cleaned.lower() for k in ["total", "ringkasan", "semua"]):
-        return True
+    if ignore_condition == "EQUALS_DASH":
+        return cleaned in ("-", "--", "")
+    elif ignore_condition == "IS_EMPTY":
+        return not cleaned
+    elif ignore_condition == "CONTAINS_TOTAL":
+        return any(k in cleaned.lower() for k in ["total", "ringkasan", "semua"])
         
     return False
 
@@ -113,6 +117,12 @@ def process_shopee_dataframe(
     col_rev = "Penjualan (Pesanan Siap Dikirim) (IDR)"
     col_sku = "SKU Induk"
     
+    # Assert required columns are present to fail loudly on unexpected header shifts
+    required_cols = [col_prod, col_var, col_qty, col_rev]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        raise KeyError(f"Shopee export missing required column(s): {missing}. Available: {list(df.columns)}")
+    
     for _, row in df.iterrows():
         raw_variant = str(row.get(col_var, "")).strip() if pd.notna(row.get(col_var)) else ""
         
@@ -120,9 +130,12 @@ def process_shopee_dataframe(
         if is_parent_or_summary_row(raw_variant, "EQUALS_DASH"):
             continue
         
-        product_group = str(row.get(col_prod, "")).strip()
-        if not product_group or product_group.lower() in ("total", "nan", "none"):
+        product_title = str(row.get(col_prod, "")).strip()
+        if not product_title or product_title.lower() in ("total", "nan", "none"):
             continue
+        
+        # Normalize brand prefix
+        product_group = re.sub(r'^Raecca\s+', '', product_title, flags=re.IGNORECASE).strip()
             
         qty_sold = sanitize_integer(row.get(col_qty, 0))
         revenue = sanitize_currency(row.get(col_rev, 0.0))
@@ -163,18 +176,28 @@ def process_tiktok_dataframe(
     """
     records = []
     
+    col_prod = "Produk"
+    col_qty = "Produk terjual"
+    col_rev = "GMV"
+    col_sku = "SKU ID"
+    
+    required_cols = [col_prod, col_qty, col_rev]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        raise KeyError(f"TikTok export missing required column(s): {missing}. Available: {list(df.columns)}")
+    
     for _, row in df.iterrows():
-        raw_title = row.get("Produk", "")
+        raw_title = row.get(col_prod, "")
         product_title, raw_variant = parse_tiktok_concatenated_title(raw_title)
         
-        # Strip marketing prefix from master product title if needed
+        # Normalize brand prefix from master product title
         product_group = re.sub(r'^Raecca\s+', '', product_title, flags=re.IGNORECASE).strip()
         
-        qty_sold = sanitize_integer(row.get("Produk terjual", 0))
-        revenue = sanitize_currency(row.get("GMV", 0.0))
+        qty_sold = sanitize_integer(row.get(col_qty, 0))
+        revenue = sanitize_currency(row.get(col_rev, 0.0))
         
         clean_variant, is_bundling, is_cross = extract_clean_variant_and_bundles(raw_variant, product_group)
-        sku = str(row.get("SKU ID", "")).strip() if "SKU ID" in row and pd.notna(row.get("SKU ID")) else None
+        sku = str(row.get(col_sku, "")).strip() if col_sku in row and pd.notna(row.get(col_sku)) else None
         
         records.append({
             "import_batch_id": import_batch_id,

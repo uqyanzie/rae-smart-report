@@ -1,3 +1,5 @@
+export type ParentRowIgnoreCondition = "EQUALS_DASH" | "IS_EMPTY" | "CONTAINS_TOTAL";
+
 export interface IngestionResultDTO {
   fileId: string;
   fileName: string;
@@ -20,7 +22,7 @@ export interface ColumnMappingDTO {
 
 export interface ParentRowRuleDTO {
   targetColumn: string;
-  ignoreCondition: "EQUALS_DASH" | "IS_EMPTY" | "CONTAINS_TOTAL";
+  ignoreCondition: ParentRowIgnoreCondition;
 }
 
 export interface CleaningRuleDTO {
@@ -34,7 +36,7 @@ export interface ProfilerResponseDTO {
   platform: string;
   confidence: number;
   columnMapping: ColumnMappingDTO;
-  parentRowRule: ParentRowRuleDTO;
+  parentRowRule?: ParentRowRuleDTO | null;
   suggestedCleaningRules: CleaningRuleDTO[];
 }
 
@@ -45,7 +47,7 @@ export interface TransformAndSaveRequestDTO {
   periodStart?: string;
   periodEnd?: string;
   columnMapping: ColumnMappingDTO;
-  parentRowRule: ParentRowRuleDTO;
+  parentRowRule?: ParentRowRuleDTO | null;
   cleaningRules: CleaningRuleDTO[];
   saveAsTemplate: boolean;
 }
@@ -57,14 +59,14 @@ export interface VariantPerformanceDTO {
   isCrossBundling: boolean;
   totalQty: number;
   totalRevenue: number;
-  contributionPct: number;
+  contributionRatio: number; // 0-1 unit share
 }
 
 export interface ProductSummaryDTO {
   productGroup: string;
   totalQty: number;
   totalRevenue: number;
-  contributionPct: number;
+  contributionRatio: number; // 0-1 unit share
 }
 
 export interface BatchSummaryDTO {

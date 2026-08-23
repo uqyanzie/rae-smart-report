@@ -17,7 +17,7 @@ def build_app():
         str(root / "backend" / "app" / "main.py"),
         "--name=RAE-Smart-Report",
         "--onefile",
-        "--windowed",
+        "--console",  # Keep console enabled to assist debugging desktop logs
         f"--add-data={root / 'frontend' / 'dist'}{os.pathsep}frontend/dist",
         "--hidden-import=uvicorn.logging",
         "--hidden-import=uvicorn.loops",
@@ -29,7 +29,9 @@ def build_app():
         "--hidden-import=uvicorn.protocols.websockets.auto",
         "--hidden-import=uvicorn.lifespan",
         "--hidden-import=uvicorn.lifespan.on",
+        "--hidden-import=pydantic_core",
         "--hidden-import=openpyxl",
+        "--hidden-import=sqlite3",
         "--hidden-import=sqlalchemy.sql.default_comparator",
         "--clean",
         "--noconfirm",

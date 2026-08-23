@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
-    create_engine, event, Column, String, Integer, Float, Boolean, DateTime, Index, Text
+    create_engine, event, Column, String, Integer, BigInteger, Boolean, DateTime, Index, Text
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base
@@ -9,12 +9,15 @@ Base = declarative_base()
 
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    cursor.execute("PRAGMA synchronous=NORMAL;")
-    cursor.execute("PRAGMA foreign_keys=ON;")
-    cursor.execute("PRAGMA temp_store=MEMORY;")
-    cursor.close()
+    """Applies high-performance PRAGMAs specifically to SQLite connections."""
+    module_name = getattr(dbapi_connection.__class__, "__module__", "")
+    if "sqlite" in module_name.lower():
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA synchronous=NORMAL;")
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.execute("PRAGMA temp_store=MEMORY;")
+        cursor.close()
 
 class TransactionItem(Base):
     __tablename__ = "transaction_items"
@@ -31,18 +34,28 @@ class TransactionItem(Base):
     clean_variant = Column(String(255), nullable=False, index=True)
     is_bundling = Column(Boolean, default=False, nullable=False)
     is_cross_bundling = Column(Boolean, default=False, nullable=False, index=True) # Bundling Silang
+    # 3rd dimension: Tinted Jelly Balm ships in a coloured case (Fizzy Pop /
+    # Sweetie Pop / Cherry Pop). Cross-family grids involving TJB expand to
+    # n x m x 3 rows, so the colour must be stored separately rather than being
+    # folded into clean_variant. NULL for every other family.
+    # Not independently indexed: it is only ever queried as part of the grid
+    # key below, and a 3-value column has near-zero selectivity on its own.
+    case_color = Column(String(32), nullable=True)
     sku = Column(String(100), nullable=True)
 
-    # Quantitative Metrics
+    # Quantitative Metrics (Integer Rupiah avoids floating-point drift)
     qty_sold = Column(Integer, nullable=False, default=0)
-    revenue = Column(Float, nullable=False, default=0.0)
+    revenue = Column(BigInteger, nullable=False, default=0) # Stored in exact IDR integer
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (
         Index("ix_transaction_batch_prod_cross", "import_batch_id", "is_cross_bundling", "product_group"),
         Index("ix_transaction_platform_period", "platform", "period_start", "period_end"),
-        Index("ix_transaction_clean_variant", "clean_variant"),
+        # Grid population joins on (product_group, clean_variant, case_color)
+        # within a batch. The colour participates so Tinted Jelly Balm cross
+        # grids resolve to one row per case colour rather than collapsing.
+        Index("ix_transaction_grid_key", "import_batch_id", "product_group", "clean_variant", "case_color"),
     )
 
 class MappingTemplate(Base):
@@ -54,4 +67,4 @@ class MappingTemplate(Base):
     column_mapping_json = Column(Text, nullable=False)
     cleaning_rules_json = Column(Text, nullable=True)
     parent_row_rule_json = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

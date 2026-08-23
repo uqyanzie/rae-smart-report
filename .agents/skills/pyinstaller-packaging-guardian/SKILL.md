@@ -13,17 +13,18 @@ This skill defines path resolution safety rules, build configurations, static fi
 
 1. **Never Write to `sys._MEIPASS`:** When PyInstaller packages an application, bundled assets unpack into a temporary read-only directory referenced by `sys._MEIPASS`. Writing `app_data.db` here causes immediate runtime crashes.
 2. **Writable Application Storage:** Store `app_data.db`, caches, and logs in persistent user storage (e.g. `%LOCALAPPDATA%/RAESmartReport` or next to the executable).
-3. **Static SPA Asset Mounting:** FastAPI must mount the pre-built React `frontend/dist` directory with SPA catch-all routing fallback to `index.html`.
-4. **Browser Auto-Launch Daemon:** Open default browser to `http://127.0.0.1:8000` via a non-blocking background thread on application boot.
+3. **Static SPA Asset Mounting:** FastAPI must mount the pre-built React `frontend/dist` directory with SPA catch-all routing fallback to `index.html`. Always register the SPA catch-all route **after** API routers are attached to prevent route shadowing.
+4. **Path Traversal Security:** Sanitize and validate all client requested file paths against `frontend_dist` root before serving.
+5. **Browser Auto-Launch Daemon:** Open default browser to `http://127.0.0.1:8000` via a non-blocking background thread on application boot.
 
 ---
 
 ## 2. Invariants & Decision Checklist
 
 - [ ] Does `get_database_path()` resolve to `%LOCALAPPDATA%` or the executable directory, never `sys._MEIPASS`?
-- [ ] Are FastAPI non-API routes forwarded to `index.html` for client-side routing?
+- [ ] Are FastAPI API routers registered prior to mounting the SPA catch-all wildcard route?
 - [ ] Is browser launching non-blocking (in a daemon thread after health check)?
-- [ ] Are all dynamic uvicorn and sqlalchemy hidden imports included in `build.py`?
+- [ ] Are dynamic `pydantic_core`, `openpyxl`, `sqlite3`, and `uvicorn` hidden imports declared in PyInstaller build config?
 
 ---
 

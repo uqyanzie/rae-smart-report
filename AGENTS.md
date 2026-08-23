@@ -24,6 +24,12 @@ All specifications are structured in `docs/`:
 - `docs/specs/excel-exporter-engine.md`
 - `docs/system-architecture.md`
 
+## Review & Implementation Guides
+Findings derived by validating the specs against `sample_data/`. Read before implementing:
+- `docs/SPEC-REVIEW.md` — spec vs verified sample-data reality; pinned column mappings, fixed-grid architecture, fold-back rule, resolved decisions
+- `docs/SKILLS-REVIEW.md` — per-skill audit and fix priorities
+- `docs/GRID-ALIGNMENT-GUIDE.md` — **authoritative ordering tables** for catalog/grid work; all values validated against the golden workbook
+
 ## Active Agent Skills & Capabilities
 - `@data-engineering-deterministic`: Enforces zero-LLM math, exact regex variant extraction, and parent-row pruning.
 - `@llm-structured-profiler`: Handles Pydantic structured output validation and header signature hashing.
@@ -31,3 +37,4 @@ All specifications are structured in `docs/`:
 - `@pyinstaller-packaging-guardian`: Ensures path safety (`sys._MEIPASS`) and writable DB paths for `.exe` bundles.
 - `@excel-styling-formatter`: Applies accounting number formatting and dual-table layouts in OpenPyXL.
 - `@fullstack-bridge-contract`: Synchronizes FastAPI Pydantic schemas with React TypeScript interfaces.
+- `@rae-report-template`: Manages master product catalog, 3D combinatorial fixed grids, shade alias resolution, and same-shade fold-back rules.
