@@ -280,22 +280,23 @@ backend/
 ### Phase 6: FastAPI REST API & Runtime Harness
 **Goal:** Expose REST endpoints, enforce camelCase JSON serialization, accept period metadata, and configure SPA static mounting with security path guards.
 
-- [ ] Implement `backend/app/api/dtos.py`:
+- [x] Implement `backend/app/api/dtos.py`:
   - `CamelModel` base with `alias_generator=to_camel` and `populate_by_name=True`.
   - DTOs: `IngestionResultDTO`, `ColumnMappingDTO`, `TransformAndSaveRequestDTO` (supporting `periodStart` and `periodEnd` from user input), `VariantPerformanceDTO` (including `case_color`), `ProductSummaryDTO`, `BatchSummaryDTO`.
-- [ ] Implement `backend/app/api/routes.py`:
+- [x] Implement `backend/app/api/routes.py`:
   - `POST /api/ingest`: Upload spreadsheet, return sheets, headers, sample rows.
   - `POST /api/profile`: Return detected platform adapter or LLM profiler suggestions.
   - `POST /api/transform`: Execute pipeline, store in SQLite, return batch summary.
   - `GET /api/reports/batches`: List historical batches.
   - `GET /api/reports/batches/{id}/variants`: Fetch variant-level breakdown.
+  - `GET /api/reports/batches/{id}/products`: Fetch master product group rollups.
   - `DELETE /api/reports/batches/{id}`: Cascade delete batch.
   - `GET /api/export/excel`: Stream generated `.xlsx` with `Content-Disposition`.
-- [ ] Implement `backend/app/api/spa.py`:
+- [x] Implement `backend/app/api/spa.py`:
   - Mount `frontend/dist` with `relative_to` path traversal protection and index fallback.
-- [ ] Implement `backend/app/main.py`:
+- [x] Implement `backend/app/main.py`:
   - FastAPI application factory, CORS middleware, lifespan events, API router mounting.
-- [ ] Author `backend/tests/test_api.py`:
+- [x] Author `backend/tests/test_api.py`:
   - `TestClient` tests covering the complete upload $\to$ transform $\to$ query $\to$ export flow.
   - Assert that all response JSON keys are strictly `camelCase`.
 
