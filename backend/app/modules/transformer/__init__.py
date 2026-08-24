@@ -14,8 +14,10 @@ from app.modules.transformer.foldback import (
     fold_back_same_shade_records,
 )
 from app.modules.transformer.grid import (
+    PRODUK2_GROUP_ORDER,
     FixedGridGenerator,
     generate_cross_family_grid,
+    generate_full_produk2_grid,
     generate_full_produk_grid,
     generate_intra_family_grid,
 )
@@ -38,6 +40,8 @@ __all__ = [
     "generate_intra_family_grid",
     "generate_cross_family_grid",
     "generate_full_produk_grid",
+    "generate_full_produk2_grid",
+    "PRODUK2_GROUP_ORDER",
     "strip_packaging_noise",
     "strip_ordinal_prefix",
     "extract_case_color",

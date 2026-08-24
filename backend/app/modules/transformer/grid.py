@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from itertools import combinations, product
-from typing import List, Optional
+from typing import Final, List, Optional, Tuple
 
 from app.domain.catalog import (
     CASE_COLORS,
@@ -21,6 +21,8 @@ __all__ = [
     "generate_intra_family_grid",
     "generate_cross_family_grid",
     "generate_full_produk_grid",
+    "generate_full_produk2_grid",
+    "PRODUK2_GROUP_ORDER",
 ]
 
 
@@ -177,3 +179,23 @@ def generate_cross_family_grid(
 def generate_full_produk_grid() -> List[GridRow]:
     """Helper to generate full 181-row Produk sheet grid."""
     return FixedGridGenerator().generate_full_produk_grid()
+
+
+def generate_full_produk2_grid() -> List[GridRow]:
+    """Generates all cross-family rows for the 'Produk 2' sheets (21 groups).
+
+    Iterates ``combinations(FAMILIES, 2)`` in canonical family order so the
+    per-group names match the normalizer's emission order
+    (``Bundling {a.name} & {b.name}``), and so each group's rows follow the
+    families' ``cross_order`` token sequences.
+    """
+    rows: List[GridRow] = []
+    for a, b in combinations(FAMILIES, 2):
+        rows.extend(generate_cross_family_grid(a.name, b.name))
+    return rows
+
+
+# Canonical 21 cross-family groups in emission order (C(7, 2) = 21 pairs).
+PRODUK2_GROUP_ORDER: Final[Tuple[str, ...]] = tuple(
+    f"Bundling {a.name} & {b.name}" for a, b in combinations(FAMILIES, 2)
+)
