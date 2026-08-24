@@ -211,6 +211,11 @@ backend/
   - Exclude products not resolvable to a catalog family (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings — 17 records, Rp 0 this period).
   - Return an auditable tally (`skipped_unreported`: count, qty, revenue) from the persistence call so excluded volume is reviewable rather than silently vanishing.
 - [ ] Register Tinted Jelly Balm case-colour tokens as recognised-and-ignorable so the warning channel carries real signal only (`Buttered Yellow`, `Matcha Strawberry`, plus truncations `Fizzy`, `Sweetie`, `Cherry`, `Matcha`, `But Yellow`). Target: Shopee warnings 220 -> ~0, TikTok 15 -> 0.
+- [ ] Normalize report-key whitespace so the grid left-join keys match persisted data (**required**, discovered post-review):
+  - Root cause: `PRODUK_GROUP_ORDER` carries workbook-leftover trailing spaces on `"Swipe To Glow "` and `"Bundling Swipe To Glow "`. `_CANONICAL_GROUP_MAP` in `normalizer.py` propagates them into `product_group` (measured this period: 75 `Swipe To Glow ` + 34 `Bundling Swipe To Glow ` = 109 records) while `grid.py` emits `family.name.rstrip()` clean names and the golden oracle stores clean names too.
+  - Fix the source: strip the two entries in `PRODUK_GROUP_ORDER` and update `test_produk_group_order_contains_16_groups` in `test_domain_catalog.py` to assert clean names. Golden-match tests already `.rstrip()` both sides, so they remain green.
+  - Defense-in-depth: `.rstrip()` `product_group` and `clean_variant` on both sides of every comparison/join in the repository (rae-report-template skill rule 7: the reference workbook contains 57 manually-entered trailing spaces; do not reproduce them).
+  - Not optional: without it, the left-join grid population orphans every Swipe To Glow sale into a group the catalog grid does not contain.
 - [ ] Implement `backend/app/modules/storage/repository.py`:
   - **Query A (Variant Analytics):** Groups by `(product_group, clean_variant)` — **not** `case_color` — with `contribution_ratio` = `CAST(SUM(qty_sold) AS FLOAT) / total_product_qty` ($0\text{--}1$ ratio).
   - **Query B (Product Group Summary):** Rollup group performance with share against grand total quantity.
@@ -223,12 +228,14 @@ backend/
   - Verify Query A returns `Active` contribution ratio `0.05974791292` (matching `golden_totals.json` to 11 decimal places).
   - Verify variant ratios within Glow Up Tint sum to exactly `1.0`.
   - Verify no persisted record has `clean_variant in ('-', '')`.
+  - Verify no persisted `product_group` / `clean_variant` carries leading or trailing whitespace, and that the 75 Swipe To Glow singles aggregate under the grid's clean `Swipe To Glow` group (join-key hygiene).
   - Verify Tinted Jelly Balm aggregates to **6 shade rows** (not one per case colour) totalling qty `24`, revenue `2,234,703` — proving case colour does not split rows.
   - Verify the `skipped_unreported` tally reports 180 Shopee exclusions and Rp 4,950.
 
 **Success Criteria:**
 - `pytest backend/tests/test_storage.py` passes without float drift or rounding anomalies.
 - No reporting query groups by `case_color`; TJB resolves to one row per shade.
+- Persisted `product_group` / `clean_variant` keys match the catalog grid exactly (no trailing-whitespace mismatches); Swipe To Glow sales join to the grid's `Swipe To Glow` group.
 
 ---
 
@@ -326,6 +333,7 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
 - **What is next:** Execute Phase 4 (SQLite Analytics Storage & CTE Repository):
   - Configure transactional SQLite engine with WAL mode and dialect hooks in `backend/app/modules/storage/database.py`.
   - Define SQLAlchemy ORM `TransactionItem` model with indexes in `backend/app/modules/storage/models.py`.
+  - Normalize `PRODUK_GROUP_ORDER` trailing spaces (`Swipe To Glow ` / `Bundling Swipe To Glow `) and rstrip report keys so persisted `product_group` matches the catalog grid for the left-join population.
   - Implement repository queries (Queries A-E) in `backend/app/modules/storage/repository.py` to calculate exact 0-1 unit shares.
   - Author and verify `backend/tests/test_storage.py`.
 - **Artifacts:**
