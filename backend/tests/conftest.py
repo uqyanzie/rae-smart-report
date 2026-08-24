@@ -14,7 +14,10 @@ def sample_data_dir(workspace_root):
 def golden_totals(workspace_root):
     fixtures_path = workspace_root / "backend" / "tests" / "fixtures" / "golden_totals.json"
     if not fixtures_path.exists():
-        pytest.skip("golden_totals.json fixture not generated yet")
+        pytest.fail(
+            "golden_totals.json fixture not generated yet; "
+            "it is a committed hard dependency, not an optional one"
+        )
     with open(fixtures_path, "r", encoding="utf-8") as f:
         return json.load(f)
 

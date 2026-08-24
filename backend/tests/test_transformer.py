@@ -376,6 +376,9 @@ class TestTransformationGoldenOracleMatch:
 
         # Verify golden oracle variants for Shopee
         expected_shopee = golden_totals["shopee_variants"]
+        non_zero_expected = sum(
+            1 for e in expected_shopee if e["qty"] > 0 or e["revenue"] > 0
+        )
         current_family = ""
         matched_count = 0
 
@@ -385,12 +388,10 @@ class TestTransformationGoldenOracleMatch:
             variant_name = expected["variant"].rstrip()
             expected_qty = expected["qty"]
             expected_rev = expected["revenue"]
+            key = (current_family, variant_name)
+            actual = aggregated.get(key, {"qty": 0, "revenue": 0})
 
-            # Only assert for non-zero or sampled rows in golden oracle
             if expected_qty > 0 or expected_rev > 0:
-                key = (current_family, variant_name)
-                actual = aggregated.get(key, {"qty": 0, "revenue": 0})
-
                 assert actual["qty"] == expected_qty, (
                     f"Shopee Qty mismatch for {key}: expected {expected_qty}, got {actual['qty']}"
                 )
@@ -398,8 +399,16 @@ class TestTransformationGoldenOracleMatch:
                     f"Shopee Revenue mismatch for {key}: expected {expected_rev}, got {actual['revenue']}"
                 )
                 matched_count += 1
+            else:
+                # Golden reports zero for this variant: output must not fabricate volume.
+                assert actual["qty"] == 0 and actual["revenue"] == 0, (
+                    f"Shopee over-production for {key}: golden expects 0/0, "
+                    f"got {actual['qty']}/{actual['revenue']}"
+                )
 
-        assert matched_count >= 22, f"Matched {matched_count} Shopee variants"
+        assert matched_count == non_zero_expected, (
+            f"Matched {matched_count}/{non_zero_expected} non-zero Shopee variants"
+        )
 
     def test_tiktok_transformation_against_golden_totals(
         self, raw_tts_path, golden_totals
@@ -420,6 +429,9 @@ class TestTransformationGoldenOracleMatch:
             aggregated[key]["revenue"] += rec.revenue
 
         expected_tiktok = golden_totals["tiktok_variants"]
+        non_zero_expected = sum(
+            1 for e in expected_tiktok if e["qty"] > 0 or e["revenue"] > 0
+        )
         current_family = ""
         matched_count = 0
 
@@ -429,11 +441,10 @@ class TestTransformationGoldenOracleMatch:
             variant_name = expected["variant"].rstrip()
             expected_qty = expected["qty"]
             expected_rev = expected["revenue"]
+            key = (current_family, variant_name)
+            actual = aggregated.get(key, {"qty": 0, "revenue": 0})
 
             if expected_qty > 0 or expected_rev > 0:
-                key = (current_family, variant_name)
-                actual = aggregated.get(key, {"qty": 0, "revenue": 0})
-
                 assert actual["qty"] == expected_qty, (
                     f"TikTok Qty mismatch for {key}: expected {expected_qty}, got {actual['qty']}"
                 )
@@ -441,7 +452,43 @@ class TestTransformationGoldenOracleMatch:
                     f"TikTok Revenue mismatch for {key}: expected {expected_rev}, got {actual['revenue']}"
                 )
                 matched_count += 1
+            else:
+                # Golden reports zero for this variant: output must not fabricate volume.
+                assert actual["qty"] == 0 and actual["revenue"] == 0, (
+                    f"TikTok over-production for {key}: golden expects 0/0, "
+                    f"got {actual['qty']}/{actual['revenue']}"
+                )
 
-        assert matched_count >= 22, f"Matched {matched_count} TikTok variants"
+        assert matched_count == non_zero_expected, (
+            f"Matched {matched_count}/{non_zero_expected} non-zero TikTok variants"
+        )
+
+    def test_shopee_revenue_is_conserved_through_transform(
+        self, raw_shopee_path
+    ) -> None:
+        """Adapter -> transform conserves total revenue byte-for-byte.
+
+        Fold-back applies 1x revenue and 2x quantity, so revenue must never
+        leak or be fabricated anywhere in the pipeline (review item 4.4).
+        """
+        _, raw_rows = extract_spreadsheet_rows(raw_shopee_path)
+        raw_records = ShopeeAdapter().adapt(raw_rows)
+        result = transform_records(raw_records)
+
+        assert sum(r.revenue for r in result.records) == sum(
+            r.revenue for r in raw_records
+        ), "Shopee revenue leaked or was fabricated through transformation"
+
+    def test_tiktok_revenue_is_conserved_through_transform(
+        self, raw_tts_path
+    ) -> None:
+        """Adapter -> transform conserves total revenue byte-for-byte on TikTok."""
+        _, raw_rows = extract_spreadsheet_rows(raw_tts_path)
+        raw_records = TikTokShopAdapter().adapt(raw_rows)
+        result = transform_records(raw_records)
+
+        assert sum(r.revenue for r in result.records) == sum(
+            r.revenue for r in raw_records
+        ), "TikTok revenue leaked or was fabricated through transformation"
 
 
