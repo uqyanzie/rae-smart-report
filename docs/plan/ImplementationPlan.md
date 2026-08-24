@@ -62,11 +62,13 @@ backend/
 ## Execution Rules & Protocols
 
 1. **The STOP Protocol:** Each execution session MUST work on exactly ONE phase. When a phase is completed and its success criteria are proven, execution STOPS. The next phase MUST be initiated in a fresh session to preserve context hygiene.
-2. **No Deviations:** Code must strictly adhere to the verified domain rules (zero LLM math, declarative grid generation, integer IDR, 0-1 unit share, same-shade fold-back).
-3. **Proactive Updates:** If any unforeseen edge case is discovered during execution, stop and discuss before making plan changes.
-4. **History Preservation:** Mark completed phases with `[Completed]` and retain all task items.
-5. **Proof is Mandatory:** Every phase must culminate in passing automated tests or executable assertions verifying the stated success criteria.
-6. **Handoff Brief Maintenance:** At the end of every phase, the `# Handoff Brief` section at the bottom of this document must be updated.
+2. **Golden-File Scope Boundary:** The target is reproducing the golden report. **Anything the golden workbook does not report is out of scope and is excluded, not reconciled.** This covers dash-variant rows (`clean_variant == '-'`), non-lip-category products (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings), and case colour as a dimension. Excluded volume MUST be counted in an auditable tally so it is reviewable, but it must never reach a report figure. Verified necessity: including the single non-zero dash row would push golden's Tinted Jelly Balm total from 24 to 25 units and break the match. Full raw-export reconciliation is a separate, later concern.
+3. **Case Colour Is Not A Dimension:** Tinted Jelly Balm case colours are SKU metadata. Report totals aggregate by shade across all colours. `case_color` is stored for traceability but must never appear in a reporting `GROUP BY`, and must never expand a grid. Verified: golden reports `Bunny Pink` = 15 units spanning four case colours as ONE row, and all 324 case-colour grid rows in the reference workbook are empty scaffolding.
+4. **No Deviations:** Code must strictly adhere to the verified domain rules (zero LLM math, declarative grid generation, integer IDR, 0-1 unit share, same-shade fold-back).
+5. **Proactive Updates:** If any unforeseen edge case is discovered during execution, stop and discuss before making plan changes.
+6. **History Preservation:** Mark completed phases with `[Completed]` and retain all task items.
+7. **Proof is Mandatory:** Every phase must culminate in passing automated tests or executable assertions verifying the stated success criteria.
+8. **Handoff Brief Maintenance:** At the end of every phase, the `# Handoff Brief` section at the bottom of this document must be updated.
 
 ---
 
@@ -200,12 +202,17 @@ backend/
   - Dialect-guarded connection event hook.
   - Context-managed database session maker.
 - [ ] Implement `backend/app/modules/storage/models.py`:
-  - `TransactionItem`: `id`, `import_batch_id`, `platform`, `period_start`, `period_end`, `product_group`, `raw_variant`, `clean_variant`, `is_bundling`, `is_cross_bundling`, `case_color` (nullable), `sku`, `qty_sold` (Integer), `revenue` (BigInteger exact IDR), `created_at` (UTC).
+  - `TransactionItem`: `id`, `import_batch_id`, `platform`, `period_start`, `period_end`, `product_group`, `raw_variant`, `clean_variant`, `is_bundling`, `is_cross_bundling`, `case_color` (nullable, **SKU traceability only — never in a reporting `GROUP BY`**), `sku`, `qty_sold` (Integer), `revenue` (BigInteger exact IDR), `created_at` (UTC).
   - Note: `transaction_date` (nullable) included for future Phase 2 daily series schema compatibility.
-  - Composite indexes: `(import_batch_id, is_cross_bundling, product_group)` and `(import_batch_id, product_group, clean_variant, case_color)`.
+  - Composite indexes: `(import_batch_id, is_cross_bundling, product_group)`, `(platform, period_start, period_end)`, and grid key `(import_batch_id, product_group, clean_variant)`. `case_color` is deliberately **excluded** from the grid key.
   - `MappingTemplate`: cached column mappings and cleaning rules.
+- [ ] Enforce the golden-file scope boundary (Execution Rule 2) at the persistence boundary:
+  - Exclude records where `clean_variant` is `'-'` or empty (180 Shopee records in the reference period; 1 carries Rp 4,950). **Required:** including that row pushes golden's Tinted Jelly Balm total from 24 to 25 units.
+  - Exclude products not resolvable to a catalog family (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings — 17 records, Rp 0 this period).
+  - Return an auditable tally (`skipped_unreported`: count, qty, revenue) from the persistence call so excluded volume is reviewable rather than silently vanishing.
+- [ ] Register Tinted Jelly Balm case-colour tokens as recognised-and-ignorable so the warning channel carries real signal only (`Buttered Yellow`, `Matcha Strawberry`, plus truncations `Fizzy`, `Sweetie`, `Cherry`, `Matcha`, `But Yellow`). Target: Shopee warnings 220 -> ~0, TikTok 15 -> 0.
 - [ ] Implement `backend/app/modules/storage/repository.py`:
-  - **Query A (Variant Analytics):** Groups by `(product_group, clean_variant, case_color)` with `contribution_ratio` = `CAST(SUM(qty_sold) AS FLOAT) / total_product_qty` ($0\text{--}1$ ratio).
+  - **Query A (Variant Analytics):** Groups by `(product_group, clean_variant)` — **not** `case_color` — with `contribution_ratio` = `CAST(SUM(qty_sold) AS FLOAT) / total_product_qty` ($0\text{--}1$ ratio).
   - **Query B (Product Group Summary):** Rollup group performance with share against grand total quantity.
   - **Query C (Multi-Platform / Date Range Aggregation).**
   - **Query D (Batch History Overview).**
@@ -215,9 +222,13 @@ backend/
   - Insert transformed sample data into SQLite test database.
   - Verify Query A returns `Active` contribution ratio `0.05974791292` (matching `golden_totals.json` to 11 decimal places).
   - Verify variant ratios within Glow Up Tint sum to exactly `1.0`.
+  - Verify no persisted record has `clean_variant in ('-', '')`.
+  - Verify Tinted Jelly Balm aggregates to **6 shade rows** (not one per case colour) totalling qty `24`, revenue `2,234,703` — proving case colour does not split rows.
+  - Verify the `skipped_unreported` tally reports 180 Shopee exclusions and Rp 4,950.
 
 **Success Criteria:**
 - `pytest backend/tests/test_storage.py` passes without float drift or rounding anomalies.
+- No reporting query groups by `case_color`; TJB resolves to one row per shade.
 
 ---
 
