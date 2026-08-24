@@ -242,6 +242,7 @@ def test_revenue_is_conserved_through_transform(raw_shopee_path):
 | 4 | `test_fixtures.py` (41 lines) validates the fixture itself — good practice, worth keeping. |
 | 5 | `normalizer.py` is 575 lines, the largest module by a wide margin. Not a problem now; if it grows further, the token-splitting and alias-resolution concerns are the natural seam. |
 | 6 | No `.venv` in `backend/`; tests run against system Python 3.13. Fine locally, but pin an environment before packaging so PyInstaller resolves the same interpreter. |
+| 7 | **Post-review finding (2026-08-25):** `PRODUK_GROUP_ORDER` carries workbook-leftover trailing spaces on `Swipe To Glow ` / `Bundling Swipe To Glow `, which propagate into 109 records' `product_group` via `_CANONICAL_GROUP_MAP` while `grid.py` and the golden oracle use clean names — the grid left-join will orphan these unless rstripped on both sides. Now a **required** Phase 4 item in [ImplementationPlan.md](ImplementationPlan.md). |
 
 ---
 

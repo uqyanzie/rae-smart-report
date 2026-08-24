@@ -194,36 +194,36 @@ backend/
 
 ---
 
-### Phase 4: SQLite Analytics Storage & CTE Repository
+### Phase 4: SQLite Analytics Storage & CTE Repository [Completed]
 **Goal:** Implement transactional SQLite models and analytical CTE queries producing 0-1 unit shares.
 
-- [ ] Implement `backend/app/modules/storage/database.py`:
+- [x] Implement `backend/app/modules/storage/database.py`:
   - SQLite engine configuration with foreign keys, WAL mode, memory temp store.
   - Dialect-guarded connection event hook.
   - Context-managed database session maker.
-- [ ] Implement `backend/app/modules/storage/models.py`:
+- [x] Implement `backend/app/modules/storage/models.py`:
   - `TransactionItem`: `id`, `import_batch_id`, `platform`, `period_start`, `period_end`, `product_group`, `raw_variant`, `clean_variant`, `is_bundling`, `is_cross_bundling`, `case_color` (nullable, **SKU traceability only — never in a reporting `GROUP BY`**), `sku`, `qty_sold` (Integer), `revenue` (BigInteger exact IDR), `created_at` (UTC).
   - Note: `transaction_date` (nullable) included for future Phase 2 daily series schema compatibility.
   - Composite indexes: `(import_batch_id, is_cross_bundling, product_group)`, `(platform, period_start, period_end)`, and grid key `(import_batch_id, product_group, clean_variant)`. `case_color` is deliberately **excluded** from the grid key.
   - `MappingTemplate`: cached column mappings and cleaning rules.
-- [ ] Enforce the golden-file scope boundary (Execution Rule 2) at the persistence boundary:
+- [x] Enforce the golden-file scope boundary (Execution Rule 2) at the persistence boundary:
   - Exclude records where `clean_variant` is `'-'` or empty (180 Shopee records in the reference period; 1 carries Rp 4,950). **Required:** including that row pushes golden's Tinted Jelly Balm total from 24 to 25 units.
   - Exclude products not resolvable to a catalog family (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings — 17 records, Rp 0 this period).
   - Return an auditable tally (`skipped_unreported`: count, qty, revenue) from the persistence call so excluded volume is reviewable rather than silently vanishing.
-- [ ] Register Tinted Jelly Balm case-colour tokens as recognised-and-ignorable so the warning channel carries real signal only (`Buttered Yellow`, `Matcha Strawberry`, plus truncations `Fizzy`, `Sweetie`, `Cherry`, `Matcha`, `But Yellow`). Target: Shopee warnings 220 -> ~0, TikTok 15 -> 0.
-- [ ] Normalize report-key whitespace so the grid left-join keys match persisted data (**required**, discovered post-review):
+- [x] Register Tinted Jelly Balm case-colour tokens as recognised-and-ignorable so the warning channel carries real signal only (`Buttered Yellow`, `Matcha Strawberry`, plus truncations `Fizzy`, `Sweetie`, `Cherry`, `Matcha`, `But Yellow`). Target: Shopee warnings 220 -> ~0, TikTok 15 -> 0.
+- [x] Normalize report-key whitespace so the grid left-join keys match persisted data (**required**, discovered post-review):
   - Root cause: `PRODUK_GROUP_ORDER` carries workbook-leftover trailing spaces on `"Swipe To Glow "` and `"Bundling Swipe To Glow "`. `_CANONICAL_GROUP_MAP` in `normalizer.py` propagates them into `product_group` (measured this period: 75 `Swipe To Glow ` + 34 `Bundling Swipe To Glow ` = 109 records) while `grid.py` emits `family.name.rstrip()` clean names and the golden oracle stores clean names too.
   - Fix the source: strip the two entries in `PRODUK_GROUP_ORDER` and update `test_produk_group_order_contains_16_groups` in `test_domain_catalog.py` to assert clean names. Golden-match tests already `.rstrip()` both sides, so they remain green.
   - Defense-in-depth: `.rstrip()` `product_group` and `clean_variant` on both sides of every comparison/join in the repository (rae-report-template skill rule 7: the reference workbook contains 57 manually-entered trailing spaces; do not reproduce them).
   - Not optional: without it, the left-join grid population orphans every Swipe To Glow sale into a group the catalog grid does not contain.
-- [ ] Implement `backend/app/modules/storage/repository.py`:
+- [x] Implement `backend/app/modules/storage/repository.py`:
   - **Query A (Variant Analytics):** Groups by `(product_group, clean_variant)` — **not** `case_color` — with `contribution_ratio` = `CAST(SUM(qty_sold) AS FLOAT) / total_product_qty` ($0\text{--}1$ ratio).
   - **Query B (Product Group Summary):** Rollup group performance with share against grand total quantity.
   - **Query C (Multi-Platform / Date Range Aggregation).**
   - **Query D (Batch History Overview).**
   - **Query E (Batch Deletion).**
   - **Left-Join Grid Population:** Integrates catalog grid with Query A aggregates, defaulting missing variants to 0 qty and 0 revenue while preserving group presence.
-- [ ] Author `backend/tests/test_storage.py`:
+- [x] Author `backend/tests/test_storage.py`:
   - Insert transformed sample data into SQLite test database.
   - Verify Query A returns `Active` contribution ratio `0.05974791292` (matching `golden_totals.json` to 11 decimal places).
   - Verify variant ratios within Glow Up Tint sum to exactly `1.0`.
@@ -323,20 +323,17 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
 
 # Handoff Brief
 
-- **Current Phase:** Phase 4 (SQLite Analytics Storage & CTE Repository)
-- **What was done:** Completed Phase 3 (Transformation, Normalization & Fixed Grid Generator):
-  - Implemented variant cleaning, noise stripping, and token normalizer in `backend/app/modules/transformer/normalizer.py`.
-  - Implemented same-shade 2-pack fold-back engine with strict family validation and arithmetic ($1\times$ revenue, $2\times$ quantity) in `backend/app/modules/transformer/foldback.py`.
-  - Implemented combinatorial fixed grid generator (181 rows for `Produk`, $C(n,2)$ intra-bundles, $n \times m$ and $n \times m \times 3$ cross-bundles) in `backend/app/modules/transformer/grid.py`.
-  - Authored comprehensive test suite in `backend/tests/test_transformer.py` with 100% exact numerical match against `golden_totals.json` for both Shopee and TikTok.
-  - Verified full test suite with 152/152 passing tests (`pytest backend/tests/ -v`).
-- **What is next:** Execute Phase 4 (SQLite Analytics Storage & CTE Repository):
-  - Configure transactional SQLite engine with WAL mode and dialect hooks in `backend/app/modules/storage/database.py`.
-  - Define SQLAlchemy ORM `TransactionItem` model with indexes in `backend/app/modules/storage/models.py`.
-  - Normalize `PRODUK_GROUP_ORDER` trailing spaces (`Swipe To Glow ` / `Bundling Swipe To Glow `) and rstrip report keys so persisted `product_group` matches the catalog grid for the left-join population.
-  - Implement repository queries (Queries A-E) in `backend/app/modules/storage/repository.py` to calculate exact 0-1 unit shares.
-  - Author and verify `backend/tests/test_storage.py`.
+- **Current Phase:** Phase 4 (SQLite Analytics Storage & CTE Repository) — **completed**, 165/165 tests pass.
+- **What was done:**
+  - **Report-key hygiene (new required item):** stripped workbook-leftover trailing spaces from `"Swipe To Glow "` / `"Bundling Swipe To Glow "` in `PRODUK_GROUP_ORDER` (`backend/app/domain/catalog.py`) and updated `test_produk_group_order_contains_16_groups` to assert clean names. Transformed `product_group` values are now clean (0 trailing-space groups this period); every repository join/comparison additionally `.rstrip()`s both sides (skill rule 7).
+  - **Ignorable tokens (§3 rec 5):** registered `Buttered Yellow`, `Matcha Strawberry`, `Fizzy`, `Sweetie`, `Cherry`, `Matcha`, `But Yellow` in `PACKAGING_TOKENS`. **Measured warning counts: Shopee 220 → 184, TikTok 15 → 0.** The 184 = 180 dash-class + 4 residual bare `'2'` quantity-prefix tokens left by `extract_case_color` (e.g. `'BunPink + Spill Nude,2 Cherry Pop'` → `'2'`) — not covered by the review's enumerated token list. Discrepancy note: the plan's line "220 → ~0" was wrong; the review's "→ ~180 (all dash)" missed the 4 `'2'` tokens; **actual = 184**.
+  - **Storage module** `backend/app/modules/storage/`: `database.py` (SQLite engine factory, WAL / `synchronous=NORMAL` / `foreign_keys=ON` / `temp_store=MEMORY` PRAGMAs via dialect-guarded connection event hook, explicit sqlite3 datetime adapter for Python 3.12+, `init_db`, `session_factory_for`, context-managed `session_scope`); `models.py` (`TransactionItem` incl. nullable `transaction_date` for future daily series, `MappingTemplate`; composite indexes `(import_batch_id, is_cross_bundling, product_group)`, `(platform, period_start, period_end)`, grid key `(import_batch_id, product_group, clean_variant)` — `case_color` deliberately absent); `repository.py` (Queries A–E from the skill SQL + left-join grid population via CTE-VALUES with named params + MappingTemplate save/lookup).
+  - **Persistence scope boundary (Execution Rule 2):** `persist_batch` excludes dash/empty `clean_variant` and non-catalog `product_group` records with an auditable tally. **Measured `skipped_unreported` = 180 records / qty 1 / Rp 4,950 (Shopee); TikTok = 0.** Reason breakdown: 167 dash-variant (incl. 4 dash rows in legit cross-family groups) + 13 unresolved-group (Body Toner, Face Toner, Lippie Serum 2.0, Blurring Powder, deleted listings, etc.; all qty 0 / Rp 0). Note: the plan's "17 out-of-catalog" was counted against a 16-group canonical set; with the full 37-group set (16 + 21 cross-family pairs, matching what the normalizer can emit) the **actual is 13**.
+  - **Swipe To Glow join-key hygiene:** the 75 transform-level singles (64 Shopee + 11 TikTok) include 13 `'-'` parent rows (qty 0, rev 0) excluded at persist → **62 persisted singles** land under the grid's clean `Swipe To Glow` group; grid population reproduces golden totals (181 rows; Swipe To Glow qty 72 / rev 6,094,067; Bundling Swipe To Glow 5 / 747,485).
+  - **Tests** `backend/tests/test_storage.py` (13 tests): Active ratio `0.05974791292` to 11 dp, GUT variant ratios sum exactly `1.0`, TJB = exactly 6 shade rows / qty 24 / revenue 2,234,703 (case colour never splits rows), no persisted `'-'`/empty `clean_variant`, no whitespace keys, grid left-join, Queries B–E, MappingTemplate cache. Full suite: **165 passed** (`pytest tests/ -v`).
+- **What is next:** Execute Phase 5 (Executive OpenPyXL Report Exporter). **Owed before Phase 5 (not done here):** the §4 test-rigour tightening in `backend/tests/test_transformer.py` / `conftest.py`.
 - **Artifacts:**
   - Plan: [ImplementationPlan.md](ImplementationPlan.md)
+  - Skill references: `.agents/skills/sqlite-analytics-specialist/` (`references/schema_models.py`, `references/analytics_queries.sql`), `.agents/skills/rae-report-template/SKILL.md`
 
 

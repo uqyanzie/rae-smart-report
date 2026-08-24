@@ -310,8 +310,8 @@ FAMILIES: Final[Tuple[Family, ...]] = (
 PRODUK_GROUP_ORDER: Final[Tuple[str, ...]] = (
     "Glow Up Tint",
     "Bundling Glow Up Tint",
-    "Swipe To Glow ",
-    "Bundling Swipe To Glow ",
+    "Swipe To Glow",
+    "Bundling Swipe To Glow",
     "Power Frosted Velvet Matte",
     "Bundling Power Frosted Velvet Matte",
     "Tinted Jelly Balm",
@@ -340,6 +340,19 @@ PACKAGING_TOKENS: Final[Tuple[str, ...]] = (
     "aplikator",
     "default",
     "tidak boleh ecer",
+    # Tinted Jelly Balm case-colour tokens: recognised-and-ignorable so the
+    # warning channel carries real signal only. Covers the two colours added
+    # after CASE_COLORS was pinned (Buttered Yellow, Matcha Strawberry) plus
+    # the truncated forms observed in bundle listings (Fizzy, Sweetie, Cherry,
+    # Matcha, But Yellow). Same treatment as "random keychain": the shade
+    # total already includes these units, so ignoring them costs nothing.
+    "buttered yellow",
+    "matcha strawberry",
+    "fizzy",
+    "sweetie",
+    "cherry",
+    "matcha",
+    "but yellow",
 )
 
 

@@ -153,8 +153,8 @@ def test_produk_group_order_contains_16_groups():
     assert PRODUK_GROUP_ORDER == (
         "Glow Up Tint",
         "Bundling Glow Up Tint",
-        "Swipe To Glow ",
-        "Bundling Swipe To Glow ",
+        "Swipe To Glow",
+        "Bundling Swipe To Glow",
         "Power Frosted Velvet Matte",
         "Bundling Power Frosted Velvet Matte",
         "Tinted Jelly Balm",
