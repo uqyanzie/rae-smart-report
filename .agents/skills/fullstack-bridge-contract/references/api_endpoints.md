@@ -11,8 +11,8 @@
 | `POST` | `/api/profile` | Detects the platform adapter, or returns a cached mapping template by header signature | `ProfileRequestDTO` | `ProfilerResponseDTO` |
 | `POST` | `/api/transform` | Runs the ELT pipeline, persists the batch to SQLite, returns the report summary + audit tally | `TransformAndSaveRequestDTO` | `TransformResponseDTO` |
 | `GET` | `/api/reports/batches` | Lists all persisted batches, newest first | None | `BatchSummaryDTO[]` |
-| `GET` | `/api/reports/batches/{batchId}/variants` | Query A: variant-level breakdown for a batch | Query `?is_cross_bundling=` (int, default `0`) | `VariantPerformanceDTO[]` |
-| `GET` | `/api/reports/batches/{batchId}/products` | Query B: master product group rollups for a batch | Query `?is_cross_bundling=` (int, default `0`) | `ProductSummaryDTO[]` |
+| `GET` | `/api/reports/batches/{batchId}/variants` | Query A: variant-level breakdown for a batch | Query `?is_cross_bundling=` (int, default `0`), `?isBundling=` (int 0/1, optional) | `VariantPerformanceDTO[]` |
+| `GET` | `/api/reports/batches/{batchId}/products` | Query B: master product group rollups for a batch | Query `?is_cross_bundling=` (int, default `0`), `?isBundling=` (int 0/1, optional) | `ProductSummaryDTO[]` |
 | `GET` | `/api/reports/aggregate` | Query C: multi-batch / multi-platform / date-range aggregation | Query `?platform=`, `?periodStart=`, `?periodEnd=`, `?isCrossBundling=` (all optional) | `AggregateRowDTO[]` |
 | `DELETE` | `/api/reports/batches/{batchId}` | Cascade-deletes a batch from `transaction_items` | None | `DeleteBatchResponseDTO` |
 | `GET` | `/api/export/excel` | Streams a 4-sheet executive workbook | Query `?batchIds=` (one batch per platform) | Binary `.xlsx` stream |
@@ -20,9 +20,11 @@
 > **Query-parameter casing:** JSON bodies are strictly `camelCase`. The
 > `is_cross_bundling` query parameter on the variant/product endpoints is
 > `snake_case` because it is bound directly to the FastAPI parameter name. The
-> aggregate endpoint's filters are all `camelCase` (`isCrossBundling`),
-> declared with explicit aliases. A generated OpenAPI client will name them
-> correctly. `batchIds` is declared with an explicit `camelCase` alias.
+> `isBundling` filter (0 = Single, 1 = Bundling, omitted = both) is declared
+> with an explicit `camelCase` alias on the same endpoints. The aggregate
+> endpoint's filters are all `camelCase` (`isCrossBundling`), declared with
+> explicit aliases. A generated OpenAPI client will name them correctly.
+> `batchIds` is declared with an explicit `camelCase` alias.
 
 ## Standard Error Response Structure
 

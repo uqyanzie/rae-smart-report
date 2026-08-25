@@ -122,12 +122,26 @@ export const apiClient = {
     return request('/reports/batches')
   },
 
-  batchVariants(batchId: string, isCrossBundling = 0): Promise<components['schemas']['VariantPerformanceDTO'][]> {
-    return request(`/reports/batches/${encodeURIComponent(batchId)}/variants`, undefined, { is_cross_bundling: isCrossBundling })
+  batchVariants(
+    batchId: string,
+    isCrossBundling = 0,
+    isBundling?: number | null,
+  ): Promise<components['schemas']['VariantPerformanceDTO'][]> {
+    return request(`/reports/batches/${encodeURIComponent(batchId)}/variants`, undefined, {
+      is_cross_bundling: isCrossBundling,
+      isBundling,
+    })
   },
 
-  batchProducts(batchId: string, isCrossBundling = 0): Promise<components['schemas']['ProductSummaryDTO'][]> {
-    return request(`/reports/batches/${encodeURIComponent(batchId)}/products`, undefined, { is_cross_bundling: isCrossBundling })
+  batchProducts(
+    batchId: string,
+    isCrossBundling = 0,
+    isBundling?: number | null,
+  ): Promise<components['schemas']['ProductSummaryDTO'][]> {
+    return request(`/reports/batches/${encodeURIComponent(batchId)}/products`, undefined, {
+      is_cross_bundling: isCrossBundling,
+      isBundling,
+    })
   },
 
   aggregate(params: {

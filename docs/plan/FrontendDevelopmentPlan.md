@@ -167,25 +167,25 @@ The former **Phase F (Integration & Packaging)** is renamed **Phase H** and now 
 
 ---
 
-## Phase G: Batch-Scoped Dashboard Redesign [Pending]
+## Phase G: Batch-Scoped Dashboard Redesign [Complete]
 
 **Goal:** Replace the cross-batch aggregate dashboard with a batch-scoped dashboard: batch selector + Contribution Pie chart + Product sales bar chart + data list, filtered by 3 multi-select checkboxes (Single / Bundling / Cross Bundling).
 
 **Backend (`isBundling` filter):**
-- [ ] `backend/app/modules/storage/repository.py`: add `is_bundling: bool | int | None = None` to `variant_analytics` (Query A) and `product_group_summary` (Query B). SQL adds `(:is_bundling IS NULL OR is_bundling = :is_bundling)` in the WHERE **and** inside the `product_totals` / `grand_total` CTEs so `contribution_ratio` is computed within the selected subset.
-- [ ] `backend/app/api/routes.py`: add `is_bundling: int | None = Query(default=None, alias="isBundling")` to `GET /api/reports/batches/{batch_id}/variants` and `GET /api/reports/batches/{batch_id}/products`.
-- [ ] Regenerate `frontend/src/services/api.ts` via `npm run generate:api` so the client exposes the new `isBundling` query param.
-- [ ] Tests (`backend/tests/test_api.py`, `backend/tests/test_storage.py`): `isBundling=0&isCrossBundling=0` returns only non-`Bundling*` groups; `isBundling=1` returns only `Bundling*` groups; the qty sums of the two partition equal the unfiltered `isCrossBundling=0` total (Shopee 6,910 / TikTok 11,575 split correctly).
+- [x] `backend/app/modules/storage/repository.py`: add `is_bundling: bool | int | None = None` to `variant_analytics` (Query A) and `product_group_summary` (Query B). SQL adds `(:is_bundling IS NULL OR is_bundling = :is_bundling)` in the WHERE **and** inside the `product_totals` / `grand_total` CTEs so `contribution_ratio` is computed within the selected subset.
+- [x] `backend/app/api/routes.py`: add `is_bundling: int | None = Query(default=None, alias="isBundling")` to `GET /api/reports/batches/{batch_id}/variants` and `GET /api/reports/batches/{batch_id}/products`.
+- [x] Regenerate `frontend/src/services/api.ts` via `npm run generate:api` so the client exposes the new `isBundling` query param.
+- [x] Tests (`backend/tests/test_api.py`, `backend/tests/test_storage.py`): `isBundling=0&isCrossBundling=0` returns only non-`Bundling*` groups; `isBundling=1` returns only `Bundling*` groups; the qty sums of the two partition equal the unfiltered `isCrossBundling=0` total (Shopee 6,910 / TikTok 11,575 split correctly).
 
 **Frontend (dashboard):**
-- [ ] Add `recharts` to `frontend/package.json`.
-- [ ] New hook `src/hooks/useBatchDashboard.ts`: given `batchId` + active `(isCrossBundling, isBundling)` tuples, fetch `/api/reports/batches/{id}/variants` per tuple (up to 3 parallel calls), merge the rows, and compute group rollups client-side (deterministic integer sums) for the charts and summary cards.
-- [ ] Redesign `src/pages/HomePage.tsx`:
+- [x] Add `recharts` to `frontend/package.json`.
+- [x] New hook `src/hooks/useBatchDashboard.ts`: given `batchId` + active `(isCrossBundling, isBundling)` tuples, fetch `/api/reports/batches/{id}/variants` per tuple (up to 3 parallel calls), merge the rows, and compute group rollups client-side (deterministic integer sums) for the charts and summary cards.
+- [x] Redesign `src/pages/HomePage.tsx`:
   - Batch selector (from `GET /api/reports/batches`, existing `useBatches` hook).
   - 3 checkboxes (multi-select OR; default all checked): Single (`isCrossBundling=0, isBundling=0`), Bundling (`isCrossBundling=0, isBundling=1`), Cross Bundling (`isCrossBundling=1`).
   - Contribution Pie chart (per-group qty share) + Product sales bar chart (per-group revenue) with recharts.
   - Data list table (variant rows) + summary cards (units / revenue) for the active subset.
-- [ ] `npm run typecheck`, `npm run lint`, `npm run build` clean.
+- [x] `npm run typecheck`, `npm run lint`, `npm run build` clean.
 
 **Success Criteria:**
 - Selecting a batch renders pie/bar/list for the default all-types selection; toggling the checkboxes filters the three datasets in isolation and in combination.
@@ -229,16 +229,21 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase F (Exported Excel Golden Display) — **complete**.
-- **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (the final milestone, runs after F/G). Per the STOP protocol, the next session starts the new **Phase G**. This Handoff Brief will be updated again at the end of each phase.
-- **Done so far (Phase F):**
-  - `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): left table now emits the FULL catalog grid — Produk sheets 181 rows, Produk 2 sheets 813 rows (the `qty <= 0` skip removed). Unsold variants carry their col-B variant name with blank C/D, but still get a col-E contribution formula on every row. Col E is always `=(C{r}/$H${summary})*100%` and col J always `=(H{r}/$H$grand_total)*100%` (unguarded — zero-total groups reproduce the golden `#DIV/0!` on open). Every group's H/I is an always-on `=SUM` over its contiguous grid span; the Empty-Group literal-0 branch and `_contribution_or_zero` helper were removed. Module docstring rewritten (sparse → full).
-  - `backend/tests/test_exporter.py` rewritten to the new contract (11 tests): full-grid emission counts (181/181/813/813) with nothing spilling past, blank C/D for unsold variants (sold rows unchanged), every group's in-bounds contiguous `=SUM` span, unguarded E formulas on zero-total groups, no baked `#DIV/0!` string (errors computed on open), contribution anchors pointing at formula cells, the 36-row Produk 2 Group 9 (no double-count), golden totals conserved, right-table completeness, and number masks.
-  - **Phase F verification (live backend, temp DB):** `pytest backend/tests/` = **221 passed**; `ruff check backend/` clean. An exported workbook from the sample batches reproduces the golden display: Produk S/T = 181 rows (102 / 92 sold), Produk 2 S/T = 813 rows (7 / 13 sold — matching the golden's non-empty counts exactly); totals conserved (Shopee **6,910** / TikTok **11,575**; cross qty 7 / 13); unsold rows render blank C/D with `=(C20/$H$3)*100%`-style unguarded E formulas and always-on `=SUM(C134:C199)`-style H/I ranges.
-  - **Doc-drift note:** `.agents/skills/excel-styling-formatter/SKILL.md`, `docs/specs/excel-exporter-engine.md`, and `docs/plan/BackendImplementationPlan.md` still describe the pre-2026-08-25 sparse/guard contract; they are superseded for the export display by this phase. A docs sweep can fold the new golden-display rules into those files during a future housekeeping session (out of scope here per phase discipline).
+- **Current Phase:** Phase G (Batch-Scoped Dashboard Redesign) — **complete**.
+- **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (the final milestone, runs after F/G). Per the STOP protocol, the next session starts the final **Phase H**. This Handoff Brief will be updated again at the end of each phase.
+- **Done so far (Phase G):**
+  - **Backend `isBundling` filter:** `backend/app/modules/storage/repository.py` — `variant_analytics` (Query A) and `product_group_summary` (Query B) accept `is_bundling: bool | int | None = None`; both SQL CTEs (`product_totals` / `grand_total`) **and** the outer WHERE apply `(:is_bundling IS NULL OR is_bundling = :is_bundling)` so `contribution_ratio` is computed within the selected partition. New `_coerce_bundling_flag` normalizes the binding. `backend/app/api/routes.py` — `is_bundling: int | None = Query(default=None, alias="isBundling")` added to `GET /variants` and `GET /products`.
+  - **API client regen:** `frontend/src/services/api.ts` regenerated from the live `/openapi.json` (now exposes `isBundling?: number | null`); `apiClient.batchVariants`/`batchProducts` gained an optional `isBundling` param (`is_cross_bundling` stays `snake_case` on the wire; `isBundling` is the camelCase alias).
+  - **Frontend dashboard:** added `recharts`. New `src/hooks/useBatchDashboard.ts` — fetches the 3 partition datasets in parallel (`is_cross_bundling=0,isBundling=0` / `=0,isBundling=1` / `is_cross_bundling=1`), tags rows by `source`, merges the active selection, and computes group rollups client-side (deterministic integer sums + 0–1 qty share). `src/pages/HomePage.tsx` redesigned: batch selector (default newest), 3 multi-select checkboxes (Single / Bundling / Cross Bundling, default all), summary cards (rows / units / revenue), recharts Contribution Pie + Product sales Bar, and a variant data-list table with a per-row type badge and global share.
+  - **Phase G verification (live server, temp DB):**
+    - `pytest backend/tests/` = **227 passed** (6 new: `test_query_a_is_bundling_partition`, `test_query_a_is_bundling_tiktok`, `test_query_b_is_bundling_partition`, `test_variants_is_bundling_partition`, `test_variants_is_bundling_tiktok`, `test_products_is_bundling_partition`); `ruff check backend/` clean.
+    - Partition invariant holds through both the repository and the HTTP API: Shopee 6,553 (Single) + 357 (Bundling) = **6,910**; TikTok 11,377 + 198 = **11,575**; `Bundling*` groups ⟺ `is_bundling=1` exactly; per-group variant ratios sum to 1.0 within each partition (zero-qty groups yield 0.0 ratios); Query B group ratios partition the subset total.
+    - `npm run typecheck`, `npm run lint`, `npm run build` all clean (build warns only about the recharts-inflated chunk size; acceptable for a local SPA).
+    - Live-server smoke: seeded both sample batches through `ingest → profile → transform`, then issued the exact three query strings `useBatchDashboard` sends and confirmed the partitions (6,910 / 11,575 / cross 7 / 13); the SPA mount served the freshly built dashboard bundle at `/`.
+    - Bridge doc `.agents/skills/fullstack-bridge-contract/references/api_endpoints.md` updated with the `isBundling` query param on both endpoints.
+  - **No regression** in existing BatchDetail (`useBatchDetail`/`BatchDetailPage`) or Export flows — their endpoint call shapes are unchanged (they pass only `is_cross_bundling`).
 - **What is next (fresh session):**
-  1. Phase G (Batch-Scoped Dashboard Redesign): `isBundling` query filter on `/variants` and `/products` (repository Queries A/B + `routes.py`), regenerate `frontend/src/services/api.ts`, add `recharts`, `src/hooks/useBatchDashboard.ts`, and redesign `HomePage.tsx` into a batch-selector + 3-checkbox (Single / Bundling / Cross Bundling) + Contribution Pie + Product bar chart + data-list dashboard.
-  2. Phase H (Integration & Packaging): PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, and the clean-machine smoke test reproducing the golden workbook from the sample files.
+  1. Phase H (Integration & Packaging) — the final milestone: PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, hidden console, clean shutdown, and the clean-machine smoke test reproducing the golden workbook from the sample files (launch → upload `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → export → open the workbook).
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`

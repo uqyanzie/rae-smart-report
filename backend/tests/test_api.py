@@ -322,6 +322,85 @@ def test_product_summary(client):
 
 
 # ---------------------------------------------------------------------------
+# Phase G: isBundling filter (Single / Bundling partition within non-cross)
+# ---------------------------------------------------------------------------
+
+
+def test_variants_is_bundling_partition(client):
+    """isBundling=0/1 splits the non-cross variant set; the two partitions
+    sum to the unfiltered golden total (6,910 for Shopee)."""
+    resp = client.get(
+        f"/api/reports/batches/{shopee_batch_id}/variants",
+        params={"isBundling": 0, "isCrossBundling": 0},
+    )
+    assert resp.status_code == 200
+    singles = resp.json()
+    _assert_camel_case(singles)
+    assert singles
+    assert all(r["isBundling"] is False for r in singles)
+    assert all(not r["productGroup"].startswith("Bundling") for r in singles)
+
+    resp = client.get(
+        f"/api/reports/batches/{shopee_batch_id}/variants",
+        params={"isBundling": 1, "isCrossBundling": 0},
+    )
+    bundles = resp.json()
+    assert bundles
+    assert all(r["isBundling"] is True for r in bundles)
+    assert all(r["productGroup"].startswith("Bundling") for r in bundles)
+
+    resp = client.get(f"/api/reports/batches/{shopee_batch_id}/variants")
+    full = resp.json()
+    assert sum(r["totalQty"] for r in singles) + sum(r["totalQty"] for r in bundles) == sum(
+        r["totalQty"] for r in full
+    ) == GOLDEN_SHOPEE_QTY
+
+
+def test_variants_is_bundling_tiktok(client):
+    """The TikTok partition splits the golden 11,575 non-cross total."""
+    resp = client.get(
+        f"/api/reports/batches/{tiktok_batch_id}/variants",
+        params={"isBundling": 0, "isCrossBundling": 0},
+    )
+    singles = resp.json()
+    resp = client.get(
+        f"/api/reports/batches/{tiktok_batch_id}/variants",
+        params={"isBundling": 1, "isCrossBundling": 0},
+    )
+    bundles = resp.json()
+    assert sum(r["totalQty"] for r in singles) + sum(r["totalQty"] for r in bundles) == (
+        GOLDEN_TIKTOK_QTY
+    )
+    assert all(r["productGroup"].startswith("Bundling") for r in bundles)
+
+
+def test_products_is_bundling_partition(client):
+    """Product group summary splits identically via isBundling."""
+    resp = client.get(
+        f"/api/reports/batches/{shopee_batch_id}/products",
+        params={"isBundling": 0, "isCrossBundling": 0},
+    )
+    singles = resp.json()
+    _assert_camel_case(singles)
+    assert singles
+    assert all(not r["productGroup"].startswith("Bundling") for r in singles)
+
+    resp = client.get(
+        f"/api/reports/batches/{shopee_batch_id}/products",
+        params={"isBundling": 1, "isCrossBundling": 0},
+    )
+    bundles = resp.json()
+    assert bundles
+    assert all(r["productGroup"].startswith("Bundling") for r in bundles)
+
+    resp = client.get(f"/api/reports/batches/{shopee_batch_id}/products")
+    full = resp.json()
+    assert sum(r["totalQty"] for r in singles) + sum(r["totalQty"] for r in bundles) == sum(
+        r["totalQty"] for r in full
+    ) == GOLDEN_SHOPEE_QTY
+
+
+# ---------------------------------------------------------------------------
 # Query C: multi-platform aggregation
 # ---------------------------------------------------------------------------
 

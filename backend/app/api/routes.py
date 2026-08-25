@@ -313,10 +313,17 @@ async def list_batches(
 async def batch_variants(
     batch_id: str,
     is_cross_bundling: int = Query(default=0),
+    is_bundling: int | None = Query(default=None, alias="isBundling"),
     repo: AnalyticsRepository = Depends(_get_repository),
 ) -> list[VariantPerformanceDTO]:
-    """Returns variant-level performance breakdown for a batch."""
-    rows = repo.variant_analytics(batch_id, is_cross_bundling=is_cross_bundling)
+    """Returns variant-level performance breakdown for a batch.
+
+    ``isBundling`` (0 = Single, 1 = Bundling, omitted = both) narrows the
+    reported subset alongside ``is_cross_bundling``.
+    """
+    rows = repo.variant_analytics(
+        batch_id, is_cross_bundling=is_cross_bundling, is_bundling=is_bundling
+    )
     return [VariantPerformanceDTO(**row) for row in rows]
 
 
@@ -324,10 +331,17 @@ async def batch_variants(
 async def batch_products(
     batch_id: str,
     is_cross_bundling: int = Query(default=0),
+    is_bundling: int | None = Query(default=None, alias="isBundling"),
     repo: AnalyticsRepository = Depends(_get_repository),
 ) -> list[ProductSummaryDTO]:
-    """Returns master product group rollups for a batch."""
-    rows = repo.product_group_summary(batch_id, is_cross_bundling=is_cross_bundling)
+    """Returns master product group rollups for a batch.
+
+    ``isBundling`` (0 = Single, 1 = Bundling, omitted = both) narrows the
+    reported subset alongside ``is_cross_bundling``.
+    """
+    rows = repo.product_group_summary(
+        batch_id, is_cross_bundling=is_cross_bundling, is_bundling=is_bundling
+    )
     return [ProductSummaryDTO(**row) for row in rows]
 
 

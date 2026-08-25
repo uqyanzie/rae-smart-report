@@ -61,6 +61,7 @@ WITH product_totals AS (
     FROM transaction_items
     WHERE import_batch_id = :batch_id
       AND is_cross_bundling = :is_cross_bundling
+      AND (:is_bundling IS NULL OR is_bundling = :is_bundling)
     GROUP BY rtrim(product_group)
 )
 SELECT
@@ -79,6 +80,7 @@ FROM transaction_items t
 JOIN product_totals pt ON rtrim(t.product_group) = pt.product_group
 WHERE t.import_batch_id = :batch_id
   AND t.is_cross_bundling = :is_cross_bundling
+  AND (:is_bundling IS NULL OR t.is_bundling = :is_bundling)
 GROUP BY rtrim(t.product_group), t.clean_variant, t.is_bundling, t.is_cross_bundling,
          pt.total_product_qty
 ORDER BY t.product_group ASC, t.is_bundling ASC, total_qty DESC
@@ -92,6 +94,7 @@ WITH grand_total AS (
     FROM transaction_items
     WHERE import_batch_id = :batch_id
       AND is_cross_bundling = :is_cross_bundling
+      AND (:is_bundling IS NULL OR is_bundling = :is_bundling)
 )
 SELECT
     rtrim(product_group) AS product_group,
@@ -105,6 +108,7 @@ SELECT
 FROM transaction_items
 WHERE import_batch_id = :batch_id
   AND is_cross_bundling = :is_cross_bundling
+  AND (:is_bundling IS NULL OR is_bundling = :is_bundling)
 GROUP BY rtrim(product_group)
 ORDER BY total_qty DESC
 """
@@ -330,15 +334,24 @@ class AnalyticsRepository:
     # ------------------------------------------------------------------
 
     def variant_analytics(
-        self, import_batch_id: str, is_cross_bundling: bool | int = 0
+        self,
+        import_batch_id: str,
+        is_cross_bundling: bool | int = 0,
+        is_bundling: bool | int | None = None,
     ) -> list[dict[str, Any]]:
-        """Per-(product_group, clean_variant) totals with 0-1 unit share."""
+        """Per-(product_group, clean_variant) totals with 0-1 unit share.
+
+        ``is_bundling`` (0 = Single, 1 = Bundling, None = both) narrows the
+        subset inside both the CTE and the outer query so contribution ratios
+        are computed within the selected partition.
+        """
         rows = (
             self._session.execute(
                 text(_QUERY_A_VARIANT_ANALYTICS),
                 {
                     "batch_id": import_batch_id,
                     "is_cross_bundling": int(bool(is_cross_bundling)),
+                    "is_bundling": self._coerce_bundling_flag(is_bundling),
                 },
             )
             .mappings()
@@ -351,21 +364,34 @@ class AnalyticsRepository:
     # ------------------------------------------------------------------
 
     def product_group_summary(
-        self, import_batch_id: str, is_cross_bundling: bool | int = 0
+        self,
+        import_batch_id: str,
+        is_cross_bundling: bool | int = 0,
+        is_bundling: bool | int | None = None,
     ) -> list[dict[str, Any]]:
-        """Group-level rollup with share against grand total quantity."""
+        """Group-level rollup with share against grand total quantity.
+
+        ``is_bundling`` narrows the subset inside both the CTE and the outer
+        query so ``contribution_ratio`` is computed within the partition.
+        """
         rows = (
             self._session.execute(
                 text(_QUERY_B_PRODUCT_GROUP_SUMMARY),
                 {
                     "batch_id": import_batch_id,
                     "is_cross_bundling": int(bool(is_cross_bundling)),
+                    "is_bundling": self._coerce_bundling_flag(is_bundling),
                 },
             )
             .mappings()
             .all()
         )
         return [dict(row) for row in rows]
+
+    @staticmethod
+    def _coerce_bundling_flag(value: bool | int | None) -> int | None:
+        """Normalizes the optional ``is_bundling`` filter for SQLite binding."""
+        return None if value is None else int(bool(value))
 
     # ------------------------------------------------------------------
     # Query C: Multi-platform / date-range aggregation

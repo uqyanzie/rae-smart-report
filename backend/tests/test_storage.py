@@ -42,6 +42,16 @@ GOLDEN_BUNDLING_STG_REVENUE = 747_485
 GOLDEN_ACTIVE_QTY = 365
 GOLDEN_GUT_QTY = 6_109
 
+# Golden non-cross report boundaries (must stay fixed; FrontendDevelopmentPlan
+# Verification Plan regression anchors).
+GOLDEN_SHOPEE_QTY = 6_910
+GOLDEN_TIKTOK_QTY = 11_575
+# is_bundling partition of the non-cross sets (measured: Singles vs Bundles).
+GOLDEN_SHOPEE_SINGLES_QTY = 6_553
+GOLDEN_SHOPEE_INTRA_BUNDLE_QTY = 357
+GOLDEN_TIKTOK_SINGLES_QTY = 11_377
+GOLDEN_TIKTOK_INTRA_BUNDLE_QTY = 198
+
 SHOPEE_SKIPPED_COUNT = 180
 SHOPEE_SKIPPED_QTY = 1
 SHOPEE_SKIPPED_REVENUE = 4_950
@@ -468,6 +478,97 @@ def test_query_b_product_group_summary(factory, persisted):
 
     # Shares partition the grand total: sum of ratios == 1.0 (to 12 dp).
     assert round(sum(r["contribution_ratio"] for r in rows), 12) == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Query A/B: is_bundling partition (Single vs Bundling within non-cross)
+# ---------------------------------------------------------------------------
+
+
+def test_query_a_is_bundling_partition(factory, persisted):
+    """is_bundling splits the non-cross set into Singles and Bundles whose
+    quantities sum to the unfiltered golden total, and ratios are computed
+    within each subset (sums to 1.0 independently)."""
+    repo, session = _repo(factory)
+    try:
+        singles = repo.variant_analytics(BATCH_SHOPEE, is_cross_bundling=0, is_bundling=0)
+        bundles = repo.variant_analytics(BATCH_SHOPEE, is_cross_bundling=0, is_bundling=1)
+        full = repo.variant_analytics(BATCH_SHOPEE, is_cross_bundling=0)
+    finally:
+        session.close()
+
+    assert singles and bundles
+    assert all(r["is_bundling"] == 0 for r in singles)
+    assert all(r["is_bundling"] == 1 for r in bundles)
+    assert all(not r["product_group"].startswith("Bundling") for r in singles)
+    assert all(r["product_group"].startswith("Bundling") for r in bundles)
+
+    singles_qty = sum(r["total_qty"] for r in singles)
+    bundles_qty = sum(r["total_qty"] for r in bundles)
+    assert (singles_qty, bundles_qty) == (
+        GOLDEN_SHOPEE_SINGLES_QTY,
+        GOLDEN_SHOPEE_INTRA_BUNDLE_QTY,
+    )
+    assert singles_qty + bundles_qty == sum(r["total_qty"] for r in full) == GOLDEN_SHOPEE_QTY
+
+    # contribution_ratio is computed within the selected subset: per-group
+    # variant ratios partition that group's own total (sum == 1.0 per sold
+    # group; zero-total groups carry all-zero ratios).
+    def _ratios_by_group(rows):
+        grouped: dict[str, list[float]] = {}
+        for row in rows:
+            grouped.setdefault(row["product_group"], []).append(row["contribution_ratio"])
+        return grouped
+
+    def _assert_ratio_partitions(rows, label):
+        for group, ratios in _ratios_by_group(rows).items():
+            total_qty = sum(r["total_qty"] for r in rows if r["product_group"] == group)
+            if total_qty > 0:
+                assert round(sum(ratios), 12) == 1.0, f"{label} group {group}: {sum(ratios)}"
+            else:
+                assert all(ratio == 0.0 for ratio in ratios), (
+                    f"{label} group {group}: zero-qty must yield 0.0 ratios"
+                )
+
+    _assert_ratio_partitions(singles, "Singles")
+    _assert_ratio_partitions(bundles, "Bundles")
+
+
+def test_query_a_is_bundling_tiktok(factory, persisted):
+    """TikTok's non-cross partition follows the same split (11,377 + 198 = 11,575)."""
+    repo, session = _repo(factory)
+    try:
+        singles = repo.variant_analytics(BATCH_TIKTOK, is_cross_bundling=0, is_bundling=0)
+        bundles = repo.variant_analytics(BATCH_TIKTOK, is_cross_bundling=0, is_bundling=1)
+    finally:
+        session.close()
+
+    assert sum(r["total_qty"] for r in singles) == GOLDEN_TIKTOK_SINGLES_QTY
+    assert sum(r["total_qty"] for r in bundles) == GOLDEN_TIKTOK_INTRA_BUNDLE_QTY
+    assert sum(r["total_qty"] for r in singles) + sum(r["total_qty"] for r in bundles) == (
+        GOLDEN_TIKTOK_QTY
+    )
+    assert all(r["product_group"].startswith("Bundling") for r in bundles)
+
+
+def test_query_b_is_bundling_partition(factory, persisted):
+    """Product group summary splits identically; ratios partition the subset."""
+    repo, session = _repo(factory)
+    try:
+        singles = repo.product_group_summary(BATCH_SHOPEE, is_cross_bundling=0, is_bundling=0)
+        bundles = repo.product_group_summary(BATCH_SHOPEE, is_cross_bundling=0, is_bundling=1)
+        full = repo.product_group_summary(BATCH_SHOPEE, is_cross_bundling=0)
+    finally:
+        session.close()
+
+    assert singles and bundles
+    assert all(not r["product_group"].startswith("Bundling") for r in singles)
+    assert all(r["product_group"].startswith("Bundling") for r in bundles)
+    assert sum(r["total_qty"] for r in singles) + sum(r["total_qty"] for r in bundles) == sum(
+        r["total_qty"] for r in full
+    ) == GOLDEN_SHOPEE_QTY
+    assert round(sum(r["contribution_ratio"] for r in singles), 12) == 1.0
+    assert round(sum(r["contribution_ratio"] for r in bundles), 12) == 1.0
 
 
 # ---------------------------------------------------------------------------

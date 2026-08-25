@@ -98,6 +98,9 @@ export interface paths {
         /**
          * Batch Variants
          * @description Returns variant-level performance breakdown for a batch.
+         *
+         *     ``isBundling`` (0 = Single, 1 = Bundling, omitted = both) narrows the
+         *     reported subset alongside ``is_cross_bundling``.
          */
         get: operations["batch_variants_api_reports_batches__batch_id__variants_get"];
         put?: never;
@@ -118,6 +121,9 @@ export interface paths {
         /**
          * Batch Products
          * @description Returns master product group rollups for a batch.
+         *
+         *     ``isBundling`` (0 = Single, 1 = Bundling, omitted = both) narrows the
+         *     reported subset alongside ``is_cross_bundling``.
          */
         get: operations["batch_products_api_reports_batches__batch_id__products_get"];
         put?: never;
@@ -615,6 +621,7 @@ export interface operations {
         parameters: {
             query?: {
                 is_cross_bundling?: number;
+                isBundling?: number | null;
             };
             header?: never;
             path: {
@@ -648,6 +655,7 @@ export interface operations {
         parameters: {
             query?: {
                 is_cross_bundling?: number;
+                isBundling?: number | null;
             };
             header?: never;
             path: {
