@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from app.domain.models import VariantRecord
 from app.modules.profiler.adapters import RawRecord
+from app.modules.transformer.errors import InvalidVariantError
 from app.modules.transformer.foldback import (
     FoldBackEngine,
     fold_back_same_shade_records,
@@ -32,6 +33,7 @@ __all__ = [
     "PRODUK2_GROUP_ORDER",
     "FixedGridGenerator",
     "FoldBackEngine",
+    "InvalidVariantError",
     "TransformationResult",
     "TransformationWarning",
     "VariantNormalizer",

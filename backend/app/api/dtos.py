@@ -16,6 +16,7 @@ from pydantic import Field
 from app.modules.profiler.fallback import CamelModel, ParentRowIgnoreCondition
 
 __all__ = [
+    "AggregateRowDTO",
     "BatchMetaDTO",
     "BatchSummaryDTO",
     "CamelModel",
@@ -129,6 +130,23 @@ class ProductSummaryDTO(CamelModel):
     """Master product group rollup (report Table 2)."""
 
     product_group: str
+    total_qty: int
+    total_revenue: int
+    contribution_ratio: float
+
+
+class AggregateRowDTO(CamelModel):
+    """Multi-batch / multi-platform / date-range aggregation row (Query C).
+
+    Groups by (platform, product_group, clean_variant) across every persisted
+    batch matching the optional platform / period / cross-bundling filters;
+    ``contribution_ratio`` is the 0-1 unit share against the filtered grand
+    total quantity.
+    """
+
+    platform: str
+    product_group: str
+    clean_variant: str
     total_qty: int
     total_revenue: int
     contribution_ratio: float

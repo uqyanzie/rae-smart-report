@@ -23,7 +23,7 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 
 ---
 
-## Phase A: Backend Contract Reconciliation & Completion [In Progress]
+## Phase A: Backend Contract Reconciliation & Completion [Complete]
 
 **Goal:** Eliminate the remaining contract gaps so the frontend never has to chase a moving API.
 
@@ -31,16 +31,16 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
   - Correct the endpoint catalog to the real routes (`/api/ingest`, `/api/profile`, `/api/transform`, `/api/reports/batches`, `/api/reports/batches/{id}/variants`, `/api/reports/batches/{id}/products`, `/api/export/excel`, `DELETE /api/reports/batches/{id}`).
   - Document the error envelope (`details` omitted when null), error codes, the exactly-one-batch-per-platform export constraint, and the transform `reported*` vs batch-list `grandTotal*` semantics.
   - Add the planned `GET /api/reports/aggregate` endpoint.
-- [ ] **A2 — Map the same-shade N>2 fold-back violation to a 4xx error:**
+- [x] **A2 — Map the same-shade N>2 fold-back violation to a 4xx error:**
   - Introduce a dedicated exception (e.g. `InvalidVariantError`) in `backend/app/modules/transformer/`; the normalizer's multiplicity guard raises it instead of a bare `ValueError`.
   - Register a handler in `backend/app/api/errors.py` mapping it to `422 INVALID_VARIANT`, carrying the offending shade, raw variant, and SKU in the message.
   - Tests: `backend/tests/test_transformer.py` asserts the new exception type; `backend/tests/test_api.py` uploads a CSV containing a 3-pack row and asserts HTTP 422 with `code == "INVALID_VARIANT"` and that no partial batch was persisted.
-- [ ] **A3 — Expose Query C as `GET /api/reports/aggregate`:**
+- [x] **A3 — Expose Query C as `GET /api/reports/aggregate`:**
   - New `AggregateRowDTO` (`platform`, `productGroup`, `cleanVariant`, `totalQty`, `totalRevenue`, `contributionRatio`) in `backend/app/api/dtos.py`.
   - Route in `backend/app/api/routes.py` with optional camelCase query params `platform`, `periodStart`, `periodEnd`, `isCrossBundling`, delegating to `AnalyticsRepository.multi_platform_aggregation` (R9 bound coercion already in place).
   - Mirror the DTO in `.agents/skills/fullstack-bridge-contract/references/frontend_dtos.ts` and update `api_endpoints.md` to move the endpoint from Planned to active.
   - Tests: `backend/tests/test_api.py` end-to-end coverage (platform filter, date range inclusion, cross-bundling toggle).
-- [ ] **A4 — OpenAPI contract check:**
+- [x] **A4 — OpenAPI contract check:**
   - Assert every `/openapi.json` response field is `camelCase` and matches `frontend_dtos.ts` (especially the R5 `reported*` fields).
   - Verify `openapi-typescript` can generate `src/services/api.ts` from `/openapi.json` with zero manual edits.
 
@@ -150,15 +150,16 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase A (Backend Contract Reconciliation) — in progress.
-- **Done so far:** `api_endpoints.md` reconciled with `routes.py` (A1); `BackendRemediationBrief.md` documents the 11 resolved review items; backend suite is green (205 tests).
-- **What is next:**
-  1. A2: 422 `INVALID_VARIANT` for same-shade N>2 rows.
-  2. A3: `GET /api/reports/aggregate` (Query C) + `AggregateRowDTO`.
-  3. A4: OpenAPI contract check and client codegen proof.
-  4. Then Phase B (frontend scaffolding) in a fresh session.
+- **Current Phase:** Phase A (Backend Contract Reconciliation) — **complete**. Per the STOP protocol, Phase B starts in a fresh session.
+- **Done so far:**
+  - A1: `api_endpoints.md` reconciled with `routes.py` (endpoint catalog, error envelope, export constraint, `reported*` vs `grandTotal*` semantics).
+  - A2: same-shade N>2 rows now raise `InvalidVariantError` (`backend/app/modules/transformer/errors.py`), mapped to `422 INVALID_VARIANT` in `backend/app/api/errors.py`; no partial batch persists.
+  - A3: `GET /api/reports/aggregate` (Query C) + `AggregateRowDTO` in `dtos.py`; mirrored into `frontend_dtos.ts`; endpoint moved from Planned to active in `api_endpoints.md`.
+  - A4: OpenAPI contract tests (all response fields camelCase; R5 `reported*`; aggregate params `platform`/`periodStart`/`periodEnd`/`isCrossBundling`); `openapi-typescript` generates a client from `/openapi.json` cleanly (tsc `--strict` passes, zero manual edits).
+  - Backend suite green: **212 tests**, `ruff` clean, golden totals unchanged (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
+- **What is next (fresh session):**
+  1. Phase B (frontend scaffolding): Vite + React + TS + Tailwind in `frontend/` per `SETUP.md`; `openapi-typescript` codegen (`npm run generate:api` → `src/services/api.ts`, committed); thin `src/services/apiClient.ts` wrapper for the error envelope; app shell with empty screen placeholders; wire `frontend/dist` into the existing SPA mount at `backend/app/api/spa.py`.
 - **Artifacts:**
-  - This plan: `docs/plan/DevelopmentPhasesPlan.md`
+  - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`
-  - Remediation brief: `docs/plan/BackendRemediationBrief.md`
   - Bridge contract: `.agents/skills/fullstack-bridge-contract/`

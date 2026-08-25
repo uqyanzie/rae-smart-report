@@ -69,6 +69,15 @@ export interface ProductSummaryDTO {
   contributionRatio: number; // 0-1 unit share
 }
 
+export interface AggregateRowDTO {
+  platform: string;
+  productGroup: string;
+  cleanVariant: string;
+  totalQty: number;
+  totalRevenue: number;
+  contributionRatio: number; // 0-1 unit share
+}
+
 export interface BatchMetaDTO {
   importBatchId: string;
   platform: string;

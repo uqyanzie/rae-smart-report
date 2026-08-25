@@ -12,6 +12,7 @@ from app.modules.profiler.adapters import (
 )
 from app.modules.transformer import (
     FoldBackEngine,
+    InvalidVariantError,
     VariantNormalizer,
     extract_case_color,
     generate_cross_family_grid,
@@ -151,8 +152,9 @@ class TestVariantNormalizer:
         assert rec.clean_variant == "Dynamic"
 
     def test_normalize_same_shade_triple_raises(self, normalizer: VariantNormalizer) -> None:
-        """R2: a same-shade N>2 pack violates the fold-back contract (N=2
-        only) and raises with the shade, raw variant, and SKU named."""
+        """R2/A2: a same-shade N>2 pack violates the fold-back contract (N=2
+        only) and raises the dedicated InvalidVariantError with the shade, raw
+        variant, and SKU named."""
         raw = RawRecord(
             platform="SHOPEE",
             product_title="Raecca Bundling Glow Up Tint",
@@ -161,9 +163,15 @@ class TestVariantNormalizer:
             revenue=419700,
             sku="SKU-TRIPLE-01",
         )
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(InvalidVariantError) as excinfo:
             normalizer.normalize_single(raw)
-        message = str(excinfo.value)
+        exc = excinfo.value
+        assert isinstance(exc, InvalidVariantError)
+        assert exc.shade == "Dynamic"
+        assert exc.raw_variant == "Dynamic, 05. Dynamic, Dynamic"
+        assert exc.sku == "SKU-TRIPLE-01"
+        assert exc.multiplicity == 3
+        message = str(exc)
         assert "Dynamic" in message
         assert "Dynamic, 05. Dynamic, Dynamic" in message
         assert "SKU-TRIPLE-01" in message

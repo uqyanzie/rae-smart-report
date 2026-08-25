@@ -13,19 +13,16 @@
 | `GET` | `/api/reports/batches` | Lists all persisted batches, newest first | None | `BatchSummaryDTO[]` |
 | `GET` | `/api/reports/batches/{batchId}/variants` | Query A: variant-level breakdown for a batch | Query `?is_cross_bundling=` (int, default `0`) | `VariantPerformanceDTO[]` |
 | `GET` | `/api/reports/batches/{batchId}/products` | Query B: master product group rollups for a batch | Query `?is_cross_bundling=` (int, default `0`) | `ProductSummaryDTO[]` |
+| `GET` | `/api/reports/aggregate` | Query C: multi-batch / multi-platform / date-range aggregation | Query `?platform=`, `?periodStart=`, `?periodEnd=`, `?isCrossBundling=` (all optional) | `AggregateRowDTO[]` |
 | `DELETE` | `/api/reports/batches/{batchId}` | Cascade-deletes a batch from `transaction_items` | None | `DeleteBatchResponseDTO` |
 | `GET` | `/api/export/excel` | Streams a 4-sheet executive workbook | Query `?batchIds=` (one batch per platform) | Binary `.xlsx` stream |
 
-> **Query-parameter casing:** JSON bodies are strictly `camelCase`, but the
-> `is_cross_bundling` query parameter is `snake_case` because it is bound
-> directly to the FastAPI parameter name. A generated OpenAPI client will name
-> it correctly. `batchIds` is declared with an explicit `camelCase` alias.
-
-## Planned endpoints
-
-| Method | Endpoint | Description | Request | Response |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/reports/aggregate` | Query C: multi-batch / multi-platform / date-range aggregation | Query `?platform=`, `?periodStart=`, `?periodEnd=`, `?isCrossBundling=` (all optional) | `AggregateRowDTO[]` |
+> **Query-parameter casing:** JSON bodies are strictly `camelCase`. The
+> `is_cross_bundling` query parameter on the variant/product endpoints is
+> `snake_case` because it is bound directly to the FastAPI parameter name. The
+> aggregate endpoint's filters are all `camelCase` (`isCrossBundling`),
+> declared with explicit aliases. A generated OpenAPI client will name them
+> correctly. `batchIds` is declared with an explicit `camelCase` alias.
 
 ## Standard Error Response Structure
 
@@ -59,7 +56,7 @@ All 4xx/5xx responses use a single envelope. `details` is **omitted when null**
 | `UNSUPPORTED_FORMAT` | 415 | File is not `.xlsx` or `.csv` |
 | `HTTP_ERROR` | varies | Generic `HTTPException` (e.g. 400 upload empty, 404 batch not found, 413 too large) |
 | `INTERNAL_ERROR` | 500 | Unexpected exception |
-| `INVALID_VARIANT` | 422 | *(planned)* a data row violates a validated business rule (e.g. same-shade pack of N>2) |
+| `INVALID_VARIANT` | 422 | A data row violates a validated business rule (e.g. same-shade pack of N>2) |
 
 ## Notes for the frontend
 

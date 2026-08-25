@@ -322,6 +322,79 @@ def test_product_summary(client):
 
 
 # ---------------------------------------------------------------------------
+# Query C: multi-platform aggregation
+# ---------------------------------------------------------------------------
+
+
+def test_aggregate_all_platforms(client):
+    resp = client.get("/api/reports/aggregate")
+    assert resp.status_code == 200
+    rows = resp.json()
+    _assert_camel_case(rows)
+    assert rows
+    assert {r["platform"] for r in rows} == {"SHOPEE", "TIKTOK_SHOP"}
+    for row in rows:
+        assert 0.0 <= row["contributionRatio"] <= 1.0
+        assert isinstance(row["totalQty"], int)
+
+
+def test_aggregate_platform_filter_sums(client):
+    """A3: platform filter narrows to one platform and the non-cross quantity
+    sums match the golden totals (persisted non-cross rows == report boundary)."""
+    resp = client.get("/api/reports/aggregate", params={"platform": "SHOPEE", "isCrossBundling": 0})
+    assert resp.status_code == 200
+    rows = resp.json()
+    _assert_camel_case(rows)
+    assert rows
+    assert all(r["platform"] == "SHOPEE" for r in rows)
+    assert sum(r["totalQty"] for r in rows) == GOLDEN_SHOPEE_QTY
+
+    resp = client.get(
+        "/api/reports/aggregate", params={"platform": "TIKTOK_SHOP", "isCrossBundling": 0}
+    )
+    rows = resp.json()
+    assert rows
+    assert all(r["platform"] == "TIKTOK_SHOP" for r in rows)
+    assert sum(r["totalQty"] for r in rows) == GOLDEN_TIKTOK_QTY
+
+
+def test_aggregate_cross_bundling_toggle(client):
+    """A3: the isCrossBundling toggle swaps the data set to cross rows."""
+    resp = client.get("/api/reports/aggregate", params={"platform": "SHOPEE", "isCrossBundling": 1})
+    assert resp.status_code == 200
+    rows = resp.json()
+    _assert_camel_case(rows)
+    assert rows
+    assert all(r["platform"] == "SHOPEE" for r in rows)
+    assert sum(r["totalQty"] for r in rows) == SHOPEE_CROSS_QTY
+
+    resp = client.get(
+        "/api/reports/aggregate", params={"platform": "TIKTOK_SHOP", "isCrossBundling": 1}
+    )
+    rows = resp.json()
+    assert rows
+    assert sum(r["totalQty"] for r in rows) == TIKTOK_CROSS_QTY
+
+
+def test_aggregate_date_range_inclusion(client):
+    """A3: periodStart/periodEnd include both persisted batches; a disjoint
+    range returns an empty list."""
+    resp = client.get(
+        "/api/reports/aggregate",
+        params={"periodStart": "2026-07-13", "periodEnd": "2026-07-19"},
+    )
+    rows = resp.json()
+    assert rows
+    assert {r["platform"] for r in rows} == {"SHOPEE", "TIKTOK_SHOP"}
+
+    resp = client.get(
+        "/api/reports/aggregate",
+        params={"periodStart": "2025-01-01", "periodEnd": "2025-01-31"},
+    )
+    assert resp.json() == []
+
+
+# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 
@@ -411,6 +484,44 @@ def test_transform_missing_required_columns_422(client):
     assert len(client.get("/api/reports/batches").json()) == before
 
 
+def test_transform_same_shade_triple_422(client):
+    """A2: a same-shade N>2 pack surfaces as 422 INVALID_VARIANT (never 500),
+    naming the offending shade/raw variant, and no partial batch persists."""
+    content = (
+        "Produk,Nama Variasi,Produk (Pesanan Siap Dikirim),"
+        "Penjualan (Pesanan Siap Dikirim) (IDR)\n"
+        '"Raecca Bundling Glow Up Tint","Dynamic, 05. Dynamic, Dynamic",1,139900\n'
+    )
+    resp = client.post(
+        "/api/ingest",
+        files={"file": ("triple.csv", content.encode("utf-8"), "text/csv")},
+    )
+    assert resp.status_code == 200, resp.text
+    file_id = resp.json()["fileId"]
+
+    before = len(client.get("/api/reports/batches").json())
+
+    payload = {
+        "fileId": file_id,
+        "platform": "SHOPEE",
+        "columnMapping": {
+            "productGroup": "Produk",
+            "rawVariant": "Nama Variasi",
+            "qtySold": "Produk (Pesanan Siap Dikirim)",
+            "revenue": "Penjualan (Pesanan Siap Dikirim) (IDR)",
+        },
+    }
+    resp = client.post("/api/transform", json=payload)
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["code"] == "INVALID_VARIANT"
+    assert "Dynamic" in body["message"]
+    assert "Dynamic, 05. Dynamic, Dynamic" in body["message"]
+    assert "(no SKU)" in body["message"]
+    assert len(client.get("/api/reports/batches").json()) == before
+
+
 def test_transform_unknown_file_id_404(client):
     payload = {
         "fileId": "no-such-upload",
@@ -438,3 +549,78 @@ def test_api_only_mode_root_404(client):
     assert body["status"] == "error"
     assert body["code"] == "HTTP_ERROR"
     assert "Not Found" in body["message"]
+
+
+# ---------------------------------------------------------------------------
+# Phase A4: OpenAPI contract checks
+# ---------------------------------------------------------------------------
+
+
+def test_openapi_response_schemas_camelcase(client):
+    """A4: every response schema field serializes camelCase (no underscores),
+    so a generated TypeScript client never needs manual field renames."""
+    resp = client.get("/openapi.json")
+    assert resp.status_code == 200
+    spec = resp.json()
+
+    checked: set[str] = set()
+
+    def check(node: Any, path: str) -> None:
+        if not isinstance(node, dict):
+            return
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+            key = ref.rsplit("/", 1)[-1]
+            if key in checked:
+                return
+            checked.add(key)
+            node = spec["components"]["schemas"][key]
+        props = node.get("properties")
+        if isinstance(props, dict):
+            for name in props:
+                assert "_" not in name, f"snake_case response field '{name}' at {path}"
+                check(props[name], f"{path}.{name}")
+        for child_key in ("items", "additionalProperties"):
+            child = node.get(child_key)
+            if isinstance(child, dict):
+                check(child, f"{path}.{child_key}")
+
+    for path, methods in spec["paths"].items():
+        for method, op in methods.items():
+            if method not in ("get", "post", "put", "patch", "delete"):
+                continue
+            for status_code, response in op.get("responses", {}).items():
+                for media, media_obj in response.get("content", {}).items():
+                    check(media_obj.get("schema", {}), f"{path} {method} {status_code} {media}")
+
+
+def test_openapi_contract_matches_bridge_dtos(client):
+    """A4: the wire contract matches frontend_dtos.ts (R5 reported* fields,
+    the aggregate endpoint, and camelCase aggregate query parameters)."""
+    spec = client.get("/openapi.json").json()
+    schemas = spec["components"]["schemas"]
+
+    # R5: transform response reports grid-intersected workbook totals under
+    # distinct reported* names; storage-level grandTotal* stays on batches.
+    transform = schemas["TransformResponseDTO"]["properties"]
+    for field in ("reportedProductCount", "reportedTotalQty", "reportedTotalRevenue"):
+        assert field in transform, f"missing reported field {field}"
+    assert "grandTotalQty" not in transform
+    assert "grandTotalRevenue" not in transform
+    assert "totalProducts" not in transform
+
+    agg = schemas["AggregateRowDTO"]["properties"]
+    assert set(agg) == {
+        "platform",
+        "productGroup",
+        "cleanVariant",
+        "totalQty",
+        "totalRevenue",
+        "contributionRatio",
+    }
+
+    assert "/api/reports/aggregate" in spec["paths"]
+    aggregate_params = {
+        p["name"] for p in spec["paths"]["/api/reports/aggregate"]["get"]["parameters"]
+    }
+    assert aggregate_params == {"platform", "periodStart", "periodEnd", "isCrossBundling"}

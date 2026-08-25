@@ -18,6 +18,7 @@ from app.modules.ingestion.exceptions import (
     SpreadsheetEmptyError,
     UnsupportedFormatError,
 )
+from app.modules.transformer.errors import InvalidVariantError
 
 __all__ = ["error_response", "register_exception_handlers"]
 
@@ -55,6 +56,12 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def _handle_ingestion_error(request: Request, exc: IngestionError) -> JSONResponse:
         status, code = _INGESTION_ERROR_MAP.get(type(exc), (400, "INGESTION_ERROR"))
         return error_response(status, code, str(exc))
+
+    @app.exception_handler(InvalidVariantError)
+    async def _handle_invalid_variant(
+        request: Request, exc: InvalidVariantError
+    ) -> JSONResponse:
+        return error_response(422, "INVALID_VARIANT", str(exc))
 
     @app.exception_handler(StarletteHTTPException)
     async def _handle_http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:

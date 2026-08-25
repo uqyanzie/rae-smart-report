@@ -18,8 +18,10 @@ from app.domain.catalog import (
 )
 from app.domain.models import VariantRecord
 from app.modules.profiler.adapters import RawRecord
+from app.modules.transformer.errors import InvalidVariantError
 
 __all__ = [
+    "InvalidVariantError",
     "TransformationResult",
     "TransformationWarning",
     "VariantNormalizer",
@@ -534,12 +536,11 @@ class VariantNormalizer:
         # fold-back contract (N=2 only, plan line 181). The engine never sees
         # these rows, so the guard lives here where multiplicity is known.
         if len(resolved_shades) >= 3 and len({(f, s) for f, s in resolved_shades}) == 1:
-            shade = resolved_shades[0][1]
-            sku = raw_record.sku or "(no SKU)"
-            raise ValueError(
-                f"Same-shade pack of N={len(resolved_shades)} for shade '{shade}' "
-                f"(raw variant '{raw_record.raw_variant}', SKU '{sku}') exceeds the "
-                "fold-back limit of N=2"
+            raise InvalidVariantError(
+                shade=resolved_shades[0][1],
+                raw_variant=raw_record.raw_variant,
+                sku=raw_record.sku,
+                multiplicity=len(resolved_shades),
             )
 
         # Case 3: 3+ shades resolved (e.g. Lip Moist + Exfoliant + Sunscreen or Mamari's picks)

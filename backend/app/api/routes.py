@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time
 from typing import Any
 from uuid import uuid4
 
@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from fastapi.responses import StreamingResponse
 
 from app.api.dtos import (
+    AggregateRowDTO,
     BatchSummaryDTO,
     CleaningRuleDTO,
     ColumnMappingDTO,
@@ -328,6 +329,42 @@ async def batch_products(
     """Returns master product group rollups for a batch."""
     rows = repo.product_group_summary(batch_id, is_cross_bundling=is_cross_bundling)
     return [ProductSummaryDTO(**row) for row in rows]
+
+
+@router.get("/reports/aggregate", response_model=list[AggregateRowDTO])
+async def aggregate_reports(
+    platform: str | None = Query(default=None),
+    period_start: str | None = Query(default=None, alias="periodStart"),
+    period_end: str | None = Query(default=None, alias="periodEnd"),
+    is_cross_bundling: int | None = Query(default=None, alias="isCrossBundling"),
+    repo: AnalyticsRepository = Depends(_get_repository),
+) -> list[AggregateRowDTO]:
+    """Query C: cross-batch aggregation across platforms with optional filters.
+
+    ``platform`` / ``periodStart`` / ``periodEnd`` / ``isCrossBundling`` are
+    all optional camelCase query parameters (R9 bound coercion already lives in
+    ``AnalyticsRepository.multi_platform_aggregation``).
+    """
+    rows = repo.multi_platform_aggregation(
+        platform=platform.strip().upper() if platform else None,
+        start_date=_parse_iso_date(period_start, "periodStart"),
+        end_date=_parse_iso_date(period_end, "periodEnd"),
+        is_cross_bundling=is_cross_bundling,
+    )
+    return [AggregateRowDTO(**row) for row in rows]
+
+
+def _parse_iso_date(value: str | None, field: str) -> date | None:
+    """Parses an optional ISO ``YYYY-MM-DD`` query value into a date."""
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail=f"INVALID_PERIOD: '{field}' must be ISO YYYY-MM-DD, got '{value}'",
+        ) from None
 
 
 @router.delete("/reports/batches/{batch_id}", response_model=DeleteBatchResponseDTO)
