@@ -43,6 +43,36 @@ const COLORS = [
   '#a855f7',
 ]
 
+const PIE_HEIGHT = 560
+const RADIAN = Math.PI / 180
+
+function renderPieLabel(props: {
+  cx?: number
+  cy?: number
+  midAngle?: number
+  innerRadius?: number
+  outerRadius?: number
+  percent?: number
+}) {
+  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0 } = props
+  if (percent < 0.03) return null
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5 + 26
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#475569"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      fontSize={11}
+    >
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  )
+}
+
 const thClass = 'px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500'
 const tdClass = 'px-4 py-2 text-slate-700'
 
@@ -69,6 +99,7 @@ export default function HomePage() {
 
   const pieData = rollups.map((row) => ({ name: row.productGroup, value: row.totalQty }))
   const barData = rollups.map((row) => ({ name: row.productGroup, revenue: row.totalRevenue }))
+  const barHeight = Math.max(440, rollups.length * 38 + 60)
 
   return (
     <section className="space-y-4">
@@ -153,27 +184,33 @@ export default function HomePage() {
           )}
 
           {!loading && !error && rollups.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="space-y-6">
               <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <h2 className="mb-2 text-sm font-semibold text-slate-700">
                   Contribution (units per product group)
                 </h2>
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={PIE_HEIGHT}>
                   <PieChart>
                     <Pie
                       data={pieData}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
-                      cy="50%"
-                      outerRadius={150}
+                      cy="46%"
+                      outerRadius="70%"
+                      labelLine={{ stroke: '#94a3b8' }}
+                      label={renderPieLabel}
                     >
                       {pieData.map((entry, index) => (
                         <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                    <Legend />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={40}
+                      wrapperStyle={{ fontSize: 12 }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -181,13 +218,13 @@ export default function HomePage() {
                 <h2 className="mb-2 text-sm font-semibold text-slate-700">
                   Product sales (revenue per product group)
                 </h2>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={barData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                <ResponsiveContainer width="100%" height={barHeight}>
+                  <BarChart data={barData} layout="vertical" margin={{ left: 8, right: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tickFormatter={(value) => formatNumber(Number(value))} />
-                    <YAxis type="category" dataKey="name" width={190} tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={220} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="revenue" fill="#6366f1" />
+                    <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
