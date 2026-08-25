@@ -33,6 +33,14 @@ def mount_frontend_spa(app: FastAPI) -> None:
         if full_path.startswith(("api/", "docs")) or full_path in ("api", "openapi.json"):
             return error_response(404, "HTTP_ERROR", "API endpoint not found")
 
+        index_file = dist / "index.html"
+
+        # The root path has no candidate to resolve; serve the index directly.
+        if not full_path:
+            if index_file.is_file():
+                return FileResponse(index_file)
+            return error_response(404, "HTTP_ERROR", "Not Found")
+
         try:
             candidate = resolve_within_root(dist, full_path)
         except PathTraversalError:
@@ -41,7 +49,6 @@ def mount_frontend_spa(app: FastAPI) -> None:
         if candidate.is_file():
             return FileResponse(candidate)
 
-        index_file = dist / "index.html"
         if index_file.is_file():
             return FileResponse(index_file)
 

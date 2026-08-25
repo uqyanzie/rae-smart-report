@@ -52,20 +52,25 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 
 ---
 
-## Phase B: Frontend Scaffolding [Pending]
+## Phase B: Frontend Scaffolding [Complete]
 
 **Goal:** Stand up the SPA skeleton and the generated API client so all subsequent phases build on a stable contract.
 
-- [ ] Scaffold Vite + React + TypeScript + Tailwind in `frontend/` matching the `SETUP.md` layout (`src/components/`, `src/hooks/`, `src/services/`, `App.tsx`).
-- [ ] Add `openapi-typescript` codegen: `npm run generate:api` emits `src/services/api.ts` from the backend `/openapi.json`; commit the generated file so the build does not require a running backend.
-- [ ] Thin API service wrapper (`src/services/apiClient.ts`): typed fetch calls, base URL resolution (Vite dev proxy `/api` → uvicorn), and shared handling for the `{ status, code, message, details? }` error envelope.
-- [ ] Application shell: routing, layout, and empty screen placeholders for each feature phase.
-- [ ] Wire `frontend/dist` build output to the existing SPA mount in `backend/app/api/spa.py` (API-only fallback already supported).
+- [x] Scaffold Vite + React + TypeScript + Tailwind v4 in `frontend/` matching the `SETUP.md` layout (`src/components/`, `src/hooks/`, `src/services/`, `App.tsx`).
+- [x] Add `openapi-typescript` codegen: `npm run generate:api` emits `src/services/api.ts` from the backend `/openapi.json`; commit the generated file so the build does not require a running backend.
+- [x] Thin API service wrapper (`src/services/apiClient.ts`): typed fetch calls, base URL resolution (Vite dev proxy `/api` → uvicorn), and shared handling for the `{ status, code, message, details? }` error envelope.
+- [x] Application shell: routing, layout, and empty screen placeholders for each feature phase.
+- [x] Wire `frontend/dist` build output to the existing SPA mount in `backend/app/api/spa.py` (API-only fallback already supported).
 
 **Success Criteria:**
 - `npm run dev` boots Vite; proxied `/api/reports/batches` returns data from the live backend.
 - `npm run generate:api && npm run typecheck` pass cleanly.
 - `npm run build` produces `frontend/dist` that the backend serves at `/`.
+
+**Notes / fixes surfaced during Phase B:**
+- `spa.py` served 403 on the root path (`resolve_within_root` rejects empty candidates before the index fallback); fixed to serve `index.html` directly for `full_path == ""`.
+- DTO parity drift fixed: backend `ColumnMappingDTO.case_color` and `VariantPerformanceDTO.case_color` were missing from `frontend_dtos.ts`; added `caseColor?: string | null` mirrors.
+- New backend tests: `test_spa_mount_serves_index_and_blocks_api`, `test_security.py` (`resolve_within_root`, `sanitize_upload_filename`), and `test_api_only_mode_root_404` hardened to force API-only mode regardless of repo `frontend/dist` state.
 
 ---
 
@@ -150,15 +155,19 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase A (Backend Contract Reconciliation) — **complete**. Per the STOP protocol, Phase B starts in a fresh session.
-- **Done so far:**
-  - A1: `api_endpoints.md` reconciled with `routes.py` (endpoint catalog, error envelope, export constraint, `reported*` vs `grandTotal*` semantics).
-  - A2: same-shade N>2 rows now raise `InvalidVariantError` (`backend/app/modules/transformer/errors.py`), mapped to `422 INVALID_VARIANT` in `backend/app/api/errors.py`; no partial batch persists.
-  - A3: `GET /api/reports/aggregate` (Query C) + `AggregateRowDTO` in `dtos.py`; mirrored into `frontend_dtos.ts`; endpoint moved from Planned to active in `api_endpoints.md`.
-  - A4: OpenAPI contract tests (all response fields camelCase; R5 `reported*`; aggregate params `platform`/`periodStart`/`periodEnd`/`isCrossBundling`); `openapi-typescript` generates a client from `/openapi.json` cleanly (tsc `--strict` passes, zero manual edits).
-  - Backend suite green: **212 tests**, `ruff` clean, golden totals unchanged (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
+- **Current Phase:** Phase B (Frontend Scaffolding) — **complete**. Per the STOP protocol, Phase C starts in a fresh session.
+- **Done so far (Phase B):**
+  - Scaffolded `frontend/` with Vite + React 19 + TypeScript 5.9 + Tailwind v4 (`@tailwindcss/vite`, no config file) + `react-router-dom`, matching the `SETUP.md` layout.
+  - `npm run generate:api` → `src/services/api.ts` via `openapi-typescript` from the live backend; committed (zero manual edits).
+  - `src/services/apiClient.ts`: typed fetch wrapper over the generated client with shared `{ status, code, message, details? }` envelope → `ApiError`.
+  - App shell: `App.tsx` + top-nav layout, routes `/` (Dashboard), `/upload`, `/batches`, `/export` with placeholders; `/batches` renders live batch data via `src/hooks/useBatches.ts`.
+  - `vite.config.ts` dev proxy `/api` → `http://127.0.0.1:8000`.
+  - `spa.py` root-path fix (serve `index.html` for empty path instead of 403).
+  - DTO parity: added `caseColor?: string | null` to `ColumnMappingDTO` / `VariantPerformanceDTO` in `frontend_dtos.ts`.
+  - New backend tests: `test_spa_mount_serves_index_and_blocks_api`, `test_security.py`, hardened `test_api_only_mode_root_404`.
+  - Backend suite green: **221 tests**, `ruff` clean, golden totals unchanged (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
 - **What is next (fresh session):**
-  1. Phase B (frontend scaffolding): Vite + React + TS + Tailwind in `frontend/` per `SETUP.md`; `openapi-typescript` codegen (`npm run generate:api` → `src/services/api.ts`, committed); thin `src/services/apiClient.ts` wrapper for the error envelope; app shell with empty screen placeholders; wire `frontend/dist` into the existing SPA mount at `backend/app/api/spa.py`.
+  1. Phase C (Upload, Profiling & Mapping UI): upload dropzone (`POST /api/ingest`), platform & mapping review (`POST /api/profile`), period picker, re-profile on sheet/header change, and save-as-template round-trip.
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`

@@ -18,6 +18,7 @@ export interface ColumnMappingDTO {
   qtySold: string;
   revenue: string;
   sku?: string | null;
+  caseColor?: string | null;
 }
 
 export interface ParentRowRuleDTO {
@@ -60,6 +61,7 @@ export interface VariantPerformanceDTO {
   totalQty: number;
   totalRevenue: number;
   contributionRatio: number; // 0-1 unit share
+  caseColor?: string | null; // SQL aggregates by shade; retained for parity, always null
 }
 
 export interface ProductSummaryDTO {

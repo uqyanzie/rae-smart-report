@@ -541,14 +541,28 @@ def test_transform_unknown_file_id_404(client):
     assert "no-such-upload" in body["message"]
 
 
-def test_api_only_mode_root_404(client):
+def test_api_only_mode_root_404(tmp_path, monkeypatch):
     """Without frontend/dist, the root path returns the error envelope."""
-    resp = client.get("/")
-    assert resp.status_code == 404
-    body = resp.json()
-    assert body["status"] == "error"
-    assert body["code"] == "HTTP_ERROR"
-    assert "Not Found" in body["message"]
+    import app.core.config as config
+
+    monkeypatch.setenv("RAE_FRONTEND_DIST", str(tmp_path / "nonexistent-dist"))
+    config._settings = None
+    engine = create_engine(
+        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+    )
+    try:
+        app = create_app(engine=engine)
+        with TestClient(app) as c:
+            resp = c.get("/")
+            assert resp.status_code == 404
+            body = resp.json()
+            assert body["status"] == "error"
+            assert body["code"] == "HTTP_ERROR"
+            assert "Not Found" in body["message"]
+    finally:
+        engine.dispose()
+        config._settings = None
+        monkeypatch.delenv("RAE_FRONTEND_DIST", raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -624,3 +638,47 @@ def test_openapi_contract_matches_bridge_dtos(client):
         p["name"] for p in spec["paths"]["/api/reports/aggregate"]["get"]["parameters"]
     }
     assert aggregate_params == {"platform", "periodStart", "periodEnd", "isCrossBundling"}
+
+
+# ---------------------------------------------------------------------------
+# Phase B: SPA static mount
+# ---------------------------------------------------------------------------
+
+
+def test_spa_mount_serves_index_and_blocks_api(tmp_path, monkeypatch):
+    """Phase B: when ``frontend/dist`` exists, the root serves ``index.html``,
+    built assets are served, unknown SPA routes fall back to the index, and API
+    and schema paths never fall through."""
+    import app.core.config as config
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>RAE SPA</html>", encoding="utf-8")
+    (dist / "assets").mkdir()
+    (dist / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
+
+    monkeypatch.setenv("RAE_FRONTEND_DIST", str(dist))
+    config._settings = None
+    engine = create_engine(
+        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+    )
+    try:
+        app = create_app(engine=engine)
+        with TestClient(app) as c:
+            root = c.get("/")
+            assert root.status_code == 200
+            assert "RAE SPA" in root.text
+
+            assert c.get("/assets/app.js").status_code == 200
+
+            fallback = c.get("/batches")
+            assert fallback.status_code == 200
+            assert "RAE SPA" in fallback.text
+
+            assert c.get("/api/reports/batches").status_code == 200
+            assert c.get("/openapi.json").status_code == 200
+            assert c.get("/docs").status_code == 200
+    finally:
+        engine.dispose()
+        config._settings = None
+        monkeypatch.delenv("RAE_FRONTEND_DIST", raising=False)
