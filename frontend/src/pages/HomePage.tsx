@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -9,6 +9,7 @@ import {
   PieChart,
   ResponsiveContainer,
   Tooltip,
+  type TooltipContentProps,
   XAxis,
   YAxis,
 } from 'recharts'
@@ -30,22 +31,48 @@ const SOURCE_LABELS: Record<DashboardFilterType, string> = {
 }
 
 const COLORS = [
-  '#6366f1',
-  '#8b5cf6',
-  '#06b6d4',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
   '#ec4899',
   '#84cc16',
   '#14b8a6',
   '#f97316',
   '#3b82f6',
   '#a855f7',
+  '#6366f1',
+  '#8b5cf6',
+  '#06b6d4',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444'
 ]
 
 const PIE_HEIGHT = 560
 const RADIAN = Math.PI / 180
+
+// Dashboard chart display (DevelopmentFeedback20260826): pie slices below this
+// share merge into "Other"; long product-group labels are truncated in chart
+// tooltips unless the group is a major contributor or the user toggles
+// "Show all labels".
+const MIN_MAJOR_SHARE = 0.01
+const MAX_LABEL_LENGTH = 84
+const OTHER_COLOR = '#94a3b8'
+
+interface PieSlice {
+  name: string
+  value: number
+  share: number
+  merged?: number
+}
+
+interface BarPoint {
+  name: string
+  revenue: number
+  share: number
+}
+
+function formatTooltipLabel(name: string, share: number, showAll: boolean): string {
+  if (showAll || share >= MIN_MAJOR_SHARE) return name
+  return name.length > MAX_LABEL_LENGTH ? `${name.slice(0, MAX_LABEL_LENGTH)}…` : name
+}
 
 function renderPieLabel(props: {
   cx?: number
@@ -64,10 +91,11 @@ function renderPieLabel(props: {
     <text
       x={x}
       y={y}
-      fill="#475569"
+      fill="#000"
+      fontWeight="bold"
       textAnchor={x > cx ? 'start' : 'end'}
       dominantBaseline="central"
-      fontSize={11}
+      fontSize={12}
     >
       {`${(percent * 100).toFixed(0)}%`}
     </text>
@@ -85,6 +113,7 @@ export default function HomePage() {
     'bundling',
     'cross',
   ])
+  const [showAllLabels, setShowAllLabels] = useState(false)
 
   const selectedBatchId = batchId || batches[0]?.importBatchId || ''
   const { variants, rollups, totalQty, totalRevenue, loading, error } = useBatchDashboard(
@@ -104,9 +133,75 @@ export default function HomePage() {
     )
   }
 
-  const pieData = rollups.map((row) => ({ name: row.productGroup, value: row.totalQty }))
-  const barData = rollups.map((row) => ({ name: row.productGroup, revenue: row.totalRevenue }))
+  // Pie slices: merge product groups contributing < 5% of the active subset
+  // quantity into a single "Other" slice (DevelopmentFeedback20260826).
+  const pieSlices = useMemo<PieSlice[]>(() => {
+    const slices: PieSlice[] = []
+    let minorValue = 0
+    let minorCount = 0
+    for (const row of rollups) {
+      if (showAllLabels || row.share >= MIN_MAJOR_SHARE) {
+        slices.push({ name: row.productGroup, value: row.totalQty, share: row.share })
+      } else {
+        minorValue += row.totalQty
+        minorCount += 1
+      }
+    }
+    // Order slices by highest contribution descending; the aggregated "Other"
+    // bucket stays last so it reads as a catch-all tail.
+    slices.sort((a, b) => b.share - a.share)
+    if (minorCount > 0 && minorValue > 0) {
+      slices.push({
+        name: 'Other',
+        value: minorValue,
+        share: totalQty > 0 ? minorValue / totalQty : 0,
+        merged: minorCount,
+      })
+    }
+    return slices
+  }, [rollups, totalQty, showAllLabels])
+
+  const barData = rollups
+    .map((row) => ({
+      name: row.productGroup,
+      revenue: row.totalRevenue,
+      share: row.share,
+    }))
+    .sort((a, b) => b.share - a.share)
   const barHeight = Math.max(440, rollups.length * 38 + 60)
+
+  const renderPieTooltip = ({ active, payload }: TooltipContentProps) => {
+    if (!active || !payload || payload.length === 0) return null
+    const point = payload[0]?.payload as PieSlice | undefined
+    if (!point) return null
+    return (
+      <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+        <p className="font-semibold text-slate-800">
+          {formatTooltipLabel(point.name, point.share, showAllLabels)}
+        </p>
+        <p className="mt-0.5 text-slate-600">{formatNumber(point.value)} units</p>
+        {point.merged !== undefined && (
+          <p className="text-slate-500">{point.merged} product groups merged</p>
+        )}
+        <p className="mt-0.5 text-slate-600">{formatPercent(point.share)}</p>
+      </div>
+    )
+  }
+
+  const renderBarTooltip = ({ active, payload }: TooltipContentProps) => {
+    if (!active || !payload || payload.length === 0) return null
+    const point = payload[0]?.payload as BarPoint | undefined
+    if (!point) return null
+    return (
+      <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+        <p className="font-semibold text-slate-800">
+          {formatTooltipLabel(point.name, point.share, showAllLabels)}
+        </p>
+        <p className="mt-0.5 text-slate-600">{formatCurrency(point.revenue)}</p>
+        <p className="mt-0.5 text-slate-600">{formatPercent(point.share)} contribution</p>
+      </div>
+    )
+  }
 
   return (
     <section className="space-y-4">
@@ -193,13 +288,24 @@ export default function HomePage() {
           {!loading && !error && rollups.length > 0 && (
             <div className="space-y-6">
               <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <h2 className="mb-2 text-sm font-semibold text-slate-700">
-                  Contribution (units per product group)
-                </h2>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-slate-700">
+                    Contribution (units per product group)
+                  </h2>
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={showAllLabels}
+                      onChange={(event) => setShowAllLabels(event.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Show all labels
+                  </label>
+                </div>
                 <ResponsiveContainer width="100%" height={PIE_HEIGHT}>
                   <PieChart>
                     <Pie
-                      data={pieData}
+                      data={pieSlices}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
@@ -208,11 +314,14 @@ export default function HomePage() {
                       labelLine={{ stroke: '#94a3b8' }}
                       label={renderPieLabel}
                     >
-                      {pieData.map((entry, index) => (
-                        <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                      {pieSlices.map((entry, index) => (
+                        <Cell
+                          key={entry.name}
+                          fill={entry.name === 'Other' ? OTHER_COLOR : COLORS[index % COLORS.length]}
+                        />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => formatNumber(Number(value))} />
+                    <Tooltip content={renderPieTooltip} />
                     <Legend
                       verticalAlign="bottom"
                       height={40}
@@ -230,7 +339,7 @@ export default function HomePage() {
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tickFormatter={(value) => formatNumber(Number(value))} />
                     <YAxis type="category" dataKey="name" width={220} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Tooltip content={renderBarTooltip} />
                     <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
