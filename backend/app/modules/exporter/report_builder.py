@@ -2,22 +2,25 @@
 
 Layout per sheet (rows 1+)::
 
-    A-E  Left table  (Variant Breakdown)   - sparse: only qty > 0 rows
+    A-E  Left table  (Variant Breakdown)   - full catalog grid, every row
     F    Blank separator column (width 4)
     G-J  Right table (Group Summary)       - complete: every catalog group
 
-Rules enforced here (see ``excel-styling-formatter`` skill):
+Rules enforced here (2026-08-25 golden-display scope; export display only):
 
-* **Sparse left / complete right** - the left table emits only variant rows
-  with ``total_qty > 0``, while the right table always emits every group in
-  ``group_order``, even when it sold nothing, so the group list stays stable
-  period-over-period.
-* **Empty-Group Rule** - a group with zero emitted left-table rows gets a
-  literal integer ``0`` in its H/I cells, never a ``=SUM(...)`` over an
-  absent range (a broken reference).
-* **Contribution Guard** - Col E and Col J divide by a group/grand total;
-  when the divisor is ``0`` a literal ``0`` is written instead of a formula,
-  so the workbook never reproduces the reference workbook's ``#DIV/0!``.
+* **Full grid left table** - the left table emits EVERY catalog grid row per
+  group, sold or not, so the export reproduces the golden file's data
+  display. Unsold variants carry their variant name in col B with C (qty)
+  and D (revenue) left blank.
+* **Unguarded contribution formulas** - Col E is always
+  ``=(C{r}/$H${summary})*100%`` and Col J is always
+  ``=(H{r}/$H$grand_total)*100%``, never guarded against a zero divisor;
+  zero-total groups therefore evaluate to ``#DIV/0!``, reproducing the
+  golden workbook's known cell pattern (user-confirmed).
+* **Always-on SUM ranges** - every group's H/I is ``=SUM(C{start}:C{end})``
+  / ``=SUM(D{start}:D{end})`` over its full contiguous grid span (the
+  Empty-Group literal-0 rule is removed because every group always emits a
+  span).
 * **No hardcoded anchors** - all ``=SUM(Cx:Cy)`` ranges and ``$H$n`` anchors
   are derived from actually-emitted row indices.
 """
@@ -75,13 +78,6 @@ class ReportSheet:
     populated: Sequence[dict[str, Any]]  # AnalyticsRepository.populate_grid() rows
     grid: Sequence[GridRow]  # canonical catalog grid rows (variant order source)
     group_order: Sequence[str]  # canonical group emission order
-
-
-def _contribution_or_zero(numerator: str, denominator: str, divisor_is_zero: bool) -> str | int:
-    """Returns ``=(<numerator>/<denominator>)*100%`` or literal ``0`` when the divisor is zero."""
-    if divisor_is_zero:
-        return 0
-    return f"=({numerator}/{denominator})*100%"
 
 
 def _write_header(ws: Worksheet) -> None:
@@ -166,73 +162,56 @@ def render_side_by_side_sheet(
         (row["product_group"].rstrip(), row["clean_variant"].rstrip()): row for row in populated
     }
 
-    # Pass 1: sparse left table (cols A-D), tracking each group's emitted span
-    # and quantity totals (never re-read cells for arithmetic).
+    # Pass 1: full-grid left table (cols A-D). Every catalog grid row is
+    # emitted per group in canonical order; the group name lands only on the
+    # group's first row. Unsold variants get blank C/D (golden display); the
+    # populated lookup is defensive (populate_grid already left-joins zeros).
     spans: dict[str, tuple[int, int]] = {}
-    group_totals: dict[str, int] = {}
-    sheet_total_qty = 0
     next_row = 2
     for group in group_order:
         group_key = group.rstrip()
         start = next_row
-        group_total_qty = 0
         for gr in grid:
             if gr.product_group.rstrip() != group_key:
                 continue
-            pop = lookup.get((group_key, gr.clean_variant.rstrip()))
-            if pop is None or int(pop["total_qty"]) <= 0:
-                continue
             if next_row == start:
-                # Group name only on the group's first emitted row.
                 ws.cell(row=next_row, column=1, value=group_key)
             ws.cell(row=next_row, column=2, value=gr.clean_variant.rstrip())
-            ws.cell(row=next_row, column=3, value=int(pop["total_qty"]))
-            ws.cell(row=next_row, column=4, value=int(pop["total_revenue"]))
+            pop = lookup.get((group_key, gr.clean_variant.rstrip()))
+            if pop is not None and int(pop["total_qty"]) > 0:
+                ws.cell(row=next_row, column=3, value=int(pop["total_qty"]))
+                ws.cell(row=next_row, column=4, value=int(pop["total_revenue"]))
             _style_data_cell(ws, next_row, 1)
             _style_data_cell(ws, next_row, 2)
             _style_data_cell(ws, next_row, 3)
             _style_data_cell(ws, next_row, 4)
-            group_total_qty += int(pop["total_qty"])
             next_row += 1
-        if next_row > start:
-            spans[group_key] = (start, next_row - 1)
-            group_totals[group_key] = group_total_qty
-            sheet_total_qty += group_total_qty
+        spans[group_key] = (start, next_row - 1)
 
     grand_total_row = 2 + len(group_order)
     last_summary_row = grand_total_row - 1
 
-    # Pass 2: Col E contribution formulas for emitted variant rows. The divisor
-    # is the group's own H total, so it can only be 0 when the group has no
-    # emitted rows -- in which case there are no E cells either. Guard anyway.
+    # Pass 2: Col E contribution formulas for every left-table row. The
+    # divisor is the group's own H SUM cell; unguarded so zero-total groups
+    # reproduce the golden `#DIV/0!`.
     for group, (start, end) in spans.items():
         summary_row = 2 + group_order.index(group)
-        divisor_is_zero = group_totals[group] <= 0
         for r in range(start, end + 1):
-            ws.cell(
-                row=r,
-                column=5,
-                value=_contribution_or_zero(f"C{r}", f"$H${summary_row}", divisor_is_zero),
-            )
+            ws.cell(row=r, column=5, value=f"=(C{r}/$H${summary_row})*100%")
             _style_data_cell(ws, r, 5)
 
     # Pass 3: complete right table (cols G-J) at fixed summary rows.
     for group_index, group in enumerate(group_order):
         summary_row = 2 + group_index
         group_key = group.rstrip()
-        span = spans.get(group_key)
+        span = spans[group_key]
         ws.cell(row=summary_row, column=7, value=group_key)
-        if span is None:
-            # Empty-Group Rule: literal 0, never =SUM() over an absent range.
-            ws.cell(row=summary_row, column=8, value=0)
-            ws.cell(row=summary_row, column=9, value=0)
-        else:
-            ws.cell(row=summary_row, column=8, value=f"=SUM(C{span[0]}:C{span[1]})")
-            ws.cell(row=summary_row, column=9, value=f"=SUM(D{span[0]}:D{span[1]})")
+        ws.cell(row=summary_row, column=8, value=f"=SUM(C{span[0]}:C{span[1]})")
+        ws.cell(row=summary_row, column=9, value=f"=SUM(D{span[0]}:D{span[1]})")
         ws.cell(
             row=summary_row,
             column=10,
-            value=_contribution_or_zero(f"H{summary_row}", f"$H${grand_total_row}", sheet_total_qty <= 0),
+            value=f"=(H{summary_row}/$H${grand_total_row})*100%",
         )
         _style_data_cell(ws, summary_row, 7)
         _style_data_cell(ws, summary_row, 8)

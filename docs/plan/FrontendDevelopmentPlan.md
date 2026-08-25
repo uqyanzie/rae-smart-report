@@ -142,19 +142,19 @@ The former **Phase F (Integration & Packaging)** is renamed **Phase H** and now 
 
 ---
 
-## Phase F: Exported Excel Golden Display [Pending]
+## Phase F: Exported Excel Golden Display [Complete]
 
 **Goal:** Make the exported workbook follow the golden file's data display exactly (DevelopmentFeedback20260825): full catalog grid, all product groups and variants shown, values present, and unsold variants rendered per the golden's cell pattern.
 
 **Reference:** `sample_data/expected_output/output_13_19_Jul26.xlsx` (`Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`).
 
-- [ ] **Full-grid left table** in `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): emit EVERY catalog grid row per group (remove the `qty <= 0` skip). Produk sheets emit the full 181-row grid; Produk 2 sheets emit the full 813-row grid.
-- [ ] **Unsold variant cells:** write the variant name in col B; leave C (qty) and D (revenue) blank exactly like the golden; still write the E contribution formula for every row.
-- [ ] **Unguarded contribution formulas:** E always `=(C{r}/$H${summary})*100%` (remove `_contribution_or_zero`); zero-total groups therefore cache `#DIV/0!`, reproducing the golden workbook's known defect (user-confirmed). Right-table J stays `=(H{r}/$H$grand_total)*100%` for every group.
-- [ ] **Always-on SUM ranges:** every group's H/I is `=SUM(C{start}:C{end})` / `=SUM(D{start}:D{end})` over its full contiguous grid span (the Empty-Group literal-0 rule is removed because ranges always exist). TOTAL row unchanged (`=SUM(H2:H{last})`, `=SUM(I2:I{last})`).
-- [ ] Update the `report_builder.py` docstring (sparse → full) and remove dead helpers.
-- [ ] **Golden-grid note:** the reference workbook's Produk 2 grids are inconsistent (Produk 2 S = 516 rows vs Produk 2 T = 840 rows, both hand-scaffolded subsets); this app emits its canonical 813-row grid in both sheets as the superset satisfying "show all product groups and variants".
-- [ ] Rewrite `backend/tests/test_exporter.py` to the new contract:
+- [x] **Full-grid left table** in `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): emit EVERY catalog grid row per group (remove the `qty <= 0` skip). Produk sheets emit the full 181-row grid; Produk 2 sheets emit the full 813-row grid.
+- [x] **Unsold variant cells:** write the variant name in col B; leave C (qty) and D (revenue) blank exactly like the golden; still write the E contribution formula for every row.
+- [x] **Unguarded contribution formulas:** E always `=(C{r}/$H${summary})*100%` (remove `_contribution_or_zero`); zero-total groups therefore cache `#DIV/0!`, reproducing the golden workbook's known defect (user-confirmed). Right-table J stays `=(H{r}/$H$grand_total)*100%` for every group.
+- [x] **Always-on SUM ranges:** every group's H/I is `=SUM(C{start}:C{end})` / `=SUM(D{start}:D{end})` over its full contiguous grid span (the Empty-Group literal-0 rule is removed because ranges always exist). TOTAL row unchanged (`=SUM(H2:H{last})`, `=SUM(I2:I{last})`).
+- [x] Update the `report_builder.py` docstring (sparse → full) and remove dead helpers.
+- [x] **Golden-grid note:** the reference workbook's Produk 2 grids are inconsistent (Produk 2 S = 516 rows vs Produk 2 T = 840 rows, both hand-scaffolded subsets); this app emits its canonical 813-row grid in both sheets as the superset satisfying "show all product groups and variants".
+- [x] Rewrite `backend/tests/test_exporter.py` to the new contract:
   - Left-table row count equals the full grid size per sheet (181 / 181 / 813 / 813).
   - Unsold variant rows carry blank C/D plus a formula E; sold rows unchanged.
   - Every group has an in-bounds `=SUM` over its span (replaces `test_empty_groups_have_literal_zero` and `test_no_sum_formula_on_empty_groups`).
@@ -229,25 +229,16 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase E (Batch Management & Excel Export) — **complete**.
-- **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (now the final milestone, runs after F/G). Per the STOP protocol, the next session starts the new **Phase F**. This Handoff Brief will be updated again at the end of each phase.
-- **Done so far (Phase E):**
-  - `src/hooks/useBatches.ts`: now exposes `remove(batchId)` (calls `DELETE /api/reports/batches/{id}` then refreshes via a reload key).
-  - `src/pages/BatchesPage.tsx`: `createdAt` column, row click navigates to `/batches/:batchId` (Phase D detail), and a per-row **Delete** action with an inline confirm step (Delete/Cancel) + deleting state; delete errors surface through `ErrorBanner`.
-  - `src/pages/ExportPage.tsx`: platform-grouped batch selection. Exactly-one-batch-per-platform is enforced structurally in the selection map (`selectedByPlatform[platform] = batchId` — checking a second batch for a platform replaces the first, so the 400 `DUPLICATE_PLATFORM_BATCH` can never be triggered from the UI); Export button disabled with an empty selection; success banner shows the downloaded filename.
-  - `src/services/apiClient.ts`: `exportExcel` now returns `{ blob, filename }`, parsing the filename from `Content-Disposition` (fallback `rae_smart_report.xlsx`).
-  - `src/hooks/useAggregate.ts`: `useReducer`-based loader for `GET /api/reports/aggregate` (platform / periodStart / periodEnd / isCrossBundling), mirroring the `useBatchDetail` pattern to satisfy `react(set-state-in-effect)`.
-  - `src/pages/HomePage.tsx`: Query C dashboard — platform / period (`PeriodPicker`) / cross-bundling filters, summary cards (filtered rows, total units, total revenue), and an aggregate table with `contributionRatio` as 0–1 unit share via `formatPercent`.
-- **Phase E verification (live backend, temp DB):**
-  - `GET /reports/batches` returns both batches with `createdAt`; aggregate unfiltered = 307 rows / 18,505 units across both platforms; `platform=SHOPEE` filter narrows correctly.
-  - `DELETE /reports/batches/{id}` is idempotent (deletes 269 transaction_items, second call 0) and the list updates.
-  - Export of one Shopee + one TikTok batch streams `rae_smart_report_20260713_20260719.xlsx` with `Content-Disposition`; workbook opens as `Produk S, Produk T, Produk 2 S, Produk 2 T` and left-table sums match the golden totals (**6,910** / **11,575** units).
-  - Two batches for one platform → backend 400 `DUPLICATE_PLATFORM_BATCH` (and is structurally blocked client-side before any request).
-  - `npm run typecheck`, `npm run lint`, `npm run build` all clean; backend suite remains green (**221 tests**).
+- **Current Phase:** Phase F (Exported Excel Golden Display) — **complete**.
+- **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (the final milestone, runs after F/G). Per the STOP protocol, the next session starts the new **Phase G**. This Handoff Brief will be updated again at the end of each phase.
+- **Done so far (Phase F):**
+  - `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): left table now emits the FULL catalog grid — Produk sheets 181 rows, Produk 2 sheets 813 rows (the `qty <= 0` skip removed). Unsold variants carry their col-B variant name with blank C/D, but still get a col-E contribution formula on every row. Col E is always `=(C{r}/$H${summary})*100%` and col J always `=(H{r}/$H$grand_total)*100%` (unguarded — zero-total groups reproduce the golden `#DIV/0!` on open). Every group's H/I is an always-on `=SUM` over its contiguous grid span; the Empty-Group literal-0 branch and `_contribution_or_zero` helper were removed. Module docstring rewritten (sparse → full).
+  - `backend/tests/test_exporter.py` rewritten to the new contract (11 tests): full-grid emission counts (181/181/813/813) with nothing spilling past, blank C/D for unsold variants (sold rows unchanged), every group's in-bounds contiguous `=SUM` span, unguarded E formulas on zero-total groups, no baked `#DIV/0!` string (errors computed on open), contribution anchors pointing at formula cells, the 36-row Produk 2 Group 9 (no double-count), golden totals conserved, right-table completeness, and number masks.
+  - **Phase F verification (live backend, temp DB):** `pytest backend/tests/` = **221 passed**; `ruff check backend/` clean. An exported workbook from the sample batches reproduces the golden display: Produk S/T = 181 rows (102 / 92 sold), Produk 2 S/T = 813 rows (7 / 13 sold — matching the golden's non-empty counts exactly); totals conserved (Shopee **6,910** / TikTok **11,575**; cross qty 7 / 13); unsold rows render blank C/D with `=(C20/$H$3)*100%`-style unguarded E formulas and always-on `=SUM(C134:C199)`-style H/I ranges.
+  - **Doc-drift note:** `.agents/skills/excel-styling-formatter/SKILL.md`, `docs/specs/excel-exporter-engine.md`, and `docs/plan/BackendImplementationPlan.md` still describe the pre-2026-08-25 sparse/guard contract; they are superseded for the export display by this phase. A docs sweep can fold the new golden-display rules into those files during a future housekeeping session (out of scope here per phase discipline).
 - **What is next (fresh session):**
-  1. Phase F (Exported Excel Golden Display): full-grid left table, golden-style blank/`#DIV/0!` cells, always-on `=SUM` ranges in `report_builder.py`, and the `test_exporter.py` rewrite.
-  2. Phase G (Batch-Scoped Dashboard Redesign): `isBundling` query filter on `/variants` and `/products`, recharts, and the `HomePage` batch-selector + checkbox + pie/bar redesign.
-  3. Phase H (Integration & Packaging): PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, and the clean-machine smoke test reproducing the golden workbook from the sample files.
+  1. Phase G (Batch-Scoped Dashboard Redesign): `isBundling` query filter on `/variants` and `/products` (repository Queries A/B + `routes.py`), regenerate `frontend/src/services/api.ts`, add `recharts`, `src/hooks/useBatchDashboard.ts`, and redesign `HomePage.tsx` into a batch-selector + 3-checkbox (Single / Bundling / Cross Bundling) + Contribution Pie + Product bar chart + data-list dashboard.
+  2. Phase H (Integration & Packaging): PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, and the clean-machine smoke test reproducing the golden workbook from the sample files.
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`
