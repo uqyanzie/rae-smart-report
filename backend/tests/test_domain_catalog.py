@@ -8,7 +8,6 @@ from app.domain.catalog import (
     LIPCARE_INTRA_BUNDLE_LABELS,
     OTG_INTRA_BUNDLE_LABELS,
     PRODUK_GROUP_ORDER,
-    Family,
     resolve_family,
     resolve_shade,
 )
@@ -35,7 +34,7 @@ def test_glow_up_tint_orderings():
     CRITICAL: In display_order and cross_order, Strong (09) must precede Happy (10).
     """
     gut = FAMILY_BY_NAME["Glow Up Tint"]
-    
+
     expected_singles = [
         "Active", "Brave", "Cheerful", "Confident", "Dynamic", "Energic",
         "Gorgeous", "Happy", "Incredible", "Joyful", "Strong",
@@ -44,7 +43,7 @@ def test_glow_up_tint_orderings():
         "Active", "Brave", "Cheerful", "Confident", "Dynamic", "Energic",
         "Gorgeous", "Strong", "Happy", "Incredible", "Joyful",
     ]
-    
+
     assert list(gut.order_for_singles()) == expected_singles
     assert list(gut.order_for_pairs()) == expected_display
     assert list(gut.order_for_cross()) == expected_display
@@ -54,10 +53,10 @@ def test_glow_up_tint_orderings():
 def test_swipe_to_glow_orderings():
     """Verifies Swipe To Glow singles vs display/cross sequences."""
     stg = FAMILY_BY_NAME["Swipe To Glow"]
-    
+
     expected_singles = ["Brunch", "Date", "Holiday", "Party", "School", "Work"]
     expected_display = ["Date", "Work", "School", "Brunch", "Holiday", "Party"]
-    
+
     assert list(stg.order_for_singles()) == expected_singles
     assert list(stg.order_for_pairs()) == expected_display
     assert list(stg.order_for_cross()) == expected_display
@@ -66,7 +65,7 @@ def test_swipe_to_glow_orderings():
 def test_power_frosted_velvet_matte_orderings_and_short_labels():
     """Verifies Power Frosted orderings and short-name bundle formatting."""
     pfvm = FAMILY_BY_NAME["Power Frosted Velvet Matte"]
-    
+
     expected_singles = [
         "Ambition Power", "Classy Power", "Heart Power",
         "Honest Power", "Kind Power", "Smart Power",
@@ -75,11 +74,11 @@ def test_power_frosted_velvet_matte_orderings_and_short_labels():
         "Kind Power", "Honest Power", "Classy Power",
         "Smart Power", "Heart Power", "Ambition Power",
     ]
-    
+
     assert list(pfvm.order_for_singles()) == expected_singles
     assert list(pfvm.order_for_pairs()) == expected_display
     assert list(pfvm.order_for_cross()) == expected_display
-    
+
     # Bundle label drops the " Power" suffix
     assert pfvm.bundle_label("Kind Power", "Honest Power") == "Kind + Honest"
     assert pfvm.bundle_label("Ambition Power", "Smart Power") == "Ambition + Smart"
@@ -92,7 +91,7 @@ def test_tinted_jelly_balm_and_case_colors():
         "Bunny Pink", "Wild Mauve", "Nudy Caramel",
         "Spill Nude", "Red Babe", "Hippie Rose",
     ]
-    
+
     assert list(tjb.order_for_singles()) == expected_shades
     assert list(CASE_COLORS) == ["Fizzy Pop", "Sweetie Pop", "Cherry Pop"]
 
@@ -101,7 +100,7 @@ def test_the_bloom_lipstick_orderings():
     """Verifies The Bloom lipstick shade ordering."""
     bloom = FAMILY_BY_NAME["The Bloom Perfect Matte Lipstick"]
     expected_shades = ["Peony", "Gerbera", "Daisy", "Tulip", "Orchid", "Dahlia"]
-    
+
     assert list(bloom.order_for_singles()) == expected_shades
     assert list(bloom.order_for_pairs()) == expected_shades
     assert list(bloom.order_for_cross()) == expected_shades
@@ -110,7 +109,7 @@ def test_the_bloom_lipstick_orderings():
 def test_over_the_glaze_explicit_bundles():
     """Verifies Over The Glaze literal 15 intra bundle labels."""
     otg = FAMILY_BY_NAME["Over The Glaze"]
-    
+
     assert len(OTG_INTRA_BUNDLE_LABELS) == 15
     assert otg.explicit_bundle_labels == OTG_INTRA_BUNDLE_LABELS
     assert OTG_INTRA_BUNDLE_LABELS[0] == "Over Cute + Lovie"
@@ -124,7 +123,7 @@ def test_lipcare_multi_group_structure_and_bundles():
     - 7 explicit bundle labels under Bundling Lipcare.
     """
     lipcare = FAMILY_BY_NAME["Lipcare"]
-    
+
     assert list(lipcare.shades) == ["Lip Moist", "Lip Exfoliant", "Lip Sunscreen"]
     assert len(lipcare.explicit_groups) == 3
     assert lipcare.explicit_groups == (
@@ -132,7 +131,7 @@ def test_lipcare_multi_group_structure_and_bundles():
         ("Lip Exfoliant", "Lip Exfoliant"),
         ("Lip Sunscreen", "Lip Sunscreen"),
     )
-    
+
     assert len(LIPCARE_INTRA_BUNDLE_LABELS) == 7
     assert lipcare.explicit_bundle_labels == LIPCARE_INTRA_BUNDLE_LABELS
     expected_bundles = [

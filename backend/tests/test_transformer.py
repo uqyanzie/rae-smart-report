@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from app.domain.catalog import FAMILIES, FAMILY_BY_NAME
 from app.domain.models import VariantRecord
 from app.modules.ingestion.reader import extract_spreadsheet_rows
 from app.modules.profiler.adapters import (
@@ -12,9 +11,7 @@ from app.modules.profiler.adapters import (
     TikTokShopAdapter,
 )
 from app.modules.transformer import (
-    FixedGridGenerator,
     FoldBackEngine,
-    TransformationWarning,
     VariantNormalizer,
     extract_case_color,
     generate_cross_family_grid,
@@ -490,5 +487,3 @@ class TestTransformationGoldenOracleMatch:
         assert sum(r.revenue for r in result.records) == sum(
             r.revenue for r in raw_records
         ), "TikTok revenue leaked or was fabricated through transformation"
-
-
