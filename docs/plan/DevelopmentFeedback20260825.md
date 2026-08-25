@@ -1,7 +1,7 @@
 # Development Feedback 20260825
 
 **Dependancy Upgrades**
-- Upgrade backend to use httpx2
+- Upgrade backend to use httpx2 (skipped)
 
 **Exported Excel Display**
 - Follow the golden file (sample_data\expected_output\output_13_19_Jul26.xlsx) data display on exported excel. Show all product groups, variants and value. If the raw inputs for specific product groups or variants are not available, set the value to 0.
