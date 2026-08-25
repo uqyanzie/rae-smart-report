@@ -51,6 +51,9 @@ GOLDEN_SHOPEE_SINGLES_QTY = 6_553
 GOLDEN_SHOPEE_INTRA_BUNDLE_QTY = 357
 GOLDEN_TIKTOK_SINGLES_QTY = 11_377
 GOLDEN_TIKTOK_INTRA_BUNDLE_QTY = 198
+# Cross-family (Produk 2) reported quantities, matching test_api.py.
+SHOPEE_CROSS_QTY = 7
+TIKTOK_CROSS_QTY = 13
 
 SHOPEE_SKIPPED_COUNT = 180
 SHOPEE_SKIPPED_QTY = 1
@@ -141,36 +144,50 @@ def test_warning_counts_after_ignorable_tokens(shopee_result, tiktok_result):
 # ---------------------------------------------------------------------------
 
 
-def test_skipped_unreported_tally(shopee_result, persisted):
-    """The auditable excluded-volume tally reports exactly 180 Shopee
-    exclusions (qty 1, Rp 4,950) and TikTok's single off-grid orphan
-    (qty 1, Rp 22,637)."""
+def test_persist_boundary_unreported_persisted_dash_skipped(shopee_result, tiktok_result, persisted):
+    """Phase 7 (DevelopmentFeedback20260826): only dash/empty parent rows
+    within catalog groups are skipped; off-grid variants and non-catalog
+    products are PERSISTED with is_reported=0.
+
+    Shopee: 167 dash rows skipped (qty 1, Rp 4,950); 13 non-catalog product
+    listings persisted as unreported (Rp 0). TikTok: 1 off-grid orphan
+    persisted as unreported (qty 1, Rp 22,637).
+    """
     shopee = persisted["shopee"]
-    assert shopee.skipped_unreported == SkippedTally(
-        count=SHOPEE_SKIPPED_COUNT,
+    assert shopee.skipped_dash_variant == SkippedTally(
+        count=167,
         qty=SHOPEE_SKIPPED_QTY,
         revenue=SHOPEE_SKIPPED_REVENUE,
     )
-
-    # Reason breakdown must sum back to the combined tally (audit invariant).
-    breakdown = (
-        shopee.skipped_dash_variant + shopee.skipped_unresolved_group + shopee.skipped_off_grid
-    )
-    assert breakdown == shopee.skipped_unreported
     # Out-of-catalog products (Body Toner, Face Toner, Lippie Serum, Blurring
-    # Powder, deleted listings) carry zero revenue this period.
-    assert shopee.skipped_unresolved_group.revenue == 0
-    assert shopee.skipped_unresolved_group.count == 13
-    assert shopee.skipped_dash_variant.count == 167
+    # Powder, deleted listings) are persisted as unreported (rev 0).
+    assert shopee.unreported_unresolved_group == SkippedTally(13, 0, 0)
     # R7 keeps Shopee's only off-grid pair on-grid ('Over Cute + Lovie'), so
     # the off-grid bucket stays empty for Shopee.
-    assert shopee.skipped_off_grid == SkippedTally(0, 0, 0)
+    assert shopee.unreported_off_grid == SkippedTally(0, 0, 0)
+    assert shopee.persisted_unreported == SkippedTally(13, 0, 0)
+    assert shopee.inserted_reported.count == len(shopee_result.records) - 167 - 13
+    assert shopee.inserted_count == len(shopee_result.records) - 167
 
     tiktok = persisted["tiktok"]
-    assert tiktok.skipped_unreported == SkippedTally(1, 1, 22_637)
-    assert tiktok.skipped_off_grid == SkippedTally(1, 1, 22_637)
     assert tiktok.skipped_dash_variant == SkippedTally(0, 0, 0)
-    assert tiktok.skipped_unresolved_group == SkippedTally(0, 0, 0)
+    assert tiktok.unreported_off_grid == SkippedTally(1, 1, 22_637)
+    assert tiktok.unreported_unresolved_group == SkippedTally(0, 0, 0)
+    assert tiktok.persisted_unreported == SkippedTally(1, 1, 22_637)
+    assert tiktok.inserted_reported.count == len(tiktok_result.records) - 1
+    assert tiktok.inserted_count == len(tiktok_result.records)
+
+    # Volume invariant: reported + unreported-persisted + dash-skipped == raw.
+    for result, persist_result in (
+        (shopee_result, shopee),
+        (tiktok_result, tiktok),
+    ):
+        total = sum(r.qty_sold for r in result.records)
+        assert (
+            persist_result.inserted_reported.qty
+            + persist_result.persisted_unreported.qty
+            + persist_result.skipped_dash_variant.qty
+        ) == total
 
     # Transform-level cross-check: 180 dash-variant records exist pre-persist.
     transform_dash = [
@@ -181,6 +198,56 @@ def test_skipped_unreported_tally(shopee_result, persisted):
     assert len(transform_dash) == SHOPEE_SKIPPED_COUNT
     assert sum(r.qty_sold for r in transform_dash) == SHOPEE_SKIPPED_QTY
     assert sum(r.revenue for r in transform_dash) == SHOPEE_SKIPPED_REVENUE
+
+
+def test_unreported_analytics_returns_persisted_entries(factory, persisted):
+    """Query G (is_reported=0) returns exactly the persisted unreported rows:
+    13 Shopee non-catalog listings and TikTok's off-grid 'Default' orphan."""
+    repo, session = _repo(factory)
+    try:
+        shopee_unreported = repo.unreported_analytics(BATCH_SHOPEE)
+        tiktok_unreported = repo.unreported_analytics(BATCH_TIKTOK)
+    finally:
+        session.close()
+
+    # Shopee: 13 persisted records collapse to 12 distinct (group, variant,
+    # raw) rows (two 'Tidak dapat memperoleh informasi produk karena
+    # penghapusan' listings share a key); all zero revenue.
+    assert len(shopee_unreported) == 12
+    assert sum(r["total_qty"] for r in shopee_unreported) == 0
+    assert sum(r["total_revenue"] for r in shopee_unreported) == 0
+    assert all(r["clean_variant"] in ("-", "") for r in shopee_unreported)
+
+    # TikTok: the off-grid Tinted Jelly Balm 'Default' orphan.
+    assert len(tiktok_unreported) == 1
+    row = tiktok_unreported[0]
+    assert row["product_group"] == "Tinted Jelly Balm"
+    assert row["clean_variant"] == "Default"
+    assert row["total_qty"] == 1
+    assert row["total_revenue"] == 22_637
+    assert row["raw_variant"]
+
+
+def test_report_queries_exclude_unreported_rows(factory, persisted):
+    """Every report query filters is_reported=1: the unreported rows never
+    leak into Query A / B / D / the grid, keeping golden totals fixed."""
+    repo, session = _repo(factory)
+    try:
+        tiktok_a = repo.variant_analytics(BATCH_TIKTOK, is_cross_bundling=0)
+        tiktok_b = repo.product_group_summary(BATCH_TIKTOK, is_cross_bundling=0)
+        history = repo.batch_history()
+    finally:
+        session.close()
+
+    # The off-grid 'Default' row is absent from Query A / Query B.
+    assert not any(r["clean_variant"] == "Default" for r in tiktok_a)
+    assert sum(r["total_qty"] for r in tiktok_a) == GOLDEN_TIKTOK_QTY
+    # Query B: no leaked unreported volume (would push the 11,575 total to 11,576).
+    assert sum(r["total_qty"] for r in tiktok_b) == GOLDEN_TIKTOK_QTY
+
+    # Query D grand totals exclude unreported volume (reported-only sums).
+    tiktok_history = next(h for h in history if h["import_batch_id"] == BATCH_TIKTOK)
+    assert tiktok_history["grand_total_qty"] == GOLDEN_TIKTOK_QTY + TIKTOK_CROSS_QTY
 
 
 # ---------------------------------------------------------------------------
@@ -305,14 +372,19 @@ def test_query_a_ratio_no_fanout_on_untrimmed_group(factory, persisted):
 
 
 def test_no_dash_or_whitespace_keys_persisted(factory, persisted):
-    """No persisted clean_variant in ('-', ''); no product_group or
-    clean_variant carries leading/trailing whitespace."""
+    """No REPORTED row has clean_variant in ('-', '') and no product_group or
+    clean_variant carries leading/trailing whitespace. Persisted unreported
+    entries (non-catalog listings whose variant is '-') are exempt: they never
+    participate in report queries (Phase 7)."""
     _, session = _repo(factory)
     try:
         n_dash = session.execute(
             select(func.count())
             .select_from(TransactionItem)
-            .where(TransactionItem.clean_variant.in_(["-", ""]))
+            .where(
+                TransactionItem.is_reported.is_(True),
+                TransactionItem.clean_variant.in_(["-", ""]),
+            )
         ).scalar_one()
         assert n_dash == 0
 
@@ -320,8 +392,9 @@ def test_no_dash_or_whitespace_keys_persisted(factory, persisted):
             select(func.count())
             .select_from(TransactionItem)
             .where(
+                TransactionItem.is_reported.is_(True),
                 (TransactionItem.product_group != func.rtrim(TransactionItem.product_group))
-                | (TransactionItem.clean_variant != func.rtrim(TransactionItem.clean_variant))
+                | (TransactionItem.clean_variant != func.rtrim(TransactionItem.clean_variant)),
             )
         ).scalar_one()
         assert n_ws == 0
@@ -401,7 +474,8 @@ def test_grid_population_preserves_all_rows_and_stg_totals(factory, persisted):
     assert sum(r["total_qty"] for r in bundling_stg) == GOLDEN_BUNDLING_STG_QTY
     assert sum(r["total_revenue"] for r in bundling_stg) == GOLDEN_BUNDLING_STG_REVENUE
 
-    # Every persisted (group, variant) key with sales lands on a grid row.
+    # Every persisted REPORTED (group, variant) key with sales lands on a
+    # grid row; unreported rows are exempt (they never join the grid).
     grid_keys = {(r["product_group"], r["clean_variant"]) for r in rows}
     _, session2 = _repo(factory)
     try:
@@ -410,6 +484,7 @@ def test_grid_population_preserves_all_rows_and_stg_totals(factory, persisted):
                 select(TransactionItem.product_group, TransactionItem.clean_variant).where(
                     TransactionItem.import_batch_id == BATCH_SHOPEE,
                     TransactionItem.is_cross_bundling.is_(False),
+                    TransactionItem.is_reported.is_(True),
                     TransactionItem.qty_sold > 0,
                 )
             ).all()
@@ -419,14 +494,16 @@ def test_grid_population_preserves_all_rows_and_stg_totals(factory, persisted):
     assert sold_keys.issubset(grid_keys)
 
 
-def test_reconciliation_grid_plus_skipped_equals_transform(
+def test_reconciliation_grid_plus_unreported_plus_skipped_equals_transform(
     factory, persisted, shopee_result, tiktok_result
 ):
-    """R1 acceptance: grid qty + grid2 qty + skipped == transform records.
+    """R1 acceptance (Phase 7): grid qty + grid2 qty + unreported-persisted
+    qty + dash-skipped qty == transform records.
 
-    For both reference batches, every sheet's grid rows plus every skipped
-    tally equals the transform-level totals exactly -- nothing leaks past the
-    audit boundary -- and the same holds for revenue.
+    For both reference batches, every sheet's grid rows plus the persisted
+    unreported partition plus the dash-skipped tally equals the transform-level
+    totals exactly -- nothing leaks past the audit boundary -- and the same
+    holds for revenue.
     """
     repo, session = _repo(factory)
     try:
@@ -448,8 +525,18 @@ def test_reconciliation_grid_plus_skipped_equals_transform(
             )
             rec_qty = sum(r.qty_sold for r in result.records)
             rec_rev = sum(r.revenue for r in result.records)
-            assert grid_qty + persist_result.skipped_unreported.qty == rec_qty
-            assert grid_rev + persist_result.skipped_unreported.revenue == rec_rev
+            assert (
+                grid_qty
+                + persist_result.persisted_unreported.qty
+                + persist_result.skipped_dash_variant.qty
+                == rec_qty
+            )
+            assert (
+                grid_rev
+                + persist_result.persisted_unreported.revenue
+                + persist_result.skipped_dash_variant.revenue
+                == rec_rev
+            )
     finally:
         session.close()
 

@@ -55,12 +55,15 @@ from app.modules.exporter.styles import (
 
 __all__ = [
     "ReportSheet",
+    "UnreportedSheet",
     "generate_executive_workbook",
     "render_side_by_side_sheet",
+    "render_unreported_sheet",
 ]
 
 LEFT_HEADERS: tuple[str, ...] = ("Produk", "Nama Variasi", "Produk Terjual", "Revenue", "Kontribusi")
 RIGHT_HEADERS: tuple[str, ...] = ("Produk", "Produk Terjual", "Revenue", "Kontribusi")
+UNREPORTED_HEADERS: tuple[str, ...] = ("Produk", "Nama Variasi", "Raw Variant", "Produk Terjual", "Revenue")
 SEPARATOR_WIDTH = 4
 MIN_COLUMN_WIDTH = 14
 
@@ -78,6 +81,14 @@ class ReportSheet:
     populated: Sequence[dict[str, Any]]  # AnalyticsRepository.populate_grid() rows
     grid: Sequence[GridRow]  # canonical catalog grid rows (variant order source)
     group_order: Sequence[str]  # canonical group emission order
+
+
+@dataclass(frozen=True)
+class UnreportedSheet:
+    """Inputs for one unreported sheet (Tidak Terlaporkan S/T): title + rows."""
+
+    title: str
+    rows: Sequence[dict[str, Any]]  # AnalyticsRepository.unreported_analytics() rows
 
 
 def _write_header(ws: Worksheet) -> None:
@@ -120,6 +131,22 @@ def _style_total_row(ws: Worksheet, row: int) -> None:
         cell.alignment = ALIGN_RIGHT if col in (8, 9) else ALIGN_LEFT
     ws.cell(row=row, column=8).number_format = FORMAT_INTEGER
     ws.cell(row=row, column=9).number_format = FORMAT_CURRENCY_IDR
+
+
+def _style_unreported_cell(ws: Worksheet, row: int, col: int) -> None:
+    """Applies regular styling + the unreported sheet's number masks.
+
+    Columns: A Produk (text), B Nama Variasi (text), C Raw Variant (text),
+    D Produk Terjual (integer), E Revenue (IDR currency).
+    """
+    cell = ws.cell(row=row, column=col)
+    cell.font = FONT_REGULAR
+    cell.border = BORDER_REGULAR
+    cell.alignment = ALIGN_RIGHT if col in (4, 5) else ALIGN_LEFT
+    if col == 4:
+        cell.number_format = FORMAT_INTEGER
+    elif col == 5:
+        cell.number_format = FORMAT_CURRENCY_IDR
 
 
 def _auto_fit_columns(ws: Worksheet) -> None:
@@ -228,11 +255,79 @@ def render_side_by_side_sheet(
     ws.column_dimensions["F"].width = SEPARATOR_WIDTH
 
 
-def generate_executive_workbook(sheets: Sequence[ReportSheet]) -> io.BytesIO:
+def render_unreported_sheet(ws: Worksheet, *, rows: Sequence[dict[str, Any]]) -> None:
+    """Renders one unreported sheet (Tidak Terlaporkan S/T) into ``ws``.
+
+    A single five-column table backed by ``unreported_analytics`` (Query G,
+    ``is_reported = 0``): product group, clean variant, raw variant, qty,
+    revenue, plus a TOTAL row. No combinatorial grid and no contribution
+    column. Persisted unreported entries appear only here -- never in the
+    Produk sheets.
+    """
+    ws.sheet_view.showGridLines = True
+    for col, header in enumerate(UNREPORTED_HEADERS, start=1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = FONT_HEADER
+        cell.fill = FILL_HEADER
+        cell.alignment = ALIGN_CENTER
+        cell.border = BORDER_REGULAR
+
+    next_row = 2
+    for row in rows:
+        ws.cell(row=next_row, column=1, value=row["product_group"])
+        ws.cell(row=next_row, column=2, value=row["clean_variant"])
+        ws.cell(row=next_row, column=3, value=row["raw_variant"])
+        ws.cell(row=next_row, column=4, value=int(row["total_qty"]))
+        ws.cell(row=next_row, column=5, value=int(row["total_revenue"]))
+        for col in range(1, 6):
+            _style_unreported_cell(ws, next_row, col)
+        next_row += 1
+
+    # TOTAL row: SUM formulas over the data span, or literal 0 when the sheet
+    # has no unreported rows (a valid, empty unreported period).
+    last_data = next_row - 1
+    ws.cell(row=next_row, column=1, value="TOTAL")
+    if last_data >= 2:
+        ws.cell(row=next_row, column=4, value=f"=SUM(D2:D{last_data})")
+        ws.cell(row=next_row, column=5, value=f"=SUM(E2:E{last_data})")
+    else:
+        ws.cell(row=next_row, column=4, value=0)
+        ws.cell(row=next_row, column=5, value=0)
+    for col in (1, 4, 5):
+        cell = ws.cell(row=next_row, column=col)
+        cell.font = FONT_TOTAL
+        cell.fill = FILL_TOTAL
+        cell.border = BORDER_TOTAL
+        cell.alignment = ALIGN_RIGHT if col in (4, 5) else ALIGN_LEFT
+    ws.cell(row=next_row, column=4).number_format = FORMAT_INTEGER
+    ws.cell(row=next_row, column=5).number_format = FORMAT_CURRENCY_IDR
+
+
+def _auto_fit_unreported_columns(ws: Worksheet) -> None:
+    """Auto-fits columns A-E of an unreported sheet measuring cell strings."""
+    for col_idx in range(1, 6):
+        letter = get_column_letter(col_idx)
+        max_len = 0
+        for row in ws.iter_rows(min_col=col_idx, max_col=col_idx):
+            value = row[0].value
+            if value is None:
+                continue
+            text = str(value)
+            if text.startswith("="):
+                continue
+            max_len = max(max_len, len(text))
+        ws.column_dimensions[letter].width = max(max_len + 4, MIN_COLUMN_WIDTH)
+
+
+def generate_executive_workbook(
+    sheets: Sequence[ReportSheet],
+    unreported: Sequence[UnreportedSheet] = (),
+) -> io.BytesIO:
     """Builds the executive multi-sheet workbook and returns it as bytes.
 
     Sheet order follows ``sheets`` (``Produk S``, ``Produk T``,
-    ``Produk 2 S``, ``Produk 2 T`` for the standard report).
+    ``Produk 2 S``, ``Produk 2 T`` for the standard report); ``unreported``
+    sheets (``Tidak Terlaporkan S/T``) are appended after them.
     """
     wb = Workbook()
     if wb.active is not None:
@@ -246,6 +341,10 @@ def generate_executive_workbook(sheets: Sequence[ReportSheet]) -> io.BytesIO:
             group_order=sheet.group_order,
         )
         _auto_fit_columns(ws)
+    for usheet in unreported:
+        ws = wb.create_sheet(title=usheet.title)
+        render_unreported_sheet(ws, rows=usheet.rows)
+        _auto_fit_unreported_columns(ws)
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)

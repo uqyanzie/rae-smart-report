@@ -204,23 +204,23 @@ The golden boundary is preserved: every report query and the four Produk sheets 
 
 ---
 
-## Phase H: Unreported Entries (Persistence & Display) [Pending]
+## Phase H: Unreported Entries (Persistence & Display) [Complete]
 
 **Goal:** Implement the `DevelopmentFeedback20260826.md` scope extension — persist non-dash unreported entries and show their qty/revenue on `HomePage` and batch data display. Covers backend **Phase 7** of `BackendImplementationPlan.md` plus the frontend wiring. Runs before Integration & Packaging.
 
 **Backend (Phase 7 — see `BackendImplementationPlan.md`):**
-- [ ] `is_reported: bool` column on `transaction_items` + idempotent startup migration in `init_db`.
-- [ ] `persist_batch` boundary: dash/empty rows stay excluded (`skipped_dash_variant`); off-grid variants and non-catalog groups persist with `is_reported = 0`.
-- [ ] Report guards: Queries A/B/C/D + grid left-join filter `is_reported = 1` (golden totals fixed).
-- [ ] `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`; `TransformResponseDTO` gains `unreportedCount` / `unreportedQty` / `unreportedRevenue`.
-- [ ] Exporter `render_unreported_sheet` → `Tidak Terlaporkan S` / `Tidak Terlaporkan T` sheets.
+- [x] `is_reported: bool` column on `transaction_items` + idempotent startup migration in `init_db`.
+- [x] `persist_batch` boundary: dash/empty rows stay excluded (`skipped_dash_variant`); off-grid variants and non-catalog groups persist with `is_reported = 0`.
+- [x] Report guards: Queries A/B/C/D + grid left-join filter `is_reported = 1` (golden totals fixed).
+- [x] `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`; `TransformResponseDTO` gains `unreportedCount` / `unreportedQty` / `unreportedRevenue`.
+- [x] Exporter `render_unreported_sheet` → `Tidak Terlaporkan S` / `Tidak Terlaporkan T` sheets.
 
 **Frontend (dashboard + batch display):**
-- [ ] Regenerate `frontend/src/services/api.ts` via `npm run generate:api` (new endpoint + DTO + transform fields).
-- [ ] `apiClient.batchUnreported(batchId)` typed method.
-- [ ] `HomePage`: "Unreported" summary card (qty + revenue) for the selected batch plus a row-level detail list (product group / variant / raw variant / qty / revenue).
-- [ ] `BatchDetailPage`: unreported totals + detail list; update the audit-card copy so `skipped*` reads "dash rows only" and unreported is described as persisted-but-unreported.
-- [ ] `npm run typecheck`, `npm run lint`, `npm run build` clean.
+- [x] Regenerate `frontend/src/services/api.ts` via `npm run generate:api` (new endpoint + DTO + transform fields).
+- [x] `apiClient.batchUnreported(batchId)` typed method.
+- [x] `HomePage`: "Unreported" summary card (qty + revenue) for the selected batch plus a row-level detail list (product group / variant / raw variant / qty / revenue).
+- [x] `BatchDetailPage`: unreported totals + detail list; update the audit-card copy so `skipped*` reads "dash rows only" and unreported is described as persisted-but-unreported.
+- [x] `npm run typecheck`, `npm run lint`, `npm run build` clean.
 
 **Success Criteria:**
 - Unreported qty/revenue render correctly on `HomePage` and `BatchDetailPage` for the sample batches (13 Shopee unresolved + 1 TikTok off-grid persisted rows).
@@ -265,23 +265,19 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase G (Batch-Scoped Dashboard Redesign) — **complete**.
+- **Current Phase:** Phase H (Unreported Entries — Persistence & Display) — **complete**.
 - **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (the final milestone, runs after F/G). Per the STOP protocol, the next session starts the final **Phase H**. This Handoff Brief will be updated again at the end of each phase.
 - **2026-08-26 Scope extension applied:** `DevelopmentFeedback20260826.md` adds **Phase H (Unreported Entries)** — persist non-dash unreported entries (`tidak boleh ecer`, `free gift`, off-grid variants, non-catalog products) into `transaction_items` with `is_reported = 0`, show their qty/revenue on `HomePage` and batch data display, and emit `Tidak Terlaporkan S/T` export sheets. The packaging milestone is **renamed Phase I** and now runs **after** the unreported work so the packaged smoke test exercises it. Backend implementation is Phase 7 of `BackendImplementationPlan.md`; golden figures stay fixed because every report query filters `is_reported = 1`.
-- **Done so far (Phase G):**
-  - **Backend `isBundling` filter:** `backend/app/modules/storage/repository.py` — `variant_analytics` (Query A) and `product_group_summary` (Query B) accept `is_bundling: bool | int | None = None`; both SQL CTEs (`product_totals` / `grand_total`) **and** the outer WHERE apply `(:is_bundling IS NULL OR is_bundling = :is_bundling)` so `contribution_ratio` is computed within the selected partition. New `_coerce_bundling_flag` normalizes the binding. `backend/app/api/routes.py` — `is_bundling: int | None = Query(default=None, alias="isBundling")` added to `GET /variants` and `GET /products`.
-  - **API client regen:** `frontend/src/services/api.ts` regenerated from the live `/openapi.json` (now exposes `isBundling?: number | null`); `apiClient.batchVariants`/`batchProducts` gained an optional `isBundling` param (`is_cross_bundling` stays `snake_case` on the wire; `isBundling` is the camelCase alias).
-  - **Frontend dashboard:** added `recharts`. New `src/hooks/useBatchDashboard.ts` — fetches the 3 partition datasets in parallel (`is_cross_bundling=0,isBundling=0` / `=0,isBundling=1` / `is_cross_bundling=1`), tags rows by `source`, merges the active selection, and computes group rollups client-side (deterministic integer sums + 0–1 qty share). `src/pages/HomePage.tsx` redesigned: batch selector (default newest), 3 multi-select checkboxes (Single / Bundling / Cross Bundling, default all), summary cards (rows / units / revenue), recharts Contribution Pie + Product sales Bar, and a variant data-list table with a per-row type badge and global share.
-  - **Phase G verification (live server, temp DB):**
-    - `pytest backend/tests/` = **227 passed** (6 new: `test_query_a_is_bundling_partition`, `test_query_a_is_bundling_tiktok`, `test_query_b_is_bundling_partition`, `test_variants_is_bundling_partition`, `test_variants_is_bundling_tiktok`, `test_products_is_bundling_partition`); `ruff check backend/` clean.
-    - Partition invariant holds through both the repository and the HTTP API: Shopee 6,553 (Single) + 357 (Bundling) = **6,910**; TikTok 11,377 + 198 = **11,575**; `Bundling*` groups ⟺ `is_bundling=1` exactly; per-group variant ratios sum to 1.0 within each partition (zero-qty groups yield 0.0 ratios); Query B group ratios partition the subset total.
-    - `npm run typecheck`, `npm run lint`, `npm run build` all clean (build warns only about the recharts-inflated chunk size; acceptable for a local SPA).
-    - Live-server smoke: seeded both sample batches through `ingest → profile → transform`, then issued the exact three query strings `useBatchDashboard` sends and confirmed the partitions (6,910 / 11,575 / cross 7 / 13); the SPA mount served the freshly built dashboard bundle at `/`.
-    - Bridge doc `.agents/skills/fullstack-bridge-contract/references/api_endpoints.md` updated with the `isBundling` query param on both endpoints.
-  - **No regression** in existing BatchDetail (`useBatchDetail`/`BatchDetailPage`) or Export flows — their endpoint call shapes are unchanged (they pass only `is_cross_bundling`).
+- **Done so far (Phase H):**
+  - **Backend Phase 7** (`BackendImplementationPlan.md`): `is_reported` column + startup migration, `persist_batch` boundary (dash-only skipped; off-grid + non-catalog persisted as unreported), `is_reported = 1` guards on Queries A/B/C/D + grid join, new Query G, `GET /api/reports/batches/{id}/unreported`, `TransformResponseDTO.unreportedCount/Qty/Revenue`, and `Tidak Terlaporkan S/T` export sheets. Backend suite **233 passed**, `ruff` clean.
+  - **API client regen:** `frontend/src/services/api.ts` regenerated from the live `/openapi.json` (exposes `UnreportedVariantDTO` and the `unreported*` transform fields); `apiClient.batchUnreported(batchId)` added.
+  - **Frontend:** new `src/hooks/useUnreported.ts` (fetches Query G rows + computes row/qty/revenue totals). `HomePage` gained an "Unreported entries" panel (summary header + detail table: product group / variant / raw variant / qty / revenue), independent of the Single/Bundling/Cross filters. `BatchDetailPage` gained the same panel from `useBatchDetail` (now also fetches `batchUnreported`) and its audit card now labels `skipped*` as "dash only" and shows the `unreportedCount/Qty/Revenue` figures.
+  - **Phase H verification (live server):**
+    - `npm run generate:api`, `npm run typecheck`, `npm run lint`, `npm run build` all clean.
+    - Live smoke: seeded both sample batches through `ingest → transform`; Shopee transform reports `reportedTotalQty 6,910` / `skippedCount 167` / `unreportedCount 13` (qty 0); TikTok `reportedTotalQty 11,575` / `skippedCount 0` / `unreportedCount 1` (qty 1, Rp 22,637). `/unreported` returns 12 Shopee rows + the single TikTok `Tinted Jelly Balm / Default` orphan. The SPA mount served the freshly built bundle at `/`.
+  - **No regression** in the dashboard filters, BatchDetail, or Export flows — the reported dataset paths are unchanged.
 - **What is next (fresh session):**
-  1. **Phase H (Unreported Entries)** — backend Phase 7 of `BackendImplementationPlan.md` (`is_reported` column + migration, persist boundary, `is_reported = 1` report guards, `GET /api/reports/batches/{id}/unreported`, `Tidak Terlaporkan S/T` export sheets) plus the frontend: regenerate `api.ts`, `apiClient.batchUnreported`, `HomePage` unreported card + detail list, `BatchDetailPage` unreported totals/list, and audit-card copy update.
-  2. **Phase I (Integration & Packaging)** — the final milestone: PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, hidden console, clean shutdown, and the clean-machine smoke test reproducing the golden workbook from the sample files (launch → upload `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open the workbook incl. `Tidak Terlaporkan S/T`).
+  1. **Phase I (Integration & Packaging)** — the final milestone: PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, hidden console, clean shutdown, and the clean-machine smoke test reproducing the golden workbook from the sample files (launch → upload `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open the workbook incl. `Tidak Terlaporkan S/T`).
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`

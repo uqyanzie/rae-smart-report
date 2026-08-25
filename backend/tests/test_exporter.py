@@ -26,8 +26,10 @@ from sqlalchemy.pool import StaticPool
 from app.domain.catalog import PRODUK_GROUP_ORDER
 from app.modules.exporter import (
     ReportSheet,
+    UnreportedSheet,
     generate_executive_workbook,
     render_side_by_side_sheet,
+    render_unreported_sheet,
 )
 from app.modules.exporter.styles import (
     FORMAT_CURRENCY_IDR,
@@ -166,6 +168,36 @@ def workbook_bytes(populated, sheet_cases):
         for title, key, grid, group_order in sheet_cases
     ]
     return generate_executive_workbook(sheets)
+
+
+@pytest.fixture(scope="module")
+def unreported_rows(factory, persisted):
+    """Query G outputs for both reference batches (is_reported=0)."""
+    with session_scope(factory) as session:
+        repo = AnalyticsRepository(session)
+        return {
+            "s": repo.unreported_analytics(BATCH_SHOPEE),
+            "t": repo.unreported_analytics(BATCH_TIKTOK),
+        }
+
+
+@pytest.fixture(scope="module")
+def workbook_bytes_with_unreported(populated, sheet_cases, unreported_rows):
+    """6-sheet workbook: the four Produk sheets + Tidak Terlaporkan S/T."""
+    sheets = [
+        ReportSheet(
+            title=title,
+            populated=populated[key],
+            grid=grid,
+            group_order=group_order,
+        )
+        for title, key, grid, group_order in sheet_cases
+    ]
+    unreported = [
+        UnreportedSheet(title="Tidak Terlaporkan S", rows=unreported_rows["s"]),
+        UnreportedSheet(title="Tidak Terlaporkan T", rows=unreported_rows["t"]),
+    ]
+    return generate_executive_workbook(sheets, unreported=unreported)
 
 
 def _load(workbook_bytes):
@@ -538,3 +570,81 @@ def test_number_formats(workbook_bytes):
         assert ws2.cell(row=2, column=8).number_format == FORMAT_INTEGER
         assert ws2.cell(row=2, column=9).number_format == FORMAT_CURRENCY_IDR
         assert ws2.cell(row=2, column=10).number_format == FORMAT_PERCENTAGE
+
+
+# ---------------------------------------------------------------------------
+# 11. Phase 7: unreported sheets (Tidak Terlaporkan S/T)
+# ---------------------------------------------------------------------------
+
+
+def test_unreported_sheets_render_persisted_entries(workbook_bytes_with_unreported, unreported_rows):
+    """The 6-sheet workbook appends Tidak Terlaporkan S/T after the four
+    Produk sheets; unreported volume appears only there and matches Query G."""
+    wb = _load(workbook_bytes_with_unreported)
+    assert wb.sheetnames == [
+        "Produk S",
+        "Produk T",
+        "Produk 2 S",
+        "Produk 2 T",
+        "Tidak Terlaporkan S",
+        "Tidak Terlaporkan T",
+    ]
+
+    ws_s = wb["Tidak Terlaporkan S"]
+    # 12 distinct Shopee non-catalog listings (13 records, 2 share a key)
+    # + TOTAL row.
+    assert len(unreported_rows["s"]) == 12
+    assert ws_s.max_row == 12 + 1 + 1  # header + data + TOTAL
+    for r in range(2, 2 + 12):
+        assert ws_s.cell(row=r, column=3).value  # raw variant present
+        assert ws_s.cell(row=r, column=4).value == 0
+        assert ws_s.cell(row=r, column=5).value == 0
+        assert ws_s.cell(row=r, column=4).number_format == FORMAT_INTEGER
+        assert ws_s.cell(row=r, column=5).number_format == FORMAT_CURRENCY_IDR
+    total_row_s = 2 + 12
+    assert ws_s.cell(row=total_row_s, column=1).value == "TOTAL"
+    assert ws_s.cell(row=total_row_s, column=4).value == f"=SUM(D2:D{total_row_s - 1})"
+    assert ws_s.cell(row=total_row_s, column=5).value == f"=SUM(E2:E{total_row_s - 1})"
+
+    ws_t = wb["Tidak Terlaporkan T"]
+    assert len(unreported_rows["t"]) == 1
+    # header + 1 data row + TOTAL.
+    assert ws_t.max_row == 3
+    assert ws_t.cell(row=2, column=1).value == "Tinted Jelly Balm"
+    assert ws_t.cell(row=2, column=2).value == "Default"
+    assert ws_t.cell(row=2, column=3).value  # raw variant
+    assert ws_t.cell(row=2, column=4).value == 1
+    assert ws_t.cell(row=2, column=5).value == 22_637
+    assert ws_t.cell(row=3, column=1).value == "TOTAL"
+    assert ws_t.cell(row=3, column=4).value == "=SUM(D2:D2)"
+    assert ws_t.cell(row=3, column=5).value == "=SUM(E2:E2)"
+
+
+def test_unreported_rows_absent_from_produk_sheets(workbook_bytes_with_unreported):
+    """Unreported volume never leaks into the four Produk sheets: TikTok's
+    off-grid 'Default' row and Shopee's non-catalog listings are absent."""
+    wb = _load(workbook_bytes_with_unreported)
+    for title in ("Produk S", "Produk T", "Produk 2 S", "Produk 2 T"):
+        ws = wb[title]
+        variants = {
+            ws.cell(row=r, column=2).value for r in range(2, ws.max_row + 1)
+        }
+        assert "Default" not in variants, f"{title} leaked off-grid 'Default'"
+    # Golden totals conserved through the Produk sheets even with the extra
+    # unreported sheets present.
+    ws_s = wb["Produk S"]
+    ws_t = wb["Produk T"]
+    assert (sum(_cell_int(ws_s, r, 3) for r in range(2, ws_s.max_row + 1))) == GOLDEN_SHOPEE_QTY
+    assert (sum(_cell_int(ws_t, r, 3) for r in range(2, ws_t.max_row + 1))) == GOLDEN_TIKTOK_QTY
+
+
+def test_render_unreported_sheet_empty_emits_zero_total():
+    """A platform with no unreported rows still emits the sheet with a 0 TOTAL."""
+    wb = Workbook()
+    ws = wb.active
+    assert ws is not None
+    render_unreported_sheet(ws, rows=[])
+    assert ws.max_row == 2  # header + TOTAL
+    assert ws.cell(row=2, column=1).value == "TOTAL"
+    assert ws.cell(row=2, column=4).value == 0
+    assert ws.cell(row=2, column=5).value == 0

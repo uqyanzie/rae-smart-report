@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -71,8 +71,33 @@ def create_db_engine(database_url: str = "sqlite:///rae_smart_report.db", **engi
 
 
 def init_db(engine: Engine) -> None:
-    """Creates all tables on the given engine."""
+    """Creates all tables on the given engine, then applies additive migrations."""
     Base.metadata.create_all(engine)
+    _ensure_is_reported_column(engine)
+
+
+def _ensure_is_reported_column(engine: Engine) -> None:
+    """Idempotently adds ``is_reported`` to a pre-Phase-7 ``transaction_items``.
+
+    SQLAlchemy's ``create_all`` never adds columns to an existing table, so a
+    database created before Phase 7 needs the column backfilled; existing rows
+    are treated as reported (``DEFAULT 1``). SQLite-specific syntax, so it is
+    skipped for non-SQLite engines.
+    """
+    if not engine.dialect.name == "sqlite":
+        return
+    if "transaction_items" not in inspect(engine).get_table_names():
+        return
+    columns = {column["name"] for column in inspect(engine).get_columns("transaction_items")}
+    if "is_reported" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE transaction_items "
+                "ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1"
+            )
+        )
 
 
 def session_factory_for(engine: Engine) -> sessionmaker[Session]:

@@ -62,6 +62,7 @@ WITH product_totals AS (
     WHERE import_batch_id = :batch_id
       AND is_cross_bundling = :is_cross_bundling
       AND (:is_bundling IS NULL OR is_bundling = :is_bundling)
+      AND is_reported = 1
     GROUP BY rtrim(product_group)
 )
 SELECT
@@ -81,6 +82,7 @@ JOIN product_totals pt ON rtrim(t.product_group) = pt.product_group
 WHERE t.import_batch_id = :batch_id
   AND t.is_cross_bundling = :is_cross_bundling
   AND (:is_bundling IS NULL OR t.is_bundling = :is_bundling)
+  AND t.is_reported = 1
 GROUP BY rtrim(t.product_group), t.clean_variant, t.is_bundling, t.is_cross_bundling,
          pt.total_product_qty
 ORDER BY t.product_group ASC, t.is_bundling ASC, total_qty DESC
@@ -95,6 +97,7 @@ WITH grand_total AS (
     WHERE import_batch_id = :batch_id
       AND is_cross_bundling = :is_cross_bundling
       AND (:is_bundling IS NULL OR is_bundling = :is_bundling)
+      AND is_reported = 1
 )
 SELECT
     rtrim(product_group) AS product_group,
@@ -109,6 +112,7 @@ FROM transaction_items
 WHERE import_batch_id = :batch_id
   AND is_cross_bundling = :is_cross_bundling
   AND (:is_bundling IS NULL OR is_bundling = :is_bundling)
+  AND is_reported = 1
 GROUP BY rtrim(product_group)
 ORDER BY total_qty DESC
 """
@@ -123,6 +127,7 @@ WITH grand_total AS (
       AND (:start_date IS NULL OR period_start >= :start_date)
       AND (:end_date IS NULL OR period_end <= :end_date)
       AND (:is_cross_bundling IS NULL OR is_cross_bundling = :is_cross_bundling)
+      AND is_reported = 1
 )
 SELECT
     platform,
@@ -140,12 +145,15 @@ WHERE (:platform IS NULL OR platform = :platform)
   AND (:start_date IS NULL OR period_start >= :start_date)
   AND (:end_date IS NULL OR period_end <= :end_date)
   AND (:is_cross_bundling IS NULL OR is_cross_bundling = :is_cross_bundling)
+  AND is_reported = 1
 GROUP BY platform, rtrim(product_group), clean_variant
 ORDER BY total_qty DESC
 """
 
 # -- Query D: Batch history & upload overview --------------------------------
-# ORDER BY uses the aggregate, not a bare non-grouped column.
+# ORDER BY uses the aggregate, not a bare non-grouped column. Only reported
+# rows (is_reported = 1) count toward grand totals -- persisted unreported
+# entries never inflate the batch-list figures.
 _QUERY_D_BATCH_HISTORY = """
 SELECT
     import_batch_id,
@@ -157,6 +165,7 @@ SELECT
     SUM(revenue) AS grand_total_revenue,
     MIN(created_at) AS created_at
 FROM transaction_items
+WHERE is_reported = 1
 GROUP BY import_batch_id, platform
 ORDER BY MIN(created_at) DESC
 """
@@ -165,6 +174,24 @@ ORDER BY MIN(created_at) DESC
 _QUERY_E_DELETE_BATCH = """
 DELETE FROM transaction_items
 WHERE import_batch_id = :batch_id
+"""
+
+# -- Query G: Persisted unreported breakdown ---------------------------------
+# is_reported = 0 rows only: off-grid variants (standalone 'tidak boleh ecer',
+# 'free gift', etc.) and non-catalog product groups. raw_variant is carried so
+# the UI/export can show full provenance.
+_QUERY_G_UNREPORTED = """
+SELECT
+    rtrim(product_group) AS product_group,
+    clean_variant,
+    raw_variant,
+    SUM(qty_sold) AS total_qty,
+    SUM(revenue) AS total_revenue
+FROM transaction_items
+WHERE import_batch_id = :batch_id
+  AND is_reported = 0
+GROUP BY rtrim(product_group), clean_variant, raw_variant
+ORDER BY total_qty DESC, total_revenue DESC
 """
 
 # -- Query F: Lookup mapping template by header signature hash ---------------
@@ -196,6 +223,7 @@ LEFT JOIN transaction_items t
    AND rtrim(g.clean_variant) = rtrim(t.clean_variant)
    AND t.import_batch_id = :batch_id
    AND t.is_cross_bundling = :is_cross_bundling
+   AND t.is_reported = 1
 GROUP BY g.product_group, g.clean_variant, g.is_bundling, g.is_cross_bundling,
          g.expected_label
 ORDER BY g.product_group ASC, g.is_bundling ASC, g.clean_variant ASC
@@ -220,15 +248,24 @@ class SkippedTally:
 
 @dataclass(frozen=True)
 class PersistResult:
-    """Outcome of a persistence call, including the auditability tally."""
+    """Outcome of a persistence call (inserted rows + audit tallies).
+
+    ``inserted_count`` counts every persisted row (reported + unreported).
+    ``inserted_reported`` is the volume that participates in report queries.
+    ``persisted_unreported`` (split into ``unreported_off_grid`` /
+    ``unreported_unresolved_group``) is the volume stored for traceability but
+    excluded from every report figure (Phase 7, DevelopmentFeedback20260826).
+    ``skipped_dash_variant`` is the only truly-dropped bucket: dash/empty
+    parent rows within catalog groups.
+    """
 
     import_batch_id: str
     inserted_count: int = 0
-    # Combined excluded volume (sum of the three reason tallies below).
-    skipped_unreported: SkippedTally = field(default_factory=SkippedTally)
+    inserted_reported: SkippedTally = field(default_factory=SkippedTally)
+    persisted_unreported: SkippedTally = field(default_factory=SkippedTally)
+    unreported_off_grid: SkippedTally = field(default_factory=SkippedTally)
+    unreported_unresolved_group: SkippedTally = field(default_factory=SkippedTally)
     skipped_dash_variant: SkippedTally = field(default_factory=SkippedTally)
-    skipped_unresolved_group: SkippedTally = field(default_factory=SkippedTally)
-    skipped_off_grid: SkippedTally = field(default_factory=SkippedTally)
 
 
 class AnalyticsRepository:
@@ -256,47 +293,64 @@ class AnalyticsRepository:
     ) -> PersistResult:
         """Persists normalized records under one import batch.
 
-        Enforces the golden-file scope boundary: records whose ``product_group``
-        does not resolve to a canonical catalog group, whose ``clean_variant``
-        is '-'/empty (parent/summary rows), or whose ``(group, variant)`` pair
-        is absent from the catalog grid are excluded and tallied in the
-        returned ``skipped_unreported`` audit trail -- never silently dropped.
+        Phase 7 boundary (DevelopmentFeedback20260826): every NON-DASH record
+        is persisted. On-grid rows carry ``is_reported = True``; off-grid
+        variants (standalone 'tidak boleh ecer', 'free gift', etc.) and
+        non-catalog product groups carry ``is_reported = False`` and are
+        surfaced via Query G / the 'Tidak Terlaporkan S/T' sheets -- never a
+        report figure. Only dash/empty-variant parent rows within catalog
+        groups are dropped, and they are tallied in ``skipped_dash_variant``.
         Report keys are stored stripped so the grid left-join matches exactly.
         """
         unresolved = SkippedTally()
         dash = SkippedTally()
         off_grid = SkippedTally()
+        reported = SkippedTally()
         inserted: list[TransactionItem] = []
 
         for rec in records:
             product_group = rec.product_group.strip()
             clean_variant = rec.clean_variant.strip()
 
+            # Priority preserved from the pre-Phase-7 boundary: a non-catalog
+            # product group is classified BEFORE the dash/empty rule, so its
+            # (usually '-') variant row persists as an unreported listing
+            # instead of being silently dropped.
             if product_group not in _CANONICAL_GROUPS:
                 unresolved = SkippedTally(
                     count=unresolved.count + 1,
                     qty=unresolved.qty + rec.qty_sold,
                     revenue=unresolved.revenue + rec.revenue,
                 )
-                continue
-            if clean_variant in ("-", ""):
+                is_reported = False
+            elif clean_variant in ("-", ""):
                 dash = SkippedTally(
                     count=dash.count + 1,
                     qty=dash.qty + rec.qty_sold,
                     revenue=dash.revenue + rec.revenue,
                 )
                 continue
-            # Off-grid variant: a catalog group with a variant label the grid
-            # does not contain. The grid LEFT JOIN would silently absorb it, so
-            # it is rejected here and surfaced in the tally (R1).
-            grid_keys = _PRODUK2_GRID_KEYS if rec.is_cross_bundling else _PRODUK_GRID_KEYS
-            if (product_group, clean_variant) not in grid_keys:
-                off_grid = SkippedTally(
-                    count=off_grid.count + 1,
-                    qty=off_grid.qty + rec.qty_sold,
-                    revenue=off_grid.revenue + rec.revenue,
+            else:
+                # Off-grid variant: a catalog group with a variant label the
+                # grid does not contain. The grid LEFT JOIN would silently
+                # absorb it, so it is classified unreported here (R1).
+                grid_keys = _PRODUK2_GRID_KEYS if rec.is_cross_bundling else _PRODUK_GRID_KEYS
+                if (product_group, clean_variant) not in grid_keys:
+                    off_grid = SkippedTally(
+                        count=off_grid.count + 1,
+                        qty=off_grid.qty + rec.qty_sold,
+                        revenue=off_grid.revenue + rec.revenue,
+                    )
+                    is_reported = False
+                else:
+                    is_reported = True
+
+            if is_reported:
+                reported = SkippedTally(
+                    count=reported.count + 1,
+                    qty=reported.qty + rec.qty_sold,
+                    revenue=reported.revenue + rec.revenue,
                 )
-                continue
 
             inserted.append(
                 TransactionItem(
@@ -314,6 +368,7 @@ class AnalyticsRepository:
                     sku=rec.sku,
                     qty_sold=rec.qty_sold,
                     revenue=rec.revenue,
+                    is_reported=is_reported,
                 )
             )
 
@@ -323,10 +378,11 @@ class AnalyticsRepository:
         return PersistResult(
             import_batch_id=import_batch_id,
             inserted_count=len(inserted),
-            skipped_unreported=unresolved + dash + off_grid,
+            inserted_reported=reported,
+            persisted_unreported=unresolved + off_grid,
+            unreported_off_grid=off_grid,
+            unreported_unresolved_group=unresolved,
             skipped_dash_variant=dash,
-            skipped_unresolved_group=unresolved,
-            skipped_off_grid=off_grid,
         )
 
     # ------------------------------------------------------------------
@@ -392,6 +448,28 @@ class AnalyticsRepository:
     def _coerce_bundling_flag(value: bool | int | None) -> int | None:
         """Normalizes the optional ``is_bundling`` filter for SQLite binding."""
         return None if value is None else int(bool(value))
+
+    # ------------------------------------------------------------------
+    # Query G: Persisted unreported breakdown
+    # ------------------------------------------------------------------
+
+    def unreported_analytics(self, import_batch_id: str) -> list[dict[str, Any]]:
+        """Query G: persisted non-reportable entries for a batch.
+
+        Returns ``is_reported = 0`` rows aggregated per
+        ``(product_group, clean_variant, raw_variant)`` -- off-grid variants
+        and non-catalog product groups -- with their qty/revenue for the
+        dashboard and the 'Tidak Terlaporkan S/T' export sheets.
+        """
+        rows = (
+            self._session.execute(
+                text(_QUERY_G_UNREPORTED),
+                {"batch_id": import_batch_id},
+            )
+            .mappings()
+            .all()
+        )
+        return [dict(row) for row in rows]
 
     # ------------------------------------------------------------------
     # Query C: Multi-platform / date-range aggregation

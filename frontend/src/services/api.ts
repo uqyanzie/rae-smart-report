@@ -134,6 +134,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/batches/{batch_id}/unreported": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Batch Unreported
+         * @description Query G: persisted non-reportable entries for a batch.
+         *
+         *     ``is_reported = 0`` rows only (off-grid variants like standalone
+         *     'tidak boleh ecer' / 'free gift', and non-catalog product groups). Never
+         *     appears in report queries or the four Produk sheets.
+         */
+        get: operations["batch_unreported_api_reports_batches__batch_id__unreported_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reports/aggregate": {
         parameters: {
             query?: never;
@@ -422,9 +446,12 @@ export interface components {
          * TransformResponseDTO
          * @description Report-boundary batch summary plus persistence audit details.
          *
-         *     ``reported_*`` mirrors the Produk workbook (grid-intersected), distinct
-         *     from the storage-level ``grandTotal*`` figures on ``/reports/batches``
-         *     (R5). The audit fields come from the ``persist_batch`` tally.
+         *     ``reported_*`` mirrors the Produk workbook (grid-intersected,
+         *     ``is_reported = 1``), distinct from the storage-level ``grandTotal*``
+         *     figures on ``/reports/batches`` (R5). ``skipped_*`` is now the dash-only
+         *     excluded tally (parent summaries). ``unreported_*`` is the persisted
+         *     non-reportable volume (off-grid variants, non-catalog products) -- stored
+         *     and viewable via ``/unreported`` but never part of a report figure.
          */
         TransformResponseDTO: {
             /** Importbatchid */
@@ -451,8 +478,36 @@ export interface components {
             skippedQty: number;
             /** Skippedrevenue */
             skippedRevenue: number;
+            /** Unreportedcount */
+            unreportedCount: number;
+            /** Unreportedqty */
+            unreportedQty: number;
+            /** Unreportedrevenue */
+            unreportedRevenue: number;
             /** Warningcount */
             warningCount: number;
+        };
+        /**
+         * UnreportedVariantDTO
+         * @description Persisted non-reportable entry (Query G, ``is_reported == 0``).
+         *
+         *     Covers off-grid variants (standalone 'tidak boleh ecer', 'free gift',
+         *     etc.) and non-catalog product groups. Stored for traceability and shown on
+         *     the dashboard / 'Tidak Terlaporkan S/T' export sheets; never appears in a
+         *     report query or the four Produk sheets. ``raw_variant`` carries the full
+         *     original label for provenance.
+         */
+        UnreportedVariantDTO: {
+            /** Productgroup */
+            productGroup: string;
+            /** Cleanvariant */
+            cleanVariant: string;
+            /** Rawvariant */
+            rawVariant: string;
+            /** Totalqty */
+            totalQty: number;
+            /** Totalrevenue */
+            totalRevenue: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -672,6 +727,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductSummaryDTO"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    batch_unreported_api_reports_batches__batch_id__unreported_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreportedVariantDTO"][];
                 };
             };
             /** @description Validation Error */

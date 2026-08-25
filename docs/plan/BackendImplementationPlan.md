@@ -307,29 +307,29 @@ backend/
 
 ---
 
-### Phase 7: Persist & Report Unreported Entries [Pending]
+### Phase 7: Persist & Report Unreported Entries [Completed]
 
 **Goal:** Persist non-dash unreported entries — off-grid variants (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups — into `transaction_items` with an `is_reported` flag, surface their qty/revenue through the API, and emit per-platform unreported sheets in the exported workbook, **without moving any golden report figure**. Added from `DevelopmentFeedback20260826.md`; runs before the frontend Phase H/I work.
 
-- [ ] Add `is_reported: bool` (default `True`, indexed) to the `TransactionItem` model.
-- [ ] Idempotent startup migration in `init_db`: `PRAGMA table_info(transaction_items)` check, then `ALTER TABLE ... ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1` when missing so pre-existing DBs treat stored rows as reported.
-- [ ] Rework the `persist_batch` boundary:
-  - Dash/empty-variant rows remain excluded and are tallied (`skipped_dash_variant`).
+- [x] Add `is_reported: bool` (default `True`, indexed) to the `TransactionItem` model.
+- [x] Idempotent startup migration in `init_db`: `PRAGMA table_info(transaction_items)` check, then `ALTER TABLE ... ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1` when missing so pre-existing DBs treat stored rows as reported. (Verified against a simulated pre-Phase-7 schema.)
+- [x] Rework the `persist_batch` boundary:
+  - Dash/empty-variant rows within catalog groups remain excluded and are tallied (`skipped_dash_variant`).
   - On-grid rows persist with `is_reported = True`.
   - Off-grid variants and non-catalog product groups persist with `is_reported = False`.
-  - `PersistResult` gains `inserted_reported` / `persisted_unreported` (with off-grid / unresolved sub-tallies); the combined `skipped_unreported` aggregate is retired.
-- [ ] Report-boundary guards: Queries A, B, C, D and the grid left-join template add `is_reported = 1` so the Produk workbook, batch `grandTotal*`, the aggregate endpoint, and golden totals stay byte-identical (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
-- [ ] New **Query G (unreported breakdown):** per `(product_group, clean_variant, raw_variant)` totals (`total_qty`, `total_revenue`) with `WHERE import_batch_id = :batch_id AND is_reported = 0`.
-- [ ] API: `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`; `TransformResponseDTO` gains `unreportedCount` / `unreportedQty` / `unreportedRevenue`; `skipped*` fields are now documented as dash-only.
-- [ ] Exporter: `render_unreported_sheet` (single table: `Produk` | `Nama Variasi` | `Raw Variant` | `Produk Terjual` | `Revenue` + TOTAL row, same slate palette and number masks) emitting `Tidak Terlaporkan S` / `Tidak Terlaporkan T` for each platform batch present in the export; the four Produk sheets are untouched.
-- [ ] Tests:
-  - Rewrite `test_skipped_unreported_tally`: 167 Shopee dash rows still skipped; 13 Shopee unresolved + 1 TikTok off-grid row now **persisted** as unreported.
-  - Assert Queries A/B/C/D + aggregate + Produk grid exclude unreported rows (golden figures unchanged).
-  - Query G returns the expected unreported rows; export contains the `Tidak Terlaporkan S/T` sheets with the unreported rows and none in Produk sheets.
+  - `PersistResult` gains `inserted_reported` / `persisted_unreported` (with `unreported_off_grid` / `unreported_unresolved_group` sub-tallies); the combined `skipped_unreported` aggregate is retired.
+- [x] Report-boundary guards: Queries A, B, C, D and the grid left-join template add `is_reported = 1` so the Produk workbook, batch `grandTotal*`, the aggregate endpoint, and golden totals stay byte-identical (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
+- [x] New **Query G (unreported breakdown):** per `(product_group, clean_variant, raw_variant)` totals (`total_qty`, `total_revenue`) with `WHERE import_batch_id = :batch_id AND is_reported = 0`.
+- [x] API: `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`; `TransformResponseDTO` gains `unreportedCount` / `unreportedQty` / `unreportedRevenue`; `skipped*` fields are now documented as dash-only.
+- [x] Exporter: `render_unreported_sheet` (single table: `Produk` | `Nama Variasi` | `Raw Variant` | `Produk Terjual` | `Revenue` + TOTAL row, same slate palette and number masks) emitting `Tidak Terlaporkan S` / `Tidak Terlaporkan T` for each platform batch present in the export; the four Produk sheets are untouched.
+- [x] Tests:
+  - Rewrite `test_persist_boundary_unreported_persisted_dash_skipped`: 167 Shopee dash rows still skipped (qty 1, Rp 4,950); 13 Shopee unresolved records + 1 TikTok off-grid row now **persisted** as unreported.
+  - Assert Queries A/B/D + aggregate + Produk grid exclude unreported rows (golden figures unchanged; new `test_report_queries_exclude_unreported_rows`).
+  - Query G returns the expected unreported rows (new `test_unreported_analytics_returns_persisted_entries`); export contains the `Tidak Terlaporkan S/T` sheets with the unreported rows and none in Produk sheets (new `test_unreported_sheets_render_persisted_entries`, `test_unreported_rows_absent_from_produk_sheets`, `test_render_unreported_sheet_empty_emits_zero_total`).
   - Update the R1 reconciliation invariant: `reported grid qty + unreported persisted qty + dash-skipped qty == raw record qty`.
 
 **Success Criteria:**
-- `pytest backend/tests/` passes with all tests green; golden totals unchanged.
+- `pytest backend/tests/` passes with all tests green (**233 passed**); golden totals unchanged.
 - Unreported rows are persisted (never silently dropped), retrievable via the endpoint, present in the `Tidak Terlaporkan S/T` sheets, and absent from the four Produk sheets.
 
 ---
@@ -352,32 +352,30 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
 
 # Handoff Brief
 
-- **Current Phase:** Phase 6 (FastAPI REST API & Runtime Harness) — **completed**, 193/193 tests pass (100% test suite green).
-- **What was done:**
-  - **Core settings & security modules** `backend/app/core/`:
-    - `config.py`: Environment-aware path resolution, settings dataclass (`Settings`), database URL resolution with writable OS path fallback (`%LOCALAPPDATA%/RAESmartReport` on Windows when frozen) ensuring PyInstaller compliance.
-    - `security.py`: Path traversal protection (`resolve_within_root`) and filename sanitization (`sanitize_upload_filename`).
-  - **REST API contract & DTOs** `backend/app/api/dtos.py`:
-    - Reused `CamelModel` base (`alias_generator=to_camel`, `populate_by_name=True`, `from_attributes=True`) across all DTOs for strict wire `camelCase` consistency.
-    - Added `IngestionResultDTO`, `ColumnMappingDTO`, `ParentRowRuleDTO`, `CleaningRuleDTO`, `ProfilerResponseDTO`, `ProfileRequestDTO`, `TransformAndSaveRequestDTO` (supporting `periodStart` / `periodEnd` from user input), `VariantPerformanceDTO` (including `case_color`), `ProductSummaryDTO`, `BatchSummaryDTO`, `TransformResponseDTO`, `DeleteBatchResponseDTO`.
-  - **REST routes** `backend/app/api/routes.py`:
-    - Ingestion endpoint `POST /api/ingest` with multi-sheet metadata inspection and in-memory upload store.
-    - Profiling endpoint `POST /api/profile` supporting automatic adapter detection and SHA-256 header signature template caching.
-    - Transformation endpoint `POST /api/transform` running the deterministic ELT pipeline, template saving, and SQLite persistence.
-    - Report querying endpoints: `GET /api/reports/batches`, `GET /api/reports/batches/{id}/variants`, `GET /api/reports/batches/{id}/products`, and idempotent `DELETE /api/reports/batches/{id}`.
-    - Streaming Excel export `GET /api/export/excel` accepting batch IDs and generating multi-sheet workbooks (`Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`).
-  - **SPA & Error handling**:
-    - `spa.py`: Static file mounting with index fallback and path traversal guards (graceful API-only mode when `frontend/dist` is not yet built).
-    - `errors.py`: Canonical error envelope `{status, code, message, details}` and centralized exception handlers for `IngestionError`, `HTTPException`, and `RequestValidationError`.
-    - `main.py`: Application factory `create_app()` with lifespan context manager for lazy DB engine initialization and CORS middleware.
-  - **End-to-end API tests** `backend/tests/test_api.py` (14 tests):
-    - Validated full lifecycle: upload $\to$ profile $\to$ transform $\to$ query variants/products $\to$ stream Excel workbook $\to$ delete batch.
-    - Verified strict `camelCase` serialization across all response payloads with recursive assertions.
-    - Validated exact matching of golden report numbers (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
-  - **Full Backend Suite:** 193 passed in ~11.2s across all 8 test modules (`test_numeric.py`, `test_domain_catalog.py`, `test_ingestion.py`, `test_transformer.py`, `test_storage.py`, `test_exporter.py`, `test_api.py`, `test_fixtures.py`).
-- **What is next:** 
-  - **Phase 7 (Persist & Report Unreported Entries)** — added from `DevelopmentFeedback20260826.md`: persist non-dash unreported entries (`tidak boleh ecer`, `free gift`, off-grid variants, non-catalog products) into `transaction_items` with `is_reported = 0`, guard every report query with `is_reported = 1`, add `GET /api/reports/batches/{id}/unreported`, and emit `Tidak Terlaporkan S/T` export sheets.
-  - After Phase 7: frontend **Phase H (Unreported Entries display)** then **Phase I (Integration & Packaging)** per `FrontendDevelopmentPlan.md`.
+- **Current Phase:** Phase 7 (Persist & Report Unreported Entries) — **completed**, 233/233 tests pass (100% suite green), `ruff check backend/` clean.
+- **What was done in Phase 7:**
+  - **Schema & migration** `backend/app/modules/storage/`:
+    - `models.py`: added indexed `is_reported` Boolean (default `True`) to `TransactionItem`.
+    - `database.py`: idempotent `init_db` migration (`PRAGMA table_info` check → `ALTER TABLE ... ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1`), verified against a simulated pre-Phase-7 schema.
+  - **Persistence boundary** `repository.py`:
+    - `persist_batch` now persists every non-dash record: on-grid rows → `is_reported=True`; off-grid variants + non-catalog groups → `is_reported=False`. Dash/empty parent rows within catalog groups remain the only dropped bucket (`skipped_dash_variant`).
+    - `PersistResult` reworked: `inserted_reported`, `persisted_unreported`, `unreported_off_grid`, `unreported_unresolved_group`, `skipped_dash_variant` (retired combined `skipped_unreported`).
+  - **Report guards + Query G** `repository.py`:
+    - Queries A/B/C/D and the grid left-join now filter `is_reported = 1`; golden totals byte-identical (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
+    - New `_QUERY_G_UNREPORTED` + `unreported_analytics()` returning `(product_group, clean_variant, raw_variant, total_qty, total_revenue)`.
+  - **API** `backend/app/api/`:
+    - New `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`.
+    - `TransformResponseDTO` gained `unreportedCount/Qty/Revenue`; `skipped*` now dash-only.
+  - **Exporter** `report_builder.py`:
+    - `UnreportedSheet` dataclass + `render_unreported_sheet` (Produk | Nama Variasi | Raw Variant | Produk Terjual | Revenue + TOTAL); `generate_executive_workbook(sheets, unreported=...)` appends `Tidak Terlaporkan S/T` after the Produk sheets.
+  - **Tests** (+6, 227 → 233):
+    - `test_storage.py`: `test_persist_boundary_unreported_persisted_dash_skipped` (167 dash skipped / 13 unresolved persisted / 1 TikTok off-grid persisted), `test_unreported_analytics_returns_persisted_entries`, `test_report_queries_exclude_unreported_rows`, R1 reconciliation updated.
+    - `test_exporter.py`: `test_unreported_sheets_render_persisted_entries`, `test_unreported_rows_absent_from_produk_sheets`, `test_render_unreported_sheet_empty_emits_zero_total`.
+    - `test_api.py`: `test_batch_unreported_endpoint`; transform assertions (Shopee skipped=167 + unreported=13; TikTok skipped=0 + unreported=1); export now asserts the 6-sheet workbook; OpenAPI contract covers the unreported endpoint/DTO/fields.
+  - **Measured outcome:** Shopee persists 13 unreported records (12 distinct rows) at Rp 0; TikTok persists 1 off-grid `Tinted Jelly Balm / Default` row (qty 1, Rp 22,637).
+- **What is next (fresh session):**
+  - Frontend **Phase H (Unreported Entries display)** per `FrontendDevelopmentPlan.md`: regenerate `api.ts`, `apiClient.batchUnreported`, `HomePage` unreported card + detail list, `BatchDetailPage` unreported totals/list, audit-card copy update.
+  - Then final **Phase I (Integration & Packaging)**.
 - **Artifacts:**
   - Plan: [BackendImplementationPlan.md](BackendImplementationPlan.md)
   - Skill references: `.agents/skills/fullstack-bridge-contract/`, `.agents/skills/pyinstaller-packaging-guardian/`, `.agents/skills/rae-report-template/SKILL.md`

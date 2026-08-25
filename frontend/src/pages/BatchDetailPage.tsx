@@ -54,6 +54,8 @@ export default function BatchDetailPage() {
   const products = cross ? data.crossProducts : data.products
   const datasetQty = variants.reduce((sum, row) => sum + row.totalQty, 0)
   const datasetRevenue = variants.reduce((sum, row) => sum + row.totalRevenue, 0)
+  const unreportedQty = data.unreported.reduce((sum, row) => sum + row.totalQty, 0)
+  const unreportedRevenue = data.unreported.reduce((sum, row) => sum + row.totalRevenue, 0)
 
   const reportProductCount = transform?.reportedProductCount ?? data.products.length
   const reportQty = transform?.reportedTotalQty ?? data.variants.reduce((sum, row) => sum + row.totalQty, 0)
@@ -114,7 +116,7 @@ export default function BatchDetailPage() {
               <p className="font-semibold text-amber-900">{formatNumber(transform.insertedCount)}</p>
             </div>
             <div>
-              <p className="text-xs text-amber-600">Skipped rows</p>
+              <p className="text-xs text-amber-600">Skipped rows (dash only)</p>
               <p className="font-semibold text-amber-900">{formatNumber(transform.skippedCount)}</p>
             </div>
             <div>
@@ -125,10 +127,27 @@ export default function BatchDetailPage() {
               <p className="text-xs text-amber-600">Skipped revenue</p>
               <p className="font-semibold text-amber-900">{formatCurrency(transform.skippedRevenue)}</p>
             </div>
+            <div>
+              <p className="text-xs text-amber-600">Unreported rows</p>
+              <p className="font-semibold text-amber-900">{formatNumber(transform.unreportedCount)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-amber-600">Unreported qty</p>
+              <p className="font-semibold text-amber-900">{formatNumber(transform.unreportedQty)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-amber-600">Unreported revenue</p>
+              <p className="font-semibold text-amber-900">{formatCurrency(transform.unreportedRevenue)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-amber-600">Warnings</p>
+              <p className="font-semibold text-amber-900">{formatNumber(transform.warningCount)}</p>
+            </div>
           </div>
           <p className="mt-2 text-xs text-amber-700">
-            {transform.warningCount} warning(s). Non-zero skipped figures are normal for valid files (dash rows,
-            out-of-catalog groups, off-grid variants).
+            Skipped rows are dash/empty parent summaries only (never persisted). Unreported entries —
+            off-grid variants and non-catalog products — are persisted and shown in the "Unreported
+            entries" section below, never in a report figure.
           </p>
         </div>
       )}
@@ -240,6 +259,75 @@ export default function BatchDetailPage() {
             </tfoot>
           </table>
         </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Unreported entries</h2>
+            <p className="text-xs text-slate-500">
+              Persisted but not reported — off-grid variants and non-catalog products
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+            <span>
+              <span className="font-semibold text-slate-800">{formatNumber(data.unreported.length)}</span> rows
+            </span>
+            <span>
+              <span className="font-semibold text-slate-800">{formatNumber(unreportedQty)}</span> units
+            </span>
+            <span>
+              <span className="font-semibold text-slate-800">{formatCurrency(unreportedRevenue)}</span> revenue
+            </span>
+          </div>
+        </div>
+        {data.unreported.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-slate-500">No unreported entries for this batch.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100">
+                <tr>
+                  <th className={thClass}>Product group</th>
+                  <th className={thClass}>Variant</th>
+                  <th className={thClass}>Raw variant</th>
+                  <th className={`${thClass} text-right`}>Qty</th>
+                  <th className={`${thClass} text-right`}>Revenue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.unreported.map((row) => (
+                  <tr
+                    key={`${row.productGroup}-${row.cleanVariant}-${row.rawVariant}`}
+                    className="hover:bg-slate-50"
+                  >
+                    <td className={`${tdClass} font-medium text-slate-800`}>{row.productGroup}</td>
+                    <td className={tdClass}>{row.cleanVariant}</td>
+                    <td className={`${tdClass} font-mono text-xs text-slate-500`}>{row.rawVariant}</td>
+                    <td className={`${tdClass} text-right`}>{formatNumber(row.totalQty)}</td>
+                    <td className={`${tdClass} text-right`}>{formatCurrency(row.totalRevenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50">
+                <tr>
+                  <td colSpan={2} className="px-4 py-2 text-xs font-medium text-slate-500">
+                    Unreported totals
+                  </td>
+                  <td className="px-4 py-2 text-xs font-medium text-slate-500">
+                    {data.unreported.length} rows
+                  </td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold text-slate-800">
+                    {formatNumber(unreportedQty)}
+                  </td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold text-slate-800">
+                    {formatCurrency(unreportedRevenue)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   )

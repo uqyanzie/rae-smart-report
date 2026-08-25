@@ -28,9 +28,12 @@ GOLDEN_TIKTOK_QTY = 11_575
 GOLDEN_TIKTOK_REVENUE = 658_458_817
 
 # Shopee skipped tally: 167 dash rows + 13 unresolved groups (qty 1, rev 4,950).
-SHOPEE_SKIPPED_COUNT = 180
+# Dash-only excluded rows (Phase 7): 167 Shopee parent rows skipped; the 13
+# non-catalog listings are now persisted as unreported instead of skipped.
+SHOPEE_SKIPPED_COUNT = 167
 SHOPEE_SKIPPED_QTY = 1
 SHOPEE_SKIPPED_REVENUE = 4_950
+SHOPEE_UNREPORTED_COUNT = 13
 
 # Cross-family (Produk 2) emitted totals at the report boundary.
 SHOPEE_CROSS_QTY = 7
@@ -125,13 +128,15 @@ def _transform(
 
 
 def _sheet_qty_sums(workbook_bytes: bytes) -> dict[str, int]:
-    """Sums the left-table Produk Terjual (col C) per sheet."""
+    """Sums the per-sheet quantity column (col C on Produk sheets, col D on
+    'Tidak Terlaporkan' sheets)."""
     wb = load_workbook(io.BytesIO(workbook_bytes))
     totals: dict[str, int] = {}
     for title in wb.sheetnames:
+        qty_col = 4 if title.startswith("Tidak Terlaporkan") else 3
         total = 0
         for r in range(2, wb[title].max_row + 1):
-            cell_value = wb[title].cell(row=r, column=3).value
+            cell_value = wb[title].cell(row=r, column=qty_col).value
             total += int(cell_value) if isinstance(cell_value, (int, float)) else 0
         totals[title] = total
     return totals
@@ -233,6 +238,10 @@ def test_transform_shopee_golden_totals(client, raw_shopee_path):
     assert resp["skippedCount"] == SHOPEE_SKIPPED_COUNT
     assert resp["skippedQty"] == SHOPEE_SKIPPED_QTY
     assert resp["skippedRevenue"] == SHOPEE_SKIPPED_REVENUE
+    # Phase 7: 13 non-catalog listings persist as unreported (rev 0).
+    assert resp["unreportedCount"] == SHOPEE_UNREPORTED_COUNT
+    assert resp["unreportedQty"] == 0
+    assert resp["unreportedRevenue"] == 0
     assert resp["insertedCount"] > 0
     assert resp["warningCount"] >= 0
     assert resp["periodStart"] == f"{PERIOD_START}T00:00:00"
@@ -250,11 +259,15 @@ def test_transform_tiktok_golden_totals(client, raw_tts_path):
     assert resp["reportedTotalQty"] == GOLDEN_TIKTOK_QTY
     assert resp["reportedTotalRevenue"] == GOLDEN_TIKTOK_REVENUE
     assert "grandTotalQty" not in resp
-    # R1: the Tinted Jelly Balm 'Default' orphan (qty 1, rev 22,637) is now
-    # surfaced in the skipped tally instead of leaking past it.
-    assert resp["skippedCount"] == 1
-    assert resp["skippedQty"] == 1
-    assert resp["skippedRevenue"] == 22_637
+    # R1 + Phase 7: the Tinted Jelly Balm 'Default' orphan (qty 1, rev 22,637)
+    # is now PERSISTED as unreported instead of being skipped -- dash-only
+    # skipped is therefore zero for TikTok.
+    assert resp["skippedCount"] == 0
+    assert resp["skippedQty"] == 0
+    assert resp["skippedRevenue"] == 0
+    assert resp["unreportedCount"] == 1
+    assert resp["unreportedQty"] == 1
+    assert resp["unreportedRevenue"] == 22_637
     tiktok_batch_id = resp["importBatchId"]
 
 
@@ -319,6 +332,30 @@ def test_product_summary(client):
     gut = by_group["Glow Up Tint"]
     assert gut["totalQty"] == 6_109
     assert gut["totalRevenue"] == 435_136_850
+
+
+def test_batch_unreported_endpoint(client):
+    """Phase 7: GET /unreported returns only persisted non-reportable rows
+    (is_reported=0) in camelCase -- 12 distinct Shopee listings (13 records,
+    2 share a key) and TikTok's off-grid 'Default' orphan."""
+    resp = client.get(f"/api/reports/batches/{shopee_batch_id}/unreported")
+    assert resp.status_code == 200
+    shopee_rows = resp.json()
+    _assert_camel_case(shopee_rows)
+    assert len(shopee_rows) == 12
+    assert all(r["totalQty"] == 0 and r["totalRevenue"] == 0 for r in shopee_rows)
+
+    resp = client.get(f"/api/reports/batches/{tiktok_batch_id}/unreported")
+    assert resp.status_code == 200
+    tiktok_rows = resp.json()
+    _assert_camel_case(tiktok_rows)
+    assert len(tiktok_rows) == 1
+    row = tiktok_rows[0]
+    assert row["productGroup"] == "Tinted Jelly Balm"
+    assert row["cleanVariant"] == "Default"
+    assert row["totalQty"] == 1
+    assert row["totalRevenue"] == 22_637
+    assert row["rawVariant"]
 
 
 # ---------------------------------------------------------------------------
@@ -493,11 +530,23 @@ def test_export_excel_streams_workbook(client):
     assert expected_name in resp.headers["content-disposition"]
 
     sums = _sheet_qty_sums(resp.content)
-    assert list(sums) == ["Produk S", "Produk T", "Produk 2 S", "Produk 2 T"]
+    assert list(sums) == [
+        "Produk S",
+        "Produk T",
+        "Produk 2 S",
+        "Produk 2 T",
+        "Tidak Terlaporkan S",
+        "Tidak Terlaporkan T",
+    ]
     assert sums["Produk S"] == GOLDEN_SHOPEE_QTY
     assert sums["Produk T"] == GOLDEN_TIKTOK_QTY
     assert sums["Produk 2 S"] == SHOPEE_CROSS_QTY
     assert sums["Produk 2 T"] == TIKTOK_CROSS_QTY
+    # Phase 7 unreported sheets: Shopee's 13 non-catalog listings (qty 0) and
+    # TikTok's off-grid 'Default' orphan (qty 1). Unreported volume lives ONLY
+    # in these sheets, never in the four Produk sheets.
+    assert sums["Tidak Terlaporkan S"] == 0
+    assert sums["Tidak Terlaporkan T"] == 1
 
 
 def test_export_unknown_batch_404(client):
@@ -717,6 +766,20 @@ def test_openapi_contract_matches_bridge_dtos(client):
         p["name"] for p in spec["paths"]["/api/reports/aggregate"]["get"]["parameters"]
     }
     assert aggregate_params == {"platform", "periodStart", "periodEnd", "isCrossBundling"}
+
+    # Phase 7: the unreported endpoint + DTO and the transform unreported*
+    # fields are part of the wire contract.
+    assert "/api/reports/batches/{batch_id}/unreported" in spec["paths"]
+    unreported = schemas["UnreportedVariantDTO"]["properties"]
+    assert set(unreported) == {
+        "productGroup",
+        "cleanVariant",
+        "rawVariant",
+        "totalQty",
+        "totalRevenue",
+    }
+    for field in ("unreportedCount", "unreportedQty", "unreportedRevenue"):
+        assert field in transform, f"missing unreported field {field}"
 
 
 # ---------------------------------------------------------------------------

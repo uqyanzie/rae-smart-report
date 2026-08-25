@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from app.modules.exporter.report_builder import (
     ReportSheet,
+    UnreportedSheet,
     generate_executive_workbook,
     render_side_by_side_sheet,
+    render_unreported_sheet,
 )
 from app.modules.exporter.styles import (
     ALIGN_CENTER,
@@ -43,6 +45,8 @@ __all__ = [
     "FORMAT_INTEGER",
     "FORMAT_PERCENTAGE",
     "ReportSheet",
+    "UnreportedSheet",
     "generate_executive_workbook",
     "render_side_by_side_sheet",
+    "render_unreported_sheet",
 ]

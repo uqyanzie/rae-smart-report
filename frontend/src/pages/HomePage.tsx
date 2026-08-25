@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { useBatches } from '../hooks/useBatches'
 import { useBatchDashboard, type DashboardFilterType } from '../hooks/useBatchDashboard'
+import { useUnreported } from '../hooks/useUnreported'
 import { formatCurrency, formatNumber, formatPercent } from '../utils/format'
 
 const FILTER_OPTIONS: { key: DashboardFilterType; label: string }[] = [
@@ -90,6 +91,12 @@ export default function HomePage() {
     selectedBatchId,
     activeTypes,
   )
+  const {
+    rows: unreportedRows,
+    totals: unreportedTotals,
+    loading: unreportedLoading,
+    error: unreportedError,
+  } = useUnreported(selectedBatchId)
 
   const toggleType = (key: DashboardFilterType) => {
     setActiveTypes((prev) =>
@@ -292,6 +299,83 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800">Unreported entries</h2>
+                <p className="text-xs text-slate-500">
+                  Persisted but not reported — off-grid variants and non-catalog products
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+                <span>
+                  <span className="font-semibold text-slate-800">{formatNumber(unreportedTotals.rows)}</span>{' '}
+                  rows
+                </span>
+                <span>
+                  <span className="font-semibold text-slate-800">{formatNumber(unreportedTotals.qty)}</span>{' '}
+                  units
+                </span>
+                <span>
+                  <span className="font-semibold text-slate-800">
+                    {formatCurrency(unreportedTotals.revenue)}
+                  </span>{' '}
+                  revenue
+                </span>
+              </div>
+            </div>
+
+            {unreportedLoading && <p className="px-4 py-3 text-sm text-slate-500">Loading unreported entries…</p>}
+            {unreportedError && <p className="px-4 py-3 text-sm text-red-600">{unreportedError}</p>}
+            {!unreportedLoading && !unreportedError && unreportedRows.length === 0 && (
+              <p className="px-4 py-3 text-sm text-slate-500">
+                No unreported entries for this batch.
+              </p>
+            )}
+            {!unreportedLoading && !unreportedError && unreportedRows.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className={thClass}>Product group</th>
+                      <th className={thClass}>Variant</th>
+                      <th className={thClass}>Raw variant</th>
+                      <th className={`${thClass} text-right`}>Qty</th>
+                      <th className={`${thClass} text-right`}>Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {unreportedRows.map((row) => (
+                      <tr key={`${row.productGroup}-${row.cleanVariant}-${row.rawVariant}`} className="hover:bg-slate-50">
+                        <td className={`${tdClass} font-medium text-slate-800`}>{row.productGroup}</td>
+                        <td className={tdClass}>{row.cleanVariant}</td>
+                        <td className={`${tdClass} font-mono text-xs text-slate-500`}>{row.rawVariant}</td>
+                        <td className={`${tdClass} text-right`}>{formatNumber(row.totalQty)}</td>
+                        <td className={`${tdClass} text-right`}>{formatCurrency(row.totalRevenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50">
+                    <tr>
+                      <td colSpan={2} className="px-4 py-2 text-xs font-medium text-slate-500">
+                        Unreported totals
+                      </td>
+                      <td className="px-4 py-2 text-xs font-medium text-slate-500">
+                        {unreportedTotals.rows} rows
+                      </td>
+                      <td className="px-4 py-2 text-right text-sm font-semibold text-slate-800">
+                        {formatNumber(unreportedTotals.qty)}
+                      </td>
+                      <td className="px-4 py-2 text-right text-sm font-semibold text-slate-800">
+                        {formatCurrency(unreportedTotals.revenue)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
         </>
       )}
     </section>

@@ -4,12 +4,14 @@ import { apiClient, ApiError } from '../services/apiClient'
 
 type Variant = components['schemas']['VariantPerformanceDTO']
 type Product = components['schemas']['ProductSummaryDTO']
+type Unreported = components['schemas']['UnreportedVariantDTO']
 
 export interface BatchDetailData {
   variants: Variant[]
   products: Product[]
   crossVariants: Variant[]
   crossProducts: Product[]
+  unreported: Unreported[]
 }
 
 export interface UseBatchDetailState {
@@ -45,10 +47,14 @@ export function useBatchDetail(batchId: string): UseBatchDetailState {
       apiClient.batchProducts(batchId, 0),
       apiClient.batchVariants(batchId, 1),
       apiClient.batchProducts(batchId, 1),
+      apiClient.batchUnreported(batchId),
     ])
-      .then(([variants, products, crossVariants, crossProducts]) => {
+      .then(([variants, products, crossVariants, crossProducts, unreported]) => {
         if (!cancelled) {
-          dispatch({ type: 'success', data: { variants, products, crossVariants, crossProducts } })
+          dispatch({
+            type: 'success',
+            data: { variants, products, crossVariants, crossProducts, unreported },
+          })
         }
       })
       .catch((err: unknown) => {

@@ -38,6 +38,16 @@ class TransactionItem(Base):
     clean_variant = Column(String(255), nullable=False, index=True)
     is_bundling = Column(Boolean, default=False, nullable=False)
     is_cross_bundling = Column(Boolean, default=False, nullable=False, index=True)
+    # Report boundary (Phase 7, DevelopmentFeedback20260826). True when the
+    # record participates in the workbook report grids: Queries A-D and the
+    # grid left-join filter on `is_reported = 1`. False for persisted NON-DASH
+    # unreported entries -- off-grid variants (standalone 'tidak boleh ecer',
+    # 'free gift', etc.) and non-catalog product groups -- stored for
+    # traceability, surfaced via Query G / the 'Tidak Terlaporkan S/T' export
+    # sheets, but never reaching a report figure. Dash/empty-variant parent
+    # rows within catalog groups are NOT persisted (skipped_dash_variant);
+    # non-catalog listings whose variant is '-' are persisted as unreported.
+    is_reported = Column(Boolean, default=True, nullable=False, index=True)
 
     # SKU-level provenance ONLY -- never a reporting GROUP BY key. Tinted
     # Jelly Balm totals are aggregated by shade across all case colours

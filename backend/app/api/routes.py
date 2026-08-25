@@ -26,12 +26,17 @@ from app.api.dtos import (
     ProfilerResponseDTO,
     TransformAndSaveRequestDTO,
     TransformResponseDTO,
+    UnreportedVariantDTO,
     VariantPerformanceDTO,
 )
 from app.core.config import get_settings
 from app.core.security import sanitize_upload_filename
 from app.domain.catalog import PRODUK_GROUP_ORDER
-from app.modules.exporter.report_builder import ReportSheet, generate_executive_workbook
+from app.modules.exporter.report_builder import (
+    ReportSheet,
+    UnreportedSheet,
+    generate_executive_workbook,
+)
 from app.modules.ingestion.reader import extract_spreadsheet_rows, read_spreadsheet
 from app.modules.profiler.adapters import RawRecord, get_adapter
 from app.modules.profiler.fallback import (
@@ -289,9 +294,15 @@ async def transform_and_save(
         reported_total_revenue=sum(rec.revenue for rec in reported),
         created_at=datetime.now(UTC),
         inserted_count=persist.inserted_count,
-        skipped_count=persist.skipped_unreported.count,
-        skipped_qty=persist.skipped_unreported.qty,
-        skipped_revenue=persist.skipped_unreported.revenue,
+        # skipped* is the dash-only excluded tally; unreported* is the
+        # persisted non-reportable volume (off-grid variants, non-catalog
+        # products) viewable via /unreported.
+        skipped_count=persist.skipped_dash_variant.count,
+        skipped_qty=persist.skipped_dash_variant.qty,
+        skipped_revenue=persist.skipped_dash_variant.revenue,
+        unreported_count=persist.persisted_unreported.count,
+        unreported_qty=persist.persisted_unreported.qty,
+        unreported_revenue=persist.persisted_unreported.revenue,
         warning_count=len(result.warnings),
     )
 
@@ -343,6 +354,21 @@ async def batch_products(
         batch_id, is_cross_bundling=is_cross_bundling, is_bundling=is_bundling
     )
     return [ProductSummaryDTO(**row) for row in rows]
+
+
+@router.get("/reports/batches/{batch_id}/unreported", response_model=list[UnreportedVariantDTO])
+async def batch_unreported(
+    batch_id: str,
+    repo: AnalyticsRepository = Depends(_get_repository),
+) -> list[UnreportedVariantDTO]:
+    """Query G: persisted non-reportable entries for a batch.
+
+    ``is_reported = 0`` rows only (off-grid variants like standalone
+    'tidak boleh ecer' / 'free gift', and non-catalog product groups). Never
+    appears in report queries or the four Produk sheets.
+    """
+    rows = repo.unreported_analytics(batch_id)
+    return [UnreportedVariantDTO(**row) for row in rows]
 
 
 @router.get("/reports/aggregate", response_model=list[AggregateRowDTO])
@@ -446,6 +472,19 @@ async def export_excel(
             )
         )
 
+    # Per-platform unreported sheets (Phase 7): emitted after the Produk
+    # sheets for every platform batch present in the export.
+    unreported_sheets: list[UnreportedSheet] = []
+    for suffix in ("S", "T"):
+        platform = next((p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None)
+        if platform in resolved:
+            unreported_sheets.append(
+                UnreportedSheet(
+                    title=f"Tidak Terlaporkan {suffix}",
+                    rows=repo.unreported_analytics(resolved[platform]["import_batch_id"]),
+                )
+            )
+
     if not sheets:
         raise HTTPException(
             status_code=400,
@@ -458,7 +497,7 @@ async def export_excel(
     # [A-Z0-9-_], so no extra sanitization is required.
     name = "_".join(sorted(item["import_batch_id"] for item in resolved.values())) or "rae_smart_report"
 
-    buffer = generate_executive_workbook(sheets)
+    buffer = generate_executive_workbook(sheets, unreported=unreported_sheets)
     return StreamingResponse(
         iter([buffer.getvalue()]),
         media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),

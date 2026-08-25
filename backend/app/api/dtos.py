@@ -31,6 +31,7 @@ __all__ = [
     "ProfilerResponseDTO",
     "TransformAndSaveRequestDTO",
     "TransformResponseDTO",
+    "UnreportedVariantDTO",
     "VariantPerformanceDTO",
 ]
 
@@ -135,6 +136,23 @@ class ProductSummaryDTO(CamelModel):
     contribution_ratio: float
 
 
+class UnreportedVariantDTO(CamelModel):
+    """Persisted non-reportable entry (Query G, ``is_reported == 0``).
+
+    Covers off-grid variants (standalone 'tidak boleh ecer', 'free gift',
+    etc.) and non-catalog product groups. Stored for traceability and shown on
+    the dashboard / 'Tidak Terlaporkan S/T' export sheets; never appears in a
+    report query or the four Produk sheets. ``raw_variant`` carries the full
+    original label for provenance.
+    """
+
+    product_group: str
+    clean_variant: str
+    raw_variant: str
+    total_qty: int
+    total_revenue: int
+
+
 class AggregateRowDTO(CamelModel):
     """Multi-batch / multi-platform / date-range aggregation row (Query C).
 
@@ -179,9 +197,12 @@ class BatchSummaryDTO(BatchMetaDTO):
 class TransformResponseDTO(BatchMetaDTO):
     """Report-boundary batch summary plus persistence audit details.
 
-    ``reported_*`` mirrors the Produk workbook (grid-intersected), distinct
-    from the storage-level ``grandTotal*`` figures on ``/reports/batches``
-    (R5). The audit fields come from the ``persist_batch`` tally.
+    ``reported_*`` mirrors the Produk workbook (grid-intersected,
+    ``is_reported = 1``), distinct from the storage-level ``grandTotal*``
+    figures on ``/reports/batches`` (R5). ``skipped_*`` is now the dash-only
+    excluded tally (parent summaries). ``unreported_*`` is the persisted
+    non-reportable volume (off-grid variants, non-catalog products) -- stored
+    and viewable via ``/unreported`` but never part of a report figure.
     """
 
     reported_product_count: int
@@ -191,6 +212,9 @@ class TransformResponseDTO(BatchMetaDTO):
     skipped_count: int
     skipped_qty: int
     skipped_revenue: int
+    unreported_count: int
+    unreported_qty: int
+    unreported_revenue: int
     warning_count: int
 
 

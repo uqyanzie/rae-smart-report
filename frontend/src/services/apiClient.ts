@@ -144,6 +144,10 @@ export const apiClient = {
     })
   },
 
+  batchUnreported(batchId: string): Promise<components['schemas']['UnreportedVariantDTO'][]> {
+    return request(`/reports/batches/${encodeURIComponent(batchId)}/unreported`)
+  },
+
   aggregate(params: {
     platform?: string
     periodStart?: string
