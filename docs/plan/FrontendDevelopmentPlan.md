@@ -23,6 +23,17 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 
 ---
 
+## 2026-08-25 Scope Extension (DevelopmentFeedback20260825.md)
+
+New feedback supersedes parts of the earlier plan. Disposition of the three items:
+
+1. **Exported Excel golden display — new Phase F.** The exported workbook must reproduce the golden file's data display: the full catalog grid on the left table (every product group + every variant), with unsold variants' qty/revenue cells rendered per the golden (blank, with unguarded `=(C{r}/$H${group})*100%` contribution formulas that evaluate to `#DIV/0!` on zero-total groups). This intentionally reverses the earlier "sparse left table" and "never reproduce `#DIV/0!`" guidance **for the export display only** (user-confirmed).
+2. **Batch-scoped dashboard — new Phase G.** `HomePage` becomes a batch-selector dashboard with a Contribution pie chart, a Product sales bar chart, and a data list filtered by 3 multi-select checkboxes (Single / Bundling / Cross Bundling), backed by a new optional `isBundling` filter on `/api/reports/batches/{id}/variants` and `/api/reports/batches/{id}/products`.
+
+The former **Phase F (Integration & Packaging)** is renamed **Phase H** and now runs after the new feature phases; the STOP protocol applies unchanged (one phase per session).
+
+---
+
 ## Phase A: Backend Contract Reconciliation & Completion [Complete]
 
 **Goal:** Eliminate the remaining contract gaps so the frontend never has to chase a moving API.
@@ -116,14 +127,14 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 
 ---
 
-## Phase E: Batch Management & Excel Export [Pending]
+## Phase E: Batch Management & Excel Export [Complete]
 
 **Goal:** Manage historical batches and export the executive workbook.
 
-- [ ] Batch list screen (`GET /api/reports/batches`) with totals and created-at, plus delete (`DELETE /api/reports/batches/{id}`) with confirmation.
-- [ ] Batch detail navigation into the Phase D views.
-- [ ] Export dialog (`GET /api/export/excel?batchIds=`): **pre-validate exactly one batch per platform** to avoid 400 `DUPLICATE_PLATFORM_BATCH`; stream the `.xlsx` via blob download with the `Content-Disposition` filename.
-- [ ] Cross-batch aggregate view against `GET /api/reports/aggregate` (Phase A3) if the dashboard is in scope.
+- [x] Batch list screen (`GET /api/reports/batches`) with totals and created-at, plus delete (`DELETE /api/reports/batches/{id}`) with confirmation.
+- [x] Batch detail navigation into the Phase D views.
+- [x] Export dialog (`GET /api/export/excel?batchIds=`): **pre-validate exactly one batch per platform** to avoid 400 `DUPLICATE_PLATFORM_BATCH`; stream the `.xlsx` via blob download with the `Content-Disposition` filename.
+- [x] Cross-batch aggregate view against `GET /api/reports/aggregate` (Phase A3) — dashboard built (in scope).
 
 **Success Criteria:**
 - Export of one Shopee + one TikTok batch streams a 4-sheet workbook that opens in Excel with correct totals.
@@ -131,16 +142,67 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 
 ---
 
-## Phase F: Integration & Packaging [Pending]
+## Phase F: Exported Excel Golden Display [Pending]
 
-**Goal:** Ship a single desktop executable bundling the SPA with the backend (PyInstaller).
+**Goal:** Make the exported workbook follow the golden file's data display exactly (DevelopmentFeedback20260825): full catalog grid, all product groups and variants shown, values present, and unsold variants rendered per the golden's cell pattern.
+
+**Reference:** `sample_data/expected_output/output_13_19_Jul26.xlsx` (`Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`).
+
+- [ ] **Full-grid left table** in `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): emit EVERY catalog grid row per group (remove the `qty <= 0` skip). Produk sheets emit the full 181-row grid; Produk 2 sheets emit the full 813-row grid.
+- [ ] **Unsold variant cells:** write the variant name in col B; leave C (qty) and D (revenue) blank exactly like the golden; still write the E contribution formula for every row.
+- [ ] **Unguarded contribution formulas:** E always `=(C{r}/$H${summary})*100%` (remove `_contribution_or_zero`); zero-total groups therefore cache `#DIV/0!`, reproducing the golden workbook's known defect (user-confirmed). Right-table J stays `=(H{r}/$H$grand_total)*100%` for every group.
+- [ ] **Always-on SUM ranges:** every group's H/I is `=SUM(C{start}:C{end})` / `=SUM(D{start}:D{end})` over its full contiguous grid span (the Empty-Group literal-0 rule is removed because ranges always exist). TOTAL row unchanged (`=SUM(H2:H{last})`, `=SUM(I2:I{last})`).
+- [ ] Update the `report_builder.py` docstring (sparse → full) and remove dead helpers.
+- [ ] **Golden-grid note:** the reference workbook's Produk 2 grids are inconsistent (Produk 2 S = 516 rows vs Produk 2 T = 840 rows, both hand-scaffolded subsets); this app emits its canonical 813-row grid in both sheets as the superset satisfying "show all product groups and variants".
+- [ ] Rewrite `backend/tests/test_exporter.py` to the new contract:
+  - Left-table row count equals the full grid size per sheet (181 / 181 / 813 / 813).
+  - Unsold variant rows carry blank C/D plus a formula E; sold rows unchanged.
+  - Every group has an in-bounds `=SUM` over its span (replaces `test_empty_groups_have_literal_zero` and `test_no_sum_formula_on_empty_groups`).
+  - Zero-total groups' E cells are unguarded formulas (golden `#DIV/0!` behavior; replaces `test_no_div_zero_anywhere`).
+  - Keep golden-total conservation (6,910 / 11,575), number formats, anchors, the 36-row Produk 2 Group 9, and right-table completeness.
+
+**Success Criteria:**
+- `pytest backend/tests/test_exporter.py` passes; the full backend suite stays green (`pytest backend/tests/`).
+- An exported workbook from the sample batch reproduces the golden display (full grid, all variants, golden-style zero cells) with the golden totals unchanged.
+
+---
+
+## Phase G: Batch-Scoped Dashboard Redesign [Pending]
+
+**Goal:** Replace the cross-batch aggregate dashboard with a batch-scoped dashboard: batch selector + Contribution Pie chart + Product sales bar chart + data list, filtered by 3 multi-select checkboxes (Single / Bundling / Cross Bundling).
+
+**Backend (`isBundling` filter):**
+- [ ] `backend/app/modules/storage/repository.py`: add `is_bundling: bool | int | None = None` to `variant_analytics` (Query A) and `product_group_summary` (Query B). SQL adds `(:is_bundling IS NULL OR is_bundling = :is_bundling)` in the WHERE **and** inside the `product_totals` / `grand_total` CTEs so `contribution_ratio` is computed within the selected subset.
+- [ ] `backend/app/api/routes.py`: add `is_bundling: int | None = Query(default=None, alias="isBundling")` to `GET /api/reports/batches/{batch_id}/variants` and `GET /api/reports/batches/{batch_id}/products`.
+- [ ] Regenerate `frontend/src/services/api.ts` via `npm run generate:api` so the client exposes the new `isBundling` query param.
+- [ ] Tests (`backend/tests/test_api.py`, `backend/tests/test_storage.py`): `isBundling=0&isCrossBundling=0` returns only non-`Bundling*` groups; `isBundling=1` returns only `Bundling*` groups; the qty sums of the two partition equal the unfiltered `isCrossBundling=0` total (Shopee 6,910 / TikTok 11,575 split correctly).
+
+**Frontend (dashboard):**
+- [ ] Add `recharts` to `frontend/package.json`.
+- [ ] New hook `src/hooks/useBatchDashboard.ts`: given `batchId` + active `(isCrossBundling, isBundling)` tuples, fetch `/api/reports/batches/{id}/variants` per tuple (up to 3 parallel calls), merge the rows, and compute group rollups client-side (deterministic integer sums) for the charts and summary cards.
+- [ ] Redesign `src/pages/HomePage.tsx`:
+  - Batch selector (from `GET /api/reports/batches`, existing `useBatches` hook).
+  - 3 checkboxes (multi-select OR; default all checked): Single (`isCrossBundling=0, isBundling=0`), Bundling (`isCrossBundling=0, isBundling=1`), Cross Bundling (`isCrossBundling=1`).
+  - Contribution Pie chart (per-group qty share) + Product sales bar chart (per-group revenue) with recharts.
+  - Data list table (variant rows) + summary cards (units / revenue) for the active subset.
+- [ ] `npm run typecheck`, `npm run lint`, `npm run build` clean.
+
+**Success Criteria:**
+- Selecting a batch renders pie/bar/list for the default all-types selection; toggling the checkboxes filters the three datasets in isolation and in combination.
+- The `isBundling` filter behaves identically in the UI and the API; no regression in the existing BatchDetail / Export flows.
+
+---
+
+## Phase H: Integration & Packaging [Pending]
+
+**Goal:** Ship a single desktop executable bundling the SPA with the backend (PyInstaller). Renamed from the former Phase F; now runs after the Phase F/G feature work so the packaged smoke test exercises the new display and dashboard.
 
 - [ ] Configure PyInstaller with the SPA build copied into the bundle; verify `sys._MEIPASS` asset resolution and the writable DB path fallback per the `@pyinstaller-packaging-guardian` skill.
 - [ ] Automated browser launch on start (skill-configured), hidden console, and clean shutdown.
-- [ ] End-to-end smoke test on a clean machine: launch → upload sample `raw_shopee_13_19_Jul26.xlsx` → transform → export → open workbook.
+- [ ] End-to-end smoke test on a clean machine: launch → upload sample `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → export → open workbook (golden display).
 
 **Success Criteria:**
-- The packaged `.exe` serves the SPA, persists to `%LOCALAPPDATA%/RAESmartReport`, and reproduces the golden workbook from the sample files.
+- The packaged `.exe` serves the SPA (including the new batch dashboard), persists to `%LOCALAPPDATA%/RAESmartReport`, and reproduces the golden workbook from the sample files.
 
 ---
 
@@ -151,13 +213,13 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 pytest backend/tests/ -v
 ruff check backend/
 
-# Frontend (Phases B–E)
+# Frontend (Phases B–G)
 cd frontend
-npm run generate:api
+npm run generate:api   # re-run after Phase G backend changes to pick up isBundling
 npm run typecheck
 npm run build
 
-# Packaging (Phase F)
+# Packaging (Phase H)
 pyinstaller packaging.spec   # then launch the produced .exe
 ```
 
@@ -167,23 +229,25 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase D (Transform & Results UI) — **complete**. Per the STOP protocol, Phase E starts in a fresh session.
-- **Done so far (Phase D):**
-  - `src/pages/BatchDetailPage.tsx` + route `/batches/:batchId`: report-boundary summary cards (platform/period, product groups, total units, total revenue), an informational audit tally card (`insertedCount` / `skippedCount` / `skippedQty` / `skippedRevenue` / `warningCount`, only when arriving from a transform), a cross-bundling toggle, the variant breakdown table, and the product group summary table — `contributionRatio` rendered as a 0–1 unit share percentage, totals in `id-ID` formatting.
-  - `src/hooks/useBatchDetail.ts`: `useReducer`-based loader fetching both cross-bundling states of `/variants` and `/products` in parallel (toggle swaps instantly; report card derived from cross=0 always).
-  - `src/utils/format.ts`: shared `formatCurrency` / `formatNumber` / `formatPercent`.
-  - `src/components/MappingEditor.tsx`: primary action is now **Run transform & save** with an inline confirm step (Run/Cancel) and a "Running…" loading state; `saveAsTemplate: true` retained so the mapping template caches.
-  - `src/pages/UploadPage.tsx`: on a successful transform, navigates to `/batches/{id}` carrying the `TransformResponseDTO` in router state (back button returns to a fresh upload flow).
-  - `src/hooks/useUploadFlow.ts`: renamed `saveAsTemplate` → `runTransform`.
-- **Phase D verification (live backend, temp DB):**
-  - Shopee transform → **6,910 / Rp 525,973,986**; TikTok transform → **11,575 / Rp 658,458,817** (golden match in the response that drives the UI).
-  - `/variants` cross=0 sums exactly to the golden totals (155 Shopee / 93 TikTok rows); cross=1 swaps the dataset (45 / 14 rows) — toggle swap verified.
-  - `contributionRatio` confirmed in [0,1]; product rollups sum to golden totals.
-  - Same-shade 3-pack CSV → 422 `INVALID_VARIANT` naming shade 'Dynamic', the raw variant, and SKU `(no SKU)`.
-  - `npm run typecheck`, `npm run lint`, `npm run build` clean; SPA serves `/batches/:id` and the new bundle at `/`.
-  - No backend changes; backend suite remains green (**221 tests**).
+- **Current Phase:** Phase E (Batch Management & Excel Export) — **complete**.
+- **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (now the final milestone, runs after F/G). Per the STOP protocol, the next session starts the new **Phase F**. This Handoff Brief will be updated again at the end of each phase.
+- **Done so far (Phase E):**
+  - `src/hooks/useBatches.ts`: now exposes `remove(batchId)` (calls `DELETE /api/reports/batches/{id}` then refreshes via a reload key).
+  - `src/pages/BatchesPage.tsx`: `createdAt` column, row click navigates to `/batches/:batchId` (Phase D detail), and a per-row **Delete** action with an inline confirm step (Delete/Cancel) + deleting state; delete errors surface through `ErrorBanner`.
+  - `src/pages/ExportPage.tsx`: platform-grouped batch selection. Exactly-one-batch-per-platform is enforced structurally in the selection map (`selectedByPlatform[platform] = batchId` — checking a second batch for a platform replaces the first, so the 400 `DUPLICATE_PLATFORM_BATCH` can never be triggered from the UI); Export button disabled with an empty selection; success banner shows the downloaded filename.
+  - `src/services/apiClient.ts`: `exportExcel` now returns `{ blob, filename }`, parsing the filename from `Content-Disposition` (fallback `rae_smart_report.xlsx`).
+  - `src/hooks/useAggregate.ts`: `useReducer`-based loader for `GET /api/reports/aggregate` (platform / periodStart / periodEnd / isCrossBundling), mirroring the `useBatchDetail` pattern to satisfy `react(set-state-in-effect)`.
+  - `src/pages/HomePage.tsx`: Query C dashboard — platform / period (`PeriodPicker`) / cross-bundling filters, summary cards (filtered rows, total units, total revenue), and an aggregate table with `contributionRatio` as 0–1 unit share via `formatPercent`.
+- **Phase E verification (live backend, temp DB):**
+  - `GET /reports/batches` returns both batches with `createdAt`; aggregate unfiltered = 307 rows / 18,505 units across both platforms; `platform=SHOPEE` filter narrows correctly.
+  - `DELETE /reports/batches/{id}` is idempotent (deletes 269 transaction_items, second call 0) and the list updates.
+  - Export of one Shopee + one TikTok batch streams `rae_smart_report_20260713_20260719.xlsx` with `Content-Disposition`; workbook opens as `Produk S, Produk T, Produk 2 S, Produk 2 T` and left-table sums match the golden totals (**6,910** / **11,575** units).
+  - Two batches for one platform → backend 400 `DUPLICATE_PLATFORM_BATCH` (and is structurally blocked client-side before any request).
+  - `npm run typecheck`, `npm run lint`, `npm run build` all clean; backend suite remains green (**221 tests**).
 - **What is next (fresh session):**
-  1. Phase E (Batch Management & Excel Export): batch list with delete (`DELETE /api/reports/batches/{id}`), batch-detail navigation from the list, export dialog (`GET /api/export/excel?batchIds=` with pre-validation of exactly one batch per platform), and the cross-batch aggregate view against `GET /api/reports/aggregate`.
+  1. Phase F (Exported Excel Golden Display): full-grid left table, golden-style blank/`#DIV/0!` cells, always-on `=SUM` ranges in `report_builder.py`, and the `test_exporter.py` rewrite.
+  2. Phase G (Batch-Scoped Dashboard Redesign): `isBundling` query filter on `/variants` and `/products`, recharts, and the `HomePage` batch-selector + checkbox + pie/bar redesign.
+  3. Phase H (Integration & Packaging): PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, and the clean-machine smoke test reproducing the golden workbook from the sample files.
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`
