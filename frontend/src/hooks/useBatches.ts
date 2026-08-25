@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { components } from '../services/api'
 import { apiClient, ApiError } from '../services/apiClient'
 
-interface UseBatchesState {
+interface UseBatchesData {
   batches: components['schemas']['BatchSummaryDTO'][]
   loading: boolean
   error: string | null
 }
 
-export function useBatches(): UseBatchesState {
-  const [state, setState] = useState<UseBatchesState>({ batches: [], loading: true, error: null })
+export function useBatches(): UseBatchesData & { remove: (batchId: string) => Promise<void> } {
+  const [state, setState] = useState<UseBatchesData>({ batches: [], loading: true, error: null })
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -25,7 +26,12 @@ export function useBatches(): UseBatchesState {
     return () => {
       cancelled = true
     }
+  }, [reloadKey])
+
+  const remove = useCallback(async (batchId: string): Promise<void> => {
+    await apiClient.deleteBatch(batchId)
+    setReloadKey((key) => key + 1)
   }, [])
 
-  return state
+  return { ...state, remove }
 }

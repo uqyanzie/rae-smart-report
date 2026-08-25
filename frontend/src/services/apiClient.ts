@@ -146,11 +146,18 @@ export const apiClient = {
     })
   },
 
-  async exportExcel(batchIds: string[]): Promise<Blob> {
+  async exportExcel(batchIds: string[]): Promise<{ blob: Blob; filename: string }> {
     const search = new URLSearchParams()
     for (const id of batchIds) search.append('batchIds', id)
     const res = await fetch(`${API_BASE}/export/excel?${search.toString()}`)
     if (!res.ok) throw await toApiError(res)
-    return res.blob()
+    const filename = parseFilenameFromDisposition(res.headers.get('content-disposition')) ?? 'rae_smart_report.xlsx'
+    return { blob: await res.blob(), filename }
   },
+}
+
+function parseFilenameFromDisposition(disposition: string | null): string | null {
+  if (!disposition) return null
+  const match = /filename="?([^";]+)"?/.exec(disposition)
+  return match ? match[1] : null
 }
