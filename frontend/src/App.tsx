@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
+import BatchDetailPage from './pages/BatchDetailPage'
 import BatchesPage from './pages/BatchesPage'
 import ExportPage from './pages/ExportPage'
 import HomePage from './pages/HomePage'
@@ -38,6 +39,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/batches" element={<BatchesPage />} />
+          <Route path="/batches/:batchId" element={<BatchDetailPage />} />
           <Route path="/export" element={<ExportPage />} />
         </Routes>
       </main>

@@ -74,33 +74,45 @@ Complete the remaining backend contract work identified in `BackendRemediationBr
 
 ---
 
-## Phase C: File Upload, Profiling & Mapping UI [Pending]
+## Phase C: File Upload, Profiling & Mapping UI [Complete]
 
 **Goal:** The user can upload an export, see the auto-detected platform/mapping, and adjust the column mapping before transforming.
 
-- [ ] Upload dropzone (`POST /api/ingest`) with drag-and-drop, format/size validation (415 / 413 surfaced via the error envelope), and an upload progress state.
-- [ ] Platform & mapping review screen driven by `POST /api/profile`: display detected platform, confidence, and editable column mapping (`columnMapping`, `parentRowRule`, `cleaningRules`).
-- [ ] Period picker for `periodStart` / `periodEnd` (ISO `YYYY-MM-DD`).
-- [ ] Re-run profiling when the user switches sheets or edits headers.
+- [x] Upload dropzone (`POST /api/ingest`) with drag-and-drop, format/size validation (415 / 413 surfaced via the error envelope), and an upload progress state.
+- [x] Platform & mapping review screen driven by `POST /api/profile`: display detected platform, confidence, and editable column mapping (`columnMapping`, `parentRowRule`, `cleaningRules`).
+- [x] Period picker for `periodStart` / `periodEnd` (ISO `YYYY-MM-DD`).
+- [x] Re-run profiling when the user switches sheets or edits headers.
 
 **Success Criteria:**
 - Upload → profile → edit mapping → save-as-template round-trips with the live backend.
 - A platform mismatch or malformed file renders the 422 `MISSING_REQUIRED_COLUMN` message (not a generic error).
 
+**Notes / fixes surfaced during Phase C:**
+- The generated OpenAPI client exposes DTO types only via `components['schemas'][...]` (no named type exports); components import from `components['schemas']` rather than named imports.
+- No new backend endpoints were required: the save-as-template round-trip is served by `POST /api/transform` with `saveAsTemplate: true` (writes `mapping_templates`), and re-profile of the same header signature returns `isCached: true` with the stored mapping. The sheet-switch re-profile is driven by `ProfileRequestDTO.activeSheet`.
+- Profiling is never fatal: unknown schemas return `platform=UNKNOWN / confidence 0` rather than an error, so the review screen renders a manual platform selector + empty mapping instead of a dead end.
+- Upload progress uses `XMLHttpRequest` (`apiClient.uploadFile`) since `fetch` exposes no progress events; the error envelope parser was factored into a shared `envelopeFromText` used by both fetch and XHR paths.
+
 ---
 
-## Phase D: Transform & Results UI [Pending]
+## Phase D: Transform & Results UI [Complete]
 
 **Goal:** Run the pipeline and present the report boundary + audit tally.
 
-- [ ] Transform action (`POST /api/transform`) with a loading/confirm state; surface `reportedProductCount`, `reportedTotalQty`, `reportedTotalRevenue`, and the **non-zero `skipped*` audit tally** (may be non-zero for valid files — show it as informational, not an error).
-- [ ] Variant breakdown table (`GET /api/reports/batches/{id}/variants`) with `contributionRatio` rendered as a 0–1 unit share (percentage), toggled by `is_cross_bundling`.
-- [ ] Product group summary table (`GET /api/reports/batches/{id}/products`).
-- [ ] Surface `INVALID_VARIANT` (422) from Phase A2 as a per-file validation message naming the offending row.
+- [x] Transform action (`POST /api/transform`) with a loading/confirm state; surface `reportedProductCount`, `reportedTotalQty`, `reportedTotalRevenue`, and the **non-zero `skipped*` audit tally** (may be non-zero for valid files — show it as informational, not an error).
+- [x] Variant breakdown table (`GET /api/reports/batches/{id}/variants`) with `contributionRatio` rendered as a 0–1 unit share (percentage), toggled by `is_cross_bundling`.
+- [x] Product group summary table (`GET /api/reports/batches/{id}/products`).
+- [x] Surface `INVALID_VARIANT` (422) from Phase A2 as a per-file validation message naming the offending row.
 
 **Success Criteria:**
 - A real transform matches the golden figures in the UI (Shopee 6,910 / TikTok 11,575 units).
 - Cross-bundling toggle swaps variant/product data sets correctly.
+
+**Notes / fixes surfaced during Phase D:**
+- No backend changes required. Verified live that `variant_analytics` (cross=0) sums **exactly** to the transform `reported*` totals, so the batch-detail page can derive the golden report boundary from `GET /variants?is_cross_bundling=0` even when opened directly (no transform response in navigation state); the transform-response `skipped*` audit tally is only shown when arriving right after a transform.
+- Added a `src/utils/format.ts` shared formatter module (`formatCurrency` / `formatNumber` / `formatPercent`) — used by the new page; `BatchesPage` left as-is.
+- `useBatchDetail` preloads both cross-bundling datasets so the toggle swaps instantly and the report card never depends on the current toggle; implemented with `useReducer` to satisfy the oxlint `react(set-state-in-effect)` rule.
+- Route added: `/batches/:batchId` → `BatchDetailPage`; the transform flow in `UploadPage` navigates there with the `TransformResponseDTO` in router state.
 
 ---
 
@@ -155,19 +167,23 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase B (Frontend Scaffolding) — **complete**. Per the STOP protocol, Phase C starts in a fresh session.
-- **Done so far (Phase B):**
-  - Scaffolded `frontend/` with Vite + React 19 + TypeScript 5.9 + Tailwind v4 (`@tailwindcss/vite`, no config file) + `react-router-dom`, matching the `SETUP.md` layout.
-  - `npm run generate:api` → `src/services/api.ts` via `openapi-typescript` from the live backend; committed (zero manual edits).
-  - `src/services/apiClient.ts`: typed fetch wrapper over the generated client with shared `{ status, code, message, details? }` envelope → `ApiError`.
-  - App shell: `App.tsx` + top-nav layout, routes `/` (Dashboard), `/upload`, `/batches`, `/export` with placeholders; `/batches` renders live batch data via `src/hooks/useBatches.ts`.
-  - `vite.config.ts` dev proxy `/api` → `http://127.0.0.1:8000`.
-  - `spa.py` root-path fix (serve `index.html` for empty path instead of 403).
-  - DTO parity: added `caseColor?: string | null` to `ColumnMappingDTO` / `VariantPerformanceDTO` in `frontend_dtos.ts`.
-  - New backend tests: `test_spa_mount_serves_index_and_blocks_api`, `test_security.py`, hardened `test_api_only_mode_root_404`.
-  - Backend suite green: **221 tests**, `ruff` clean, golden totals unchanged (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
+- **Current Phase:** Phase D (Transform & Results UI) — **complete**. Per the STOP protocol, Phase E starts in a fresh session.
+- **Done so far (Phase D):**
+  - `src/pages/BatchDetailPage.tsx` + route `/batches/:batchId`: report-boundary summary cards (platform/period, product groups, total units, total revenue), an informational audit tally card (`insertedCount` / `skippedCount` / `skippedQty` / `skippedRevenue` / `warningCount`, only when arriving from a transform), a cross-bundling toggle, the variant breakdown table, and the product group summary table — `contributionRatio` rendered as a 0–1 unit share percentage, totals in `id-ID` formatting.
+  - `src/hooks/useBatchDetail.ts`: `useReducer`-based loader fetching both cross-bundling states of `/variants` and `/products` in parallel (toggle swaps instantly; report card derived from cross=0 always).
+  - `src/utils/format.ts`: shared `formatCurrency` / `formatNumber` / `formatPercent`.
+  - `src/components/MappingEditor.tsx`: primary action is now **Run transform & save** with an inline confirm step (Run/Cancel) and a "Running…" loading state; `saveAsTemplate: true` retained so the mapping template caches.
+  - `src/pages/UploadPage.tsx`: on a successful transform, navigates to `/batches/{id}` carrying the `TransformResponseDTO` in router state (back button returns to a fresh upload flow).
+  - `src/hooks/useUploadFlow.ts`: renamed `saveAsTemplate` → `runTransform`.
+- **Phase D verification (live backend, temp DB):**
+  - Shopee transform → **6,910 / Rp 525,973,986**; TikTok transform → **11,575 / Rp 658,458,817** (golden match in the response that drives the UI).
+  - `/variants` cross=0 sums exactly to the golden totals (155 Shopee / 93 TikTok rows); cross=1 swaps the dataset (45 / 14 rows) — toggle swap verified.
+  - `contributionRatio` confirmed in [0,1]; product rollups sum to golden totals.
+  - Same-shade 3-pack CSV → 422 `INVALID_VARIANT` naming shade 'Dynamic', the raw variant, and SKU `(no SKU)`.
+  - `npm run typecheck`, `npm run lint`, `npm run build` clean; SPA serves `/batches/:id` and the new bundle at `/`.
+  - No backend changes; backend suite remains green (**221 tests**).
 - **What is next (fresh session):**
-  1. Phase C (Upload, Profiling & Mapping UI): upload dropzone (`POST /api/ingest`), platform & mapping review (`POST /api/profile`), period picker, re-profile on sheet/header change, and save-as-template round-trip.
+  1. Phase E (Batch Management & Excel Export): batch list with delete (`DELETE /api/reports/batches/{id}`), batch-detail navigation from the list, export dialog (`GET /api/export/excel?batchIds=` with pre-validation of exactly one batch per platform), and the cross-batch aggregate view against `GET /api/reports/aggregate`.
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`

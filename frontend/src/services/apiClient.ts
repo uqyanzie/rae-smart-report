@@ -55,22 +55,55 @@ async function request<T>(path: string, body?: RequestBody, query?: Record<strin
   return (await res.json()) as T
 }
 
-async function toApiError(res: Response): Promise<ApiError> {
+function envelopeFromText(status: number, text: string): ApiError {
   let envelope: ApiErrorEnvelope | null = null
   try {
-    envelope = (await res.json()) as ApiErrorEnvelope
+    envelope = JSON.parse(text) as ApiErrorEnvelope
   } catch {
     // Non-JSON error body; fall through to the generic envelope.
   }
   return new ApiError(
-    res.status,
+    status,
     envelope?.code ?? 'HTTP_ERROR',
-    envelope?.message ?? res.statusText,
+    envelope?.message ?? `HTTP ${status}`,
     envelope?.details,
   )
 }
 
+async function toApiError(res: Response): Promise<ApiError> {
+  return envelopeFromText(res.status, await res.text())
+}
+
 export const apiClient = {
+  uploadFile(file: File, onProgress?: (percent: number) => void): Promise<components['schemas']['IngestionResultDTO']> {
+    return new Promise((resolve, reject) => {
+      const form = new FormData()
+      form.append('file', file)
+
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${API_BASE}/ingest`)
+      xhr.responseType = 'text'
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          onProgress(Math.round((event.loaded / event.total) * 100))
+        }
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as components['schemas']['IngestionResultDTO'])
+          } catch {
+            reject(new ApiError(xhr.status, 'HTTP_ERROR', 'Malformed upload response'))
+          }
+          return
+        }
+        reject(envelopeFromText(xhr.status, xhr.responseText))
+      }
+      xhr.onerror = () => reject(new ApiError(0, 'NETWORK_ERROR', 'Network error during upload'))
+      xhr.send(form)
+    })
+  },
+
   ingest(file: File): Promise<components['schemas']['IngestionResultDTO']> {
     const form = new FormData()
     form.append('file', file)
