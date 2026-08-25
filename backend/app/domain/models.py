@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,8 +17,8 @@ class VariantRecord:
     is_cross_bundling: bool
     qty_sold: int
     revenue: int
-    sku: Optional[str] = None
-    case_color: Optional[str] = None
+    sku: str | None = None
+    case_color: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +30,7 @@ class GridRow:
     is_bundling: bool
     is_cross_bundling: bool
     expected_label: str
-    case_color: Optional[str] = None
+    case_color: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,4 +40,4 @@ class ReportGroup:
     name: str
     is_bundling: bool
     is_cross: bool
-    family_name: Optional[str] = None
+    family_name: str | None = None

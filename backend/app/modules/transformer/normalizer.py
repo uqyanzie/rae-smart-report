@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.domain.catalog import (
     CASE_COLORS,
@@ -15,20 +14,19 @@ from app.domain.catalog import (
     PACKAGING_TOKENS,
     PRODUK_GROUP_ORDER,
     Family,
-    resolve_family,
     resolve_shade,
 )
 from app.domain.models import VariantRecord
 from app.modules.profiler.adapters import RawRecord
 
 __all__ = [
-    "TransformationWarning",
     "TransformationResult",
+    "TransformationWarning",
     "VariantNormalizer",
-    "strip_packaging_noise",
-    "strip_ordinal_prefix",
     "extract_case_color",
     "extract_shades_from_title",
+    "strip_ordinal_prefix",
+    "strip_packaging_noise",
 ]
 
 
@@ -40,16 +38,16 @@ class TransformationWarning:
     product_title: str
     raw_variant: str
     reason: str
-    unmapped_tokens: Tuple[str, ...] = ()
-    sku: Optional[str] = None
+    unmapped_tokens: tuple[str, ...] = ()
+    sku: str | None = None
 
 
 @dataclass
 class TransformationResult:
     """Output of batch transformation containing atomic records and warnings."""
 
-    records: List[VariantRecord] = field(default_factory=list)
-    warnings: List[TransformationWarning] = field(default_factory=list)
+    records: list[VariantRecord] = field(default_factory=list)
+    warnings: list[TransformationWarning] = field(default_factory=list)
     total_qty: int = 0
     total_revenue: int = 0
 
@@ -78,7 +76,7 @@ def strip_ordinal_prefix(token: str) -> str:
     return _ORDINAL_REGEX.sub("", token.strip()).strip()
 
 
-def extract_case_color(text: str) -> Tuple[str, Optional[str]]:
+def extract_case_color(text: str) -> tuple[str, str | None]:
     """Extracts 3D case color (Fizzy Pop, Sweetie Pop, Cherry Pop) if present in variant string.
 
     Returns:
@@ -97,19 +95,15 @@ def extract_case_color(text: str) -> Tuple[str, Optional[str]]:
     return text.strip(), None
 
 
-def extract_shades_from_title(
-    title: str, family: Optional[Family] = None
-) -> List[Tuple[str, str]]:
+def extract_shades_from_title(title: str, family: Family | None = None) -> list[tuple[str, str]]:
     """Extracts known shades mentioned within a product title string."""
     if not title:
         return []
 
-    found: List[Tuple[int, str, str]] = []  # (start_pos, family_name, canonical_shade)
+    found: list[tuple[int, str, str]] = []  # (start_pos, family_name, canonical_shade)
     target_families = [family] if family else FAMILIES
 
     for fam in target_families:
-        if fam is None:
-            continue
         for shade in fam.shades:
             # Word boundary search
             pattern = re.compile(rf"\b{re.escape(shade)}\b", re.IGNORECASE)
@@ -121,8 +115,8 @@ def extract_shades_from_title(
                 found.append((m.start(), fam.name, canon))
 
     found.sort(key=lambda x: x[0])
-    results: List[Tuple[str, str]] = []
-    seen: Set[str] = set()
+    results: list[tuple[str, str]] = []
+    seen: set[str] = set()
     for _, fam_name, shade in found:
         if shade not in seen:
             seen.add(shade)
@@ -131,7 +125,7 @@ def extract_shades_from_title(
 
 
 # Standard canonical mapping for report group names in PRODUK_GROUP_ORDER
-_CANONICAL_GROUP_MAP: Dict[str, str] = {}
+_CANONICAL_GROUP_MAP: dict[str, str] = {}
 for group in PRODUK_GROUP_ORDER:
     _CANONICAL_GROUP_MAP[group.strip().casefold()] = group
 
@@ -143,7 +137,7 @@ class VariantNormalizer:
         self._families = FAMILIES
         self._family_by_name = FAMILY_BY_NAME
 
-    def normalize_product_group(self, raw_title: str) -> Tuple[str, Optional[Family], bool, bool]:
+    def normalize_product_group(self, raw_title: str) -> tuple[str, Family | None, bool, bool]:
         """Resolves the canonical report product group, family, is_bundling, is_cross_bundling.
 
         Returns:
@@ -155,10 +149,12 @@ class VariantNormalizer:
         title_lower = title_clean.casefold()
 
         # 1. Check for cross-family bundling (e.g. contains '&' or ' x ' joining 2 families)
-        if "&" in title_clean or re.search(r"\bsilang\b", title_clean, re.IGNORECASE) or (
-            "bundling" in title_lower and re.search(r"\bx\b", title_clean, re.IGNORECASE)
+        if (
+            "&" in title_clean
+            or re.search(r"\bsilang\b", title_clean, re.IGNORECASE)
+            or ("bundling" in title_lower and re.search(r"\bx\b", title_clean, re.IGNORECASE))
         ):
-            detected: List[Family] = []
+            detected: list[Family] = []
             for fam in self._families:
                 if fam.name.casefold() in title_lower or any(
                     alias.casefold() in title_lower for alias in fam.aliases
@@ -219,7 +215,7 @@ class VariantNormalizer:
         # Fallback
         return raw_title.strip(), None, is_bundle, False
 
-    def tokenize_variant(self, raw_variant: str) -> List[str]:
+    def tokenize_variant(self, raw_variant: str) -> list[str]:
         """Splits raw variant string on delimiters (,, +, /, &) and cleans each token."""
         if not raw_variant:
             return []
@@ -229,7 +225,7 @@ class VariantNormalizer:
 
         # Split on delimiters
         parts = re.split(r"[,+/&]+", cleaned)
-        tokens: List[str] = []
+        tokens: list[str] = []
         for p in parts:
             t = strip_ordinal_prefix(p)
             t_clean = t.strip()
@@ -243,11 +239,11 @@ class VariantNormalizer:
         return tokens
 
     def resolve_tokens(
-        self, tokens: List[str], family: Optional[Family] = None
-    ) -> Tuple[List[Tuple[str, str]], List[str]]:
+        self, tokens: list[str], family: Family | None = None
+    ) -> tuple[list[tuple[str, str]], list[str]]:
         """Resolves list of tokens into (family_name, canonical_shade) pairs and unmapped tokens."""
-        resolved: List[Tuple[str, str]] = []
-        unmapped: List[str] = []
+        resolved: list[tuple[str, str]] = []
+        unmapped: list[str] = []
 
         for token in tokens:
             match = resolve_shade(token, family=family)
@@ -260,15 +256,13 @@ class VariantNormalizer:
 
     def normalize_single(
         self, raw_record: RawRecord
-    ) -> Tuple[Optional[VariantRecord], Optional[TransformationWarning], bool]:
+    ) -> tuple[VariantRecord | None, TransformationWarning | None, bool]:
         """Normalizes a single RawRecord into a VariantRecord.
 
         Returns:
             Tuple of (VariantRecord or None, TransformationWarning or None, is_same_shade_foldback)
         """
-        group_name, family, is_bundling, is_cross = self.normalize_product_group(
-            raw_record.product_title
-        )
+        group_name, family, is_bundling, is_cross = self.normalize_product_group(raw_record.product_title)
 
         # Extract 3D case color
         var_text, case_color = extract_case_color(raw_record.raw_variant)
@@ -336,7 +330,9 @@ class VariantNormalizer:
         tokens = self.tokenize_variant(var_text)
 
         # If raw_variant is 'Default' or empty or '-', check if shades are in the product title (e.g. Cimoy picks)
-        if (not tokens or cleaned_var.casefold() in ("default", "none", "", "-")) and raw_record.product_title:
+        if (
+            not tokens or cleaned_var.casefold() in ("default", "none", "", "-")
+        ) and raw_record.product_title:
             title_shades = extract_shades_from_title(raw_record.product_title, family=family)
             if title_shades:
                 resolved_shades = title_shades
@@ -388,9 +384,7 @@ class VariantNormalizer:
                 target_group = group_name
                 # If product group was generic or single shade in non-bundle, ensure canonical family name
                 if not is_bundling:
-                    target_group = _CANONICAL_GROUP_MAP.get(
-                        shade_fam_name.casefold(), shade_fam_name
-                    )
+                    target_group = _CANONICAL_GROUP_MAP.get(shade_fam_name.casefold(), shade_fam_name)
                 target_variant = shade
                 is_b = is_bundling
 
@@ -466,9 +460,7 @@ class VariantNormalizer:
                     try:
                         idx1 = pairs_order.index(shade1)
                         idx2 = pairs_order.index(shade2)
-                        s_first, s_second = (
-                            (shade1, shade2) if idx1 < idx2 else (shade2, shade1)
-                        )
+                        s_first, s_second = (shade1, shade2) if idx1 < idx2 else (shade2, shade1)
                     except ValueError:
                         s_first, s_second = shade1, shade2
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 
 class IngestionError(Exception):
     """Base exception for all ingestion failures."""
@@ -12,18 +10,16 @@ class IngestionError(Exception):
 class UnsupportedFormatError(IngestionError):
     """Raised when an unsupported file format or extension is provided."""
 
-    def __init__(self, filename: str, supported: Optional[List[str]] = None) -> None:
+    def __init__(self, filename: str, supported: list[str] | None = None) -> None:
         supported_str = ", ".join(supported) if supported else ".xlsx, .csv"
-        super().__init__(
-            f"Unsupported file format for '{filename}'. Only {supported_str} are supported."
-        )
+        super().__init__(f"Unsupported file format for '{filename}'. Only {supported_str} are supported.")
         self.filename = filename
 
 
 class SpreadsheetEmptyError(IngestionError):
     """Raised when the uploaded spreadsheet contains no data or rows."""
 
-    def __init__(self, sheet_name: Optional[str] = None) -> None:
+    def __init__(self, sheet_name: str | None = None) -> None:
         msg = f"Sheet '{sheet_name}' is empty." if sheet_name else "Spreadsheet contains no data rows."
         super().__init__(msg)
         self.sheet_name = sheet_name
@@ -32,7 +28,7 @@ class SpreadsheetEmptyError(IngestionError):
 class SheetNotFoundError(IngestionError):
     """Raised when the requested sheet does not exist in the workbook."""
 
-    def __init__(self, requested_sheet: str, available_sheets: List[str]) -> None:
+    def __init__(self, requested_sheet: str, available_sheets: list[str]) -> None:
         super().__init__(
             f"Sheet '{requested_sheet}' not found. Available sheets: {', '.join(available_sheets)}"
         )
@@ -43,7 +39,7 @@ class SheetNotFoundError(IngestionError):
 class MissingRequiredColumnError(IngestionError):
     """Raised when mandatory marketplace columns are absent from the spreadsheet."""
 
-    def __init__(self, missing_columns: List[str], available_headers: List[str], platform: str = "") -> None:
+    def __init__(self, missing_columns: list[str], available_headers: list[str], platform: str = "") -> None:
         platform_prefix = f"[{platform}] " if platform else ""
         super().__init__(
             f"{platform_prefix}Missing required column(s): {missing_columns}. "

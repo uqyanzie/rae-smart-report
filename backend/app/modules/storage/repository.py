@@ -8,10 +8,11 @@ grid left-join always matches the catalog grid vocabulary.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from itertools import combinations
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -33,10 +34,7 @@ __all__ = [
 # cross-family "Bundling A & B" group the normalizer can emit (C(7,2) = 21).
 _CANONICAL_GROUPS: frozenset[str] = frozenset(
     {group.strip() for group in PRODUK_GROUP_ORDER}
-    | {
-        f"Bundling {family_a.name} & {family_b.name}"
-        for family_a, family_b in combinations(FAMILIES, 2)
-    }
+    | {f"Bundling {family_a.name} & {family_b.name}" for family_a, family_b in combinations(FAMILIES, 2)}
 )
 
 # -- Query A: Variant-level performance & contribution ratio (Table 1) -------
@@ -236,8 +234,8 @@ class AnalyticsRepository:
         self,
         import_batch_id: str,
         platform: str,
-        period_start: Optional[datetime],
-        period_end: Optional[datetime],
+        period_start: datetime | None,
+        period_end: datetime | None,
         records: Sequence[VariantRecord],
     ) -> PersistResult:
         """Persists normalized records under one import batch.
@@ -250,7 +248,7 @@ class AnalyticsRepository:
         """
         unresolved = SkippedTally()
         dash = SkippedTally()
-        inserted: List[TransactionItem] = []
+        inserted: list[TransactionItem] = []
 
         for rec in records:
             product_group = rec.product_group.strip()
@@ -307,7 +305,7 @@ class AnalyticsRepository:
 
     def variant_analytics(
         self, import_batch_id: str, is_cross_bundling: bool | int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Per-(product_group, clean_variant) totals with 0-1 unit share."""
         rows = (
             self._session.execute(
@@ -328,7 +326,7 @@ class AnalyticsRepository:
 
     def product_group_summary(
         self, import_batch_id: str, is_cross_bundling: bool | int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Group-level rollup with share against grand total quantity."""
         rows = (
             self._session.execute(
@@ -349,29 +347,23 @@ class AnalyticsRepository:
 
     def multi_platform_aggregation(
         self,
-        platform: Optional[str] = None,
-        start_date: Optional[datetime | date] = None,
-        end_date: Optional[datetime | date] = None,
-        is_cross_bundling: Optional[bool | int] = None,
-    ) -> List[Dict[str, Any]]:
+        platform: str | None = None,
+        start_date: datetime | date | None = None,
+        end_date: datetime | date | None = None,
+        is_cross_bundling: bool | int | None = None,
+    ) -> list[dict[str, Any]]:
         """Cross-batch aggregation with optional platform/date/cross filters."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "platform": platform,
             "start_date": self._coerce_bound(start_date),
             "end_date": self._coerce_bound(end_date),
-            "is_cross_bundling": (
-                None if is_cross_bundling is None else int(bool(is_cross_bundling))
-            ),
+            "is_cross_bundling": (None if is_cross_bundling is None else int(bool(is_cross_bundling))),
         }
-        rows = (
-            self._session.execute(text(_QUERY_C_MULTI_PLATFORM), params)
-            .mappings()
-            .all()
-        )
+        rows = self._session.execute(text(_QUERY_C_MULTI_PLATFORM), params).mappings().all()
         return [dict(row) for row in rows]
 
     @staticmethod
-    def _coerce_bound(value: Optional[datetime | date]) -> Optional[datetime]:
+    def _coerce_bound(value: datetime | date | None) -> datetime | None:
         """Normalizes date-only bounds to midnight datetimes for SQLite."""
         if isinstance(value, datetime):
             return value
@@ -383,7 +375,7 @@ class AnalyticsRepository:
     # Query D: Batch history & upload overview
     # ------------------------------------------------------------------
 
-    def batch_history(self) -> List[Dict[str, Any]]:
+    def batch_history(self) -> list[dict[str, Any]]:
         """Overview of every persisted batch, newest first.
 
         ``MIN(period_start)`` / ``MAX(period_end)`` / ``MIN(created_at)`` come
@@ -391,7 +383,7 @@ class AnalyticsRepository:
         to datetimes so callers get the ORM column types.
         """
         rows = self._session.execute(text(_QUERY_D_BATCH_HISTORY)).mappings().all()
-        result: List[Dict[str, Any]] = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             for key in ("period_start", "period_end", "created_at"):
@@ -407,9 +399,7 @@ class AnalyticsRepository:
 
     def delete_batch(self, import_batch_id: str) -> int:
         """Deletes all rows for a batch; returns the deleted row count."""
-        result = self._session.execute(
-            text(_QUERY_E_DELETE_BATCH), {"batch_id": import_batch_id}
-        )
+        result = self._session.execute(text(_QUERY_E_DELETE_BATCH), {"batch_id": import_batch_id})
         assert isinstance(result, CursorResult)
         return int(result.rowcount or 0)
 
@@ -421,25 +411,22 @@ class AnalyticsRepository:
         self,
         import_batch_id: str,
         is_cross_bundling: bool | int = 0,
-        grid: Optional[Sequence[GridRow]] = None,
-    ) -> List[Dict[str, Any]]:
+        grid: Sequence[GridRow] | None = None,
+    ) -> list[dict[str, Any]]:
         """Left-joins catalog grid rows onto persisted aggregates.
 
         Every grid row is preserved; variants with no sales coalesce to
         qty 0 / revenue 0 while keeping group presence. Join keys are
         rtrim()-normalized on both sides (rule 7).
         """
-        grid_rows = (
-            list(grid) if grid is not None else list(generate_full_produk_grid())
-        )
+        grid_rows = list(grid) if grid is not None else list(generate_full_produk_grid())
         if not grid_rows:
             return []
 
         placeholders = ", ".join(
-            "(:p%d, :p%d, :p%d, :p%d, :p%d)" % (i, i + 1, i + 2, i + 3, i + 4)
-            for i in range(0, len(grid_rows) * 5, 5)
+            f"(:p{i}, :p{i + 1}, :p{i + 2}, :p{i + 3}, :p{i + 4})" for i in range(0, len(grid_rows) * 5, 5)
         )
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "batch_id": import_batch_id,
             "is_cross_bundling": int(bool(is_cross_bundling)),
         }
@@ -458,9 +445,7 @@ class AnalyticsRepository:
     # Mapping templates (Query F)
     # ------------------------------------------------------------------
 
-    def get_mapping_template(
-        self, signature_hash: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_mapping_template(self, signature_hash: str) -> dict[str, Any] | None:
         """Loads a cached mapping template by header signature hash."""
         row = (
             self._session.execute(
@@ -477,15 +462,12 @@ class AnalyticsRepository:
         platform_name: str,
         header_signature_hash: str,
         column_mapping_json: str,
-        cleaning_rules_json: Optional[str] = None,
-        parent_row_rule_json: Optional[str] = None,
+        cleaning_rules_json: str | None = None,
+        parent_row_rule_json: str | None = None,
     ) -> str:
         """Upserts a mapping template by header signature hash; returns its id."""
         existing_id = self._session.execute(
-            text(
-                "SELECT id FROM mapping_templates "
-                "WHERE header_signature_hash = :signature_hash"
-            ),
+            text("SELECT id FROM mapping_templates WHERE header_signature_hash = :signature_hash"),
             {"signature_hash": header_signature_hash},
         ).scalar_one_or_none()
 

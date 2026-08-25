@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     BigInteger,
@@ -50,9 +50,7 @@ class TransactionItem(Base):
     qty_sold = Column(Integer, nullable=False, default=0)
     revenue = Column(BigInteger, nullable=False, default=0)  # exact IDR integer
 
-    created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
-    )
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
 
     __table_args__ = (
         Index(
@@ -79,6 +77,4 @@ class MappingTemplate(Base):
     column_mapping_json = Column(Text, nullable=False)
     cleaning_rules_json = Column(Text, nullable=True)
     parent_row_rule_json = Column(Text, nullable=True)
-    created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
-    )
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)

@@ -11,7 +11,7 @@ import io
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
+from typing import Any, BinaryIO
 
 import openpyxl
 
@@ -22,7 +22,6 @@ from app.modules.ingestion.exceptions import (
     SpreadsheetEmptyError,
     UnsupportedFormatError,
 )
-
 
 SUPPORTED_EXTENSIONS = {".xlsx", ".csv"}
 SHOPEE_DEFAULT_SHEET = "Produk dengan Performa Terbaik"
@@ -36,17 +35,17 @@ class SpreadsheetMetadata:
     file_name: str
     file_size_bytes: int
     mime_type: str
-    available_sheets: List[str]
+    available_sheets: list[str]
     active_sheet: str
-    raw_headers: List[str]
+    raw_headers: list[str]
     total_rows: int
-    sample_rows: List[Dict[str, Any]] = field(default_factory=list)
-    detected_delimiter: Optional[str] = None
+    sample_rows: list[dict[str, Any]] = field(default_factory=list)
+    detected_delimiter: str | None = None
 
 
 def _resolve_source_bytes(
-    source: Union[str, Path, bytes, BinaryIO], filename: str = ""
-) -> Tuple[bytes, str, int]:
+    source: str | Path | bytes | BinaryIO, filename: str = ""
+) -> tuple[bytes, str, int]:
     """Resolves input source into raw bytes, filename, and size."""
     if isinstance(source, (str, Path)):
         path = Path(source)
@@ -65,9 +64,7 @@ def _resolve_source_bytes(
         resolved_filename = filename or getattr(source, "name", "upload.xlsx")
         return content, resolved_filename, len(content)
     else:
-        raise InvalidSpreadsheetError(
-            filename or "unknown", f"Unsupported source type: {type(source)}"
-        )
+        raise InvalidSpreadsheetError(filename or "unknown", f"Unsupported source type: {type(source)}")
 
 
 def _validate_format(filename: str) -> str:
@@ -83,7 +80,7 @@ def _validate_format(filename: str) -> str:
     return ext
 
 
-def select_default_sheet(available_sheets: List[str]) -> str:
+def select_default_sheet(available_sheets: list[str]) -> str:
     """Selects the best default sheet using marketplace conventions."""
     if not available_sheets:
         return "Sheet1"
@@ -94,9 +91,7 @@ def select_default_sheet(available_sheets: List[str]) -> str:
     return available_sheets[0]
 
 
-def inspect_sheet_names(
-    source: Union[str, Path, bytes, BinaryIO], filename: str = ""
-) -> List[str]:
+def inspect_sheet_names(source: str | Path | bytes | BinaryIO, filename: str = "") -> list[str]:
     """Returns list of sheet names present in the spreadsheet."""
     content, resolved_filename, _ = _resolve_source_bytes(source, filename)
     ext = _validate_format(resolved_filename)
@@ -124,15 +119,15 @@ def _decode_csv_content(content: bytes) -> str:
 
 
 def _read_csv_rows(
-    content: bytes, delimiter: Optional[str] = None
-) -> Tuple[List[str], List[Dict[str, Any]], str]:
+    content: bytes, delimiter: str | None = None
+) -> tuple[list[str], list[dict[str, Any]], str]:
     """Reads all rows from a CSV byte buffer."""
     detected_delim = delimiter or detect_csv_delimiter(content)
     text = _decode_csv_content(content)
     reader = csv.reader(io.StringIO(text), delimiter=detected_delim)
 
-    raw_headers: List[str] = []
-    rows: List[Dict[str, Any]] = []
+    raw_headers: list[str] = []
+    rows: list[dict[str, Any]] = []
 
     for row_idx, row in enumerate(reader):
         # Skip completely empty lines
@@ -142,10 +137,10 @@ def _read_csv_rows(
             raw_headers = [str(c).strip() for c in row]
             # Prune trailing empty headers
             while raw_headers and not raw_headers[-1]:
-                raw_headers.pop()
+                del raw_headers[-1]
             continue
 
-        row_dict: Dict[str, Any] = {}
+        row_dict: dict[str, Any] = {}
         for col_idx, header in enumerate(raw_headers):
             val = row[col_idx] if col_idx < len(row) else ""
             row_dict[header] = val
@@ -155,8 +150,8 @@ def _read_csv_rows(
 
 
 def _read_xlsx_rows(
-    content: bytes, sheet_name: Optional[str] = None, filename: str = ""
-) -> Tuple[List[str], List[Dict[str, Any]], List[str], str]:
+    content: bytes, sheet_name: str | None = None, filename: str = ""
+) -> tuple[list[str], list[dict[str, Any]], list[str], str]:
     """Reads all rows from an XLSX byte buffer."""
     try:
         wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
@@ -174,20 +169,20 @@ def _read_xlsx_rows(
         raise SheetNotFoundError(active_sheet, available_sheets)
 
     ws = wb[active_sheet]
-    raw_headers: List[str] = []
-    rows: List[Dict[str, Any]] = []
+    raw_headers: list[str] = []
+    rows: list[dict[str, Any]] = []
 
-    for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
+    for row in ws.iter_rows(values_only=True):
         if not row or all(c is None or str(c).strip() == "" for c in row):
             continue
         if not raw_headers:
             raw_headers = [str(c).strip() if c is not None else "" for c in row]
             # Prune trailing empty headers
             while raw_headers and not raw_headers[-1]:
-                raw_headers.pop()
+                del raw_headers[-1]
             continue
 
-        row_dict: Dict[str, Any] = {}
+        row_dict: dict[str, Any] = {}
         for col_idx, header in enumerate(raw_headers):
             val = row[col_idx] if col_idx < len(row) else None
             row_dict[header] = val
@@ -198,9 +193,9 @@ def _read_xlsx_rows(
 
 
 def read_spreadsheet(
-    source: Union[str, Path, bytes, BinaryIO],
+    source: str | Path | bytes | BinaryIO,
     filename: str = "",
-    sheet_name: Optional[str] = None,
+    sheet_name: str | None = None,
     max_sample_rows: int = 10,
 ) -> SpreadsheetMetadata:
     """
@@ -245,10 +240,10 @@ def read_spreadsheet(
 
 
 def extract_spreadsheet_rows(
-    source: Union[str, Path, bytes, BinaryIO],
+    source: str | Path | bytes | BinaryIO,
     filename: str = "",
-    sheet_name: Optional[str] = None,
-) -> Tuple[List[str], List[Dict[str, Any]]]:
+    sheet_name: str | None = None,
+) -> tuple[list[str], list[dict[str, Any]]]:
     """
     Extracts complete raw headers and all data rows from the spreadsheet.
     Returns (raw_headers, list_of_row_dictionaries).

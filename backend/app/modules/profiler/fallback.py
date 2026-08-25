@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -18,7 +17,6 @@ from app.modules.profiler.adapters import (
 )
 
 
-
 class CamelModel(BaseModel):
     """Base model with camelCase serialization for bridge contract."""
 
@@ -29,7 +27,7 @@ class CamelModel(BaseModel):
     )
 
 
-class ParentRowIgnoreCondition(str, Enum):
+class ParentRowIgnoreCondition(StrEnum):
     """Conditions under which a parent/summary row must be pruned."""
 
     EQUALS_DASH = "EQUALS_DASH"
@@ -42,17 +40,25 @@ class ColumnMapping(CamelModel):
 
     product_group: str = Field(description="Column name corresponding to master product title or group")
     raw_variant: str = Field(description="Column name corresponding to product variation or model")
-    qty_sold: str = Field(description="Column name corresponding to units/quantity sold (ready-to-ship/delivered)")
-    revenue: str = Field(description="Column name corresponding to gross or net sales revenue (ready-to-ship/delivered)")
-    sku: Optional[str] = Field(default=None, description="Column name for SKU identifier, if present")
-    case_color: Optional[str] = Field(default=None, description="Column name for 3D case color identifier, if present")
+    qty_sold: str = Field(
+        description="Column name corresponding to units/quantity sold (ready-to-ship/delivered)"
+    )
+    revenue: str = Field(
+        description="Column name corresponding to gross or net sales revenue (ready-to-ship/delivered)"
+    )
+    sku: str | None = Field(default=None, description="Column name for SKU identifier, if present")
+    case_color: str | None = Field(
+        default=None, description="Column name for 3D case color identifier, if present"
+    )
 
 
 class ParentRowRule(CamelModel):
     """Rule defining how parent/summary rows should be identified and pruned."""
 
     target_column: str = Field(description="Column to inspect for parent/subtotal indicator")
-    ignore_condition: ParentRowIgnoreCondition = Field(description="Condition under which the row must be dropped")
+    ignore_condition: ParentRowIgnoreCondition = Field(
+        description="Condition under which the row must be dropped"
+    )
 
 
 class CleaningRule(CamelModel):
@@ -69,14 +75,14 @@ class ProfilerResult(CamelModel):
     platform: PlatformEnum
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0")
     column_mapping: ColumnMapping
-    parent_row_rule: Optional[ParentRowRule] = Field(
+    parent_row_rule: ParentRowRule | None = Field(
         default=None,
         description="Parent row elimination rule (null if export is atomic like TikTok Shop)",
     )
-    suggested_cleaning_rules: List[CleaningRule] = Field(default_factory=list)
+    suggested_cleaning_rules: list[CleaningRule] = Field(default_factory=list)
 
 
-def compute_header_signature(headers: List[str]) -> str:
+def compute_header_signature(headers: list[str]) -> str:
     """
     Computes a canonical SHA-256 hash signature from a list of raw column headers.
     Normalizes headers by lowercasing, sorting, and stripping whitespace.
@@ -87,9 +93,7 @@ def compute_header_signature(headers: List[str]) -> str:
     return hashlib.sha256(normalized_json.encode("utf-8")).hexdigest()
 
 
-def profile_spreadsheet_headers(
-    headers: List[str], sheet_name: Optional[str] = None
-) -> ProfilerResult:
+def profile_spreadsheet_headers(headers: list[str], sheet_name: str | None = None) -> ProfilerResult:
     """
     Deterministically profiles spreadsheet headers, returning known platform mappings
     or an UNKNOWN profile for human / template resolution.

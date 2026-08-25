@@ -11,7 +11,6 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 __all__ = [
     "Settings",
@@ -103,10 +102,10 @@ class Settings:
     host: str = "127.0.0.1"
     port: int = 8000
     max_upload_bytes: int = _DEFAULT_MAX_UPLOAD_BYTES
-    cors_allow_origins: List[str] = field(default_factory=lambda: ["*"])
+    cors_allow_origins: list[str] = field(default_factory=lambda: ["*"])
 
 
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:

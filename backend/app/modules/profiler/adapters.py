@@ -5,15 +5,14 @@ from __future__ import annotations
 import abc
 import re
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from enum import StrEnum
+from typing import Any
 
 from app.core.numeric import is_blank_marker, sanitize_currency, sanitize_integer
 from app.modules.ingestion.exceptions import MissingRequiredColumnError
 
 
-
-class PlatformEnum(str, Enum):
+class PlatformEnum(StrEnum):
     """Supported e-commerce platforms."""
 
     SHOPEE = "SHOPEE"
@@ -32,13 +31,11 @@ class RawRecord:
     raw_variant: str
     qty_sold: int
     revenue: int
-    sku: Optional[str] = None
-    case_color: Optional[str] = None
+    sku: str | None = None
+    case_color: str | None = None
 
 
-def is_parent_or_summary_row(
-    raw_variant: Optional[Any], ignore_condition: str = "EQUALS_DASH"
-) -> bool:
+def is_parent_or_summary_row(raw_variant: Any | None, ignore_condition: str = "EQUALS_DASH") -> bool:
     """
     Evaluates if a row represents an aggregate/parent row that must be excluded.
     Prevents double-counting in marketplace sales reports.
@@ -67,7 +64,7 @@ def clean_brand_prefix(title: str) -> str:
     return re.sub(r"^raecca\s+", "", title.strip(), flags=re.IGNORECASE).strip()
 
 
-def parse_tiktok_concatenated_title(title_str: Any) -> Tuple[str, str]:
+def parse_tiktok_concatenated_title(title_str: Any) -> tuple[str, str]:
     """
     Parses TikTok Shop concatenated title format:
     '<Master Product Title>: <Variant / Marketing Suffix>'
@@ -88,11 +85,11 @@ class BasePlatformAdapter(abc.ABC):
     platform: PlatformEnum
 
     @abc.abstractmethod
-    def validate_headers(self, headers: List[str]) -> None:
+    def validate_headers(self, headers: list[str]) -> None:
         """Validates that all required columns exist in headers, raising MissingRequiredColumnError if not."""
 
     @abc.abstractmethod
-    def adapt(self, rows: List[Dict[str, Any]]) -> List[RawRecord]:
+    def adapt(self, rows: list[dict[str, Any]]) -> list[RawRecord]:
         """Extracts and filters raw spreadsheet rows into atomic RawRecords."""
 
 
@@ -118,9 +115,9 @@ class ShopeeAdapter(BasePlatformAdapter):
     COL_QTY = "Produk (Pesanan Siap Dikirim)"
     COL_REV = "Penjualan (Pesanan Siap Dikirim) (IDR)"
 
-    REQUIRED_COLS = [COL_PROD, COL_VAR, COL_QTY, COL_REV]
+    REQUIRED_COLS = (COL_PROD, COL_VAR, COL_QTY, COL_REV)
 
-    def validate_headers(self, headers: List[str]) -> None:
+    def validate_headers(self, headers: list[str]) -> None:
         headers_set = set(headers)
         missing = [col for col in self.REQUIRED_COLS if col not in headers_set]
         if missing:
@@ -130,7 +127,7 @@ class ShopeeAdapter(BasePlatformAdapter):
                 platform=self.platform.value,
             )
 
-    def adapt(self, rows: List[Dict[str, Any]]) -> List[RawRecord]:
+    def adapt(self, rows: list[dict[str, Any]]) -> list[RawRecord]:
         # Pass 1: Identify which products have explicit child variants
         products_with_children: set[str] = set()
         for row in rows:
@@ -140,7 +137,7 @@ class ShopeeAdapter(BasePlatformAdapter):
                 prod_key = str(raw_prod).strip().casefold()
                 products_with_children.add(prod_key)
 
-        records: List[RawRecord] = []
+        records: list[RawRecord] = []
         for row in rows:
             raw_prod = row.get(self.COL_PROD)
             if raw_prod is None:
@@ -165,14 +162,10 @@ class ShopeeAdapter(BasePlatformAdapter):
             product_title = clean_brand_prefix(prod_str)
             qty_sold = sanitize_integer(row.get(self.COL_QTY, 0))
             revenue_val = sanitize_currency(row.get(self.COL_REV, 0.0))
-            revenue = int(round(revenue_val))
+            revenue = round(revenue_val)
 
             sku_val = row.get(self.COL_SKU)
-            sku = (
-                str(sku_val).strip()
-                if sku_val is not None and not is_blank_marker(sku_val)
-                else None
-            )
+            sku = str(sku_val).strip() if sku_val is not None and not is_blank_marker(sku_val) else None
 
             records.append(
                 RawRecord(
@@ -207,9 +200,9 @@ class TikTokShopAdapter(BasePlatformAdapter):
     COL_QTY = "Produk terjual"
     COL_REV = "GMV"
 
-    REQUIRED_COLS = [COL_PROD, COL_QTY, COL_REV]
+    REQUIRED_COLS = (COL_PROD, COL_QTY, COL_REV)
 
-    def validate_headers(self, headers: List[str]) -> None:
+    def validate_headers(self, headers: list[str]) -> None:
         headers_set = set(headers)
         missing = [col for col in self.REQUIRED_COLS if col not in headers_set]
         if missing:
@@ -219,8 +212,8 @@ class TikTokShopAdapter(BasePlatformAdapter):
                 platform=self.platform.value,
             )
 
-    def adapt(self, rows: List[Dict[str, Any]]) -> List[RawRecord]:
-        records: List[RawRecord] = []
+    def adapt(self, rows: list[dict[str, Any]]) -> list[RawRecord]:
+        records: list[RawRecord] = []
         for row in rows:
             raw_prod = row.get(self.COL_PROD)
             if raw_prod is None:
@@ -234,14 +227,10 @@ class TikTokShopAdapter(BasePlatformAdapter):
 
             qty_sold = sanitize_integer(row.get(self.COL_QTY, 0))
             revenue_val = sanitize_currency(row.get(self.COL_REV, 0.0))
-            revenue = int(round(revenue_val))
+            revenue = round(revenue_val)
 
             sku_val = row.get(self.COL_SKU)
-            sku = (
-                str(sku_val).strip()
-                if sku_val is not None and not is_blank_marker(sku_val)
-                else None
-            )
+            sku = str(sku_val).strip() if sku_val is not None and not is_blank_marker(sku_val) else None
 
             records.append(
                 RawRecord(
@@ -256,9 +245,7 @@ class TikTokShopAdapter(BasePlatformAdapter):
         return records
 
 
-def detect_adapter(
-    headers: List[str], sheet_name: Optional[str] = None
-) -> Optional[BasePlatformAdapter]:
+def detect_adapter(headers: list[str], sheet_name: str | None = None) -> BasePlatformAdapter | None:
     """
     Inspects column headers and sheet name to detect matching deterministic platform adapter.
     """

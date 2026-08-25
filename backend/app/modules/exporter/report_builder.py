@@ -25,8 +25,9 @@ Rules enforced here (see ``excel-styling-formatter`` skill):
 from __future__ import annotations
 
 import io
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Dict, Sequence, Tuple
+from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
@@ -55,13 +56,13 @@ __all__ = [
     "render_side_by_side_sheet",
 ]
 
-LEFT_HEADERS: Tuple[str, ...] = ("Produk", "Nama Variasi", "Produk Terjual", "Revenue", "Kontribusi")
-RIGHT_HEADERS: Tuple[str, ...] = ("Produk", "Produk Terjual", "Revenue", "Kontribusi")
+LEFT_HEADERS: tuple[str, ...] = ("Produk", "Nama Variasi", "Produk Terjual", "Revenue", "Kontribusi")
+RIGHT_HEADERS: tuple[str, ...] = ("Produk", "Produk Terjual", "Revenue", "Kontribusi")
 SEPARATOR_WIDTH = 4
 MIN_COLUMN_WIDTH = 14
 
 # Right-table columns: (col, number format)
-_INTEGER_COLS = {3, 8}   # Produk Terjual
+_INTEGER_COLS = {3, 8}  # Produk Terjual
 _CURRENCY_COLS = {4, 9}  # Revenue
 _PERCENT_COLS = {5, 10}  # Kontribusi
 
@@ -71,7 +72,7 @@ class ReportSheet:
     """Inputs for one report sheet: title plus populated grid data."""
 
     title: str
-    populated: Sequence[Dict[str, Any]]  # AnalyticsRepository.populate_grid() rows
+    populated: Sequence[dict[str, Any]]  # AnalyticsRepository.populate_grid() rows
     grid: Sequence[GridRow]  # canonical catalog grid rows (variant order source)
     group_order: Sequence[str]  # canonical group emission order
 
@@ -147,7 +148,7 @@ def _auto_fit_columns(ws: Worksheet) -> None:
 def render_side_by_side_sheet(
     ws: Worksheet,
     *,
-    populated: Sequence[Dict[str, Any]],
+    populated: Sequence[dict[str, Any]],
     grid: Sequence[GridRow],
     group_order: Sequence[str],
 ) -> None:
@@ -161,15 +162,14 @@ def render_side_by_side_sheet(
     _write_header(ws)
 
     # rstrip() on both sides of every key lookup (rae-report-template rule 7).
-    lookup: Dict[Tuple[str, str], Dict[str, Any]] = {
-        (row["product_group"].rstrip(), row["clean_variant"].rstrip()): row
-        for row in populated
+    lookup: dict[tuple[str, str], dict[str, Any]] = {
+        (row["product_group"].rstrip(), row["clean_variant"].rstrip()): row for row in populated
     }
 
     # Pass 1: sparse left table (cols A-D), tracking each group's emitted span
     # and quantity totals (never re-read cells for arithmetic).
-    spans: Dict[str, Tuple[int, int]] = {}
-    group_totals: Dict[str, int] = {}
+    spans: dict[str, tuple[int, int]] = {}
+    group_totals: dict[str, int] = {}
     sheet_total_qty = 0
     next_row = 2
     for group in group_order:

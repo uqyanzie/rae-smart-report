@@ -127,13 +127,14 @@ def _transform(
 def _sheet_qty_sums(workbook_bytes: bytes) -> Dict[str, int]:
     """Sums the left-table Produk Terjual (col C) per sheet."""
     wb = load_workbook(io.BytesIO(workbook_bytes))
-    return {
-        title: sum(
-            int(wb[title].cell(row=r, column=3).value or 0)
-            for r in range(2, wb[title].max_row + 1)
-        )
-        for title in wb.sheetnames
-    }
+    totals: Dict[str, int] = {}
+    for title in wb.sheetnames:
+        total = 0
+        for r in range(2, wb[title].max_row + 1):
+            cell_value = wb[title].cell(row=r, column=3).value
+            total += int(cell_value) if isinstance(cell_value, (int, float)) else 0
+        totals[title] = total
+    return totals
 
 
 # ---------------------------------------------------------------------------

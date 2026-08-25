@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -26,7 +26,7 @@ def error_response(
     status: int,
     code: str,
     message: str,
-    details: Optional[Any] = None,
+    details: Any | None = None,
 ) -> JSONResponse:
     """Builds the canonical error envelope: ``{status, code, message, details}``."""
     body: dict[str, Any] = {
@@ -57,15 +57,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         return error_response(status, code, str(exc))
 
     @app.exception_handler(StarletteHTTPException)
-    async def _handle_http_error(
-        request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def _handle_http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         return error_response(exc.status_code, "HTTP_ERROR", str(exc.detail))
 
     @app.exception_handler(RequestValidationError)
-    async def _handle_validation_error(
-        request: Request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def _handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         return error_response(
             422,
             "VALIDATION_ERROR",

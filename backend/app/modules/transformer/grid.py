@@ -3,26 +3,22 @@
 from __future__ import annotations
 
 from itertools import combinations, product
-from typing import Final, List, Optional, Tuple
+from typing import Final
 
 from app.domain.catalog import (
     CASE_COLORS,
     FAMILIES,
     FAMILY_BY_NAME,
-    LIPCARE_INTRA_BUNDLE_LABELS,
-    OTG_INTRA_BUNDLE_LABELS,
-    PRODUK_GROUP_ORDER,
-    Family,
 )
 from app.domain.models import GridRow
 
 __all__ = [
-    "FixedGridGenerator",
-    "generate_intra_family_grid",
-    "generate_cross_family_grid",
-    "generate_full_produk_grid",
-    "generate_full_produk2_grid",
     "PRODUK2_GROUP_ORDER",
+    "FixedGridGenerator",
+    "generate_cross_family_grid",
+    "generate_full_produk2_grid",
+    "generate_full_produk_grid",
+    "generate_intra_family_grid",
 ]
 
 
@@ -33,7 +29,7 @@ class FixedGridGenerator:
         self._families = FAMILIES
         self._family_by_name = FAMILY_BY_NAME
 
-    def generate_intra_family_grid(self, family_name: str) -> List[GridRow]:
+    def generate_intra_family_grid(self, family_name: str) -> list[GridRow]:
         """Generates single-shade rows followed by intra-family bundle rows for a product family.
 
         - Singles follow ``family.order_for_singles()`` (or ``explicit_groups`` for Lipcare).
@@ -44,7 +40,7 @@ class FixedGridGenerator:
         if not family:
             return []
 
-        rows: List[GridRow] = []
+        rows: list[GridRow] = []
 
         # 1. Singles
         if family.explicit_groups:
@@ -74,18 +70,13 @@ class FixedGridGenerator:
                 )
 
         # 2. Intra-family pairs
-        bundle_group_name = (
-            "Bundling Lipcare" if family.name == "Lipcare" else f"Bundling {family.name}"
-        )
+        bundle_group_name = "Bundling Lipcare" if family.name == "Lipcare" else f"Bundling {family.name}"
 
         if family.explicit_bundle_labels:
             pair_labels = list(family.explicit_bundle_labels)
         else:
             pairs_order = family.order_for_pairs()
-            pair_labels = [
-                family.bundle_label(s1, s2)
-                for s1, s2 in combinations(pairs_order, 2)
-            ]
+            pair_labels = [family.bundle_label(s1, s2) for s1, s2 in combinations(pairs_order, 2)]
 
         for label in pair_labels:
             clean_lbl = label.rstrip()
@@ -106,7 +97,7 @@ class FixedGridGenerator:
         family_name_1: str,
         family_name_2: str,
         include_case_colors: bool = False,
-    ) -> List[GridRow]:
+    ) -> list[GridRow]:
         """Generates cross-category bundling (Bundling Silang) combinations.
 
         - Plain cross-family: n x m rows, joined with ', ' (e.g. 'Active, Over Cute').
@@ -121,7 +112,7 @@ class FixedGridGenerator:
         group_name = f"Bundling {f1.name} & {f2.name}"
         left = f1.order_for_cross()
         right = f2.order_for_cross()
-        rows: List[GridRow] = []
+        rows: list[GridRow] = []
 
         if include_case_colors:
             for s1, s2, case_color in product(left, right, CASE_COLORS):
@@ -152,15 +143,15 @@ class FixedGridGenerator:
 
         return rows
 
-    def generate_full_produk_grid(self) -> List[GridRow]:
+    def generate_full_produk_grid(self) -> list[GridRow]:
         """Generates all 181 declarative rows for the primary 'Produk' sheet (singles + intra bundles)."""
-        rows: List[GridRow] = []
+        rows: list[GridRow] = []
         for family in self._families:
             rows.extend(self.generate_intra_family_grid(family.name))
         return rows
 
 
-def generate_intra_family_grid(family_name: str) -> List[GridRow]:
+def generate_intra_family_grid(family_name: str) -> list[GridRow]:
     """Helper to generate intra-family grid using default generator."""
     return FixedGridGenerator().generate_intra_family_grid(family_name)
 
@@ -169,19 +160,17 @@ def generate_cross_family_grid(
     family_name_1: str,
     family_name_2: str,
     include_case_colors: bool = False,
-) -> List[GridRow]:
+) -> list[GridRow]:
     """Helper to generate cross-family grid using default generator."""
-    return FixedGridGenerator().generate_cross_family_grid(
-        family_name_1, family_name_2, include_case_colors
-    )
+    return FixedGridGenerator().generate_cross_family_grid(family_name_1, family_name_2, include_case_colors)
 
 
-def generate_full_produk_grid() -> List[GridRow]:
+def generate_full_produk_grid() -> list[GridRow]:
     """Helper to generate full 181-row Produk sheet grid."""
     return FixedGridGenerator().generate_full_produk_grid()
 
 
-def generate_full_produk2_grid() -> List[GridRow]:
+def generate_full_produk2_grid() -> list[GridRow]:
     """Generates all cross-family rows for the 'Produk 2' sheets (21 groups).
 
     Iterates ``combinations(FAMILIES, 2)`` in canonical family order so the
@@ -189,13 +178,13 @@ def generate_full_produk2_grid() -> List[GridRow]:
     (``Bundling {a.name} & {b.name}``), and so each group's rows follow the
     families' ``cross_order`` token sequences.
     """
-    rows: List[GridRow] = []
+    rows: list[GridRow] = []
     for a, b in combinations(FAMILIES, 2):
         rows.extend(generate_cross_family_grid(a.name, b.name))
     return rows
 
 
 # Canonical 21 cross-family groups in emission order (C(7, 2) = 21 pairs).
-PRODUK2_GROUP_ORDER: Final[Tuple[str, ...]] = tuple(
+PRODUK2_GROUP_ORDER: Final[tuple[str, ...]] = tuple(
     f"Bundling {a.name} & {b.name}" for a, b in combinations(FAMILIES, 2)
 )

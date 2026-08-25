@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from typing import cast
 
 def _find_repo_root(start_path: Path) -> Path:
     """Finds repository root by searching upward for sentinel files (pyproject.toml, AGENTS.md, or .git)."""
@@ -16,8 +17,10 @@ def get_bundle_dir() -> Path:
     In packaged mode: returns sys._MEIPASS (temporary extraction folder).
     In dev mode: returns the repository root found via sentinel detection.
     """
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS)
+    if getattr(sys, "frozen", False):
+        meipass = cast(str, getattr(sys, "_MEIPASS", ""))
+        if meipass:
+            return Path(meipass)
     return _find_repo_root(Path(__file__))
 
 def get_writable_app_dir(app_name: str = "RAESmartReport") -> Path:

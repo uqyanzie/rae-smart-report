@@ -9,27 +9,27 @@ contract definition, per the fullstack-bridge-contract skill); it provides
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import Field
 
 from app.modules.profiler.fallback import CamelModel, ParentRowIgnoreCondition
 
 __all__ = [
-    "CamelModel",
-    "ParentRowIgnoreCondition",
-    "IngestionResultDTO",
-    "ColumnMappingDTO",
-    "ParentRowRuleDTO",
-    "CleaningRuleDTO",
-    "ProfilerResponseDTO",
-    "ProfileRequestDTO",
-    "TransformAndSaveRequestDTO",
-    "VariantPerformanceDTO",
-    "ProductSummaryDTO",
     "BatchSummaryDTO",
-    "TransformResponseDTO",
+    "CamelModel",
+    "CleaningRuleDTO",
+    "ColumnMappingDTO",
     "DeleteBatchResponseDTO",
+    "IngestionResultDTO",
+    "ParentRowIgnoreCondition",
+    "ParentRowRuleDTO",
+    "ProductSummaryDTO",
+    "ProfileRequestDTO",
+    "ProfilerResponseDTO",
+    "TransformAndSaveRequestDTO",
+    "TransformResponseDTO",
+    "VariantPerformanceDTO",
 ]
 
 
@@ -39,12 +39,12 @@ class IngestionResultDTO(CamelModel):
     file_id: str
     file_name: str
     file_size_bytes: int
-    detected_delimiter: Optional[str] = None
-    available_sheets: List[str] = Field(default_factory=list)
+    detected_delimiter: str | None = None
+    available_sheets: list[str] = Field(default_factory=list)
     active_sheet: str
     total_rows: int
-    raw_headers: List[str] = Field(default_factory=list)
-    sample_rows: List[Dict[str, Any]] = Field(default_factory=list)
+    raw_headers: list[str] = Field(default_factory=list)
+    sample_rows: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ColumnMappingDTO(CamelModel):
@@ -54,8 +54,8 @@ class ColumnMappingDTO(CamelModel):
     raw_variant: str
     qty_sold: str
     revenue: str
-    sku: Optional[str] = None
-    case_color: Optional[str] = None
+    sku: str | None = None
+    case_color: str | None = None
 
 
 class ParentRowRuleDTO(CamelModel):
@@ -80,15 +80,15 @@ class ProfilerResponseDTO(CamelModel):
     platform: str
     confidence: float
     column_mapping: ColumnMappingDTO
-    parent_row_rule: Optional[ParentRowRuleDTO] = None
-    suggested_cleaning_rules: List[CleaningRuleDTO] = Field(default_factory=list)
+    parent_row_rule: ParentRowRuleDTO | None = None
+    suggested_cleaning_rules: list[CleaningRuleDTO] = Field(default_factory=list)
 
 
 class ProfileRequestDTO(CamelModel):
     """Body for the profile endpoint."""
 
     file_id: str
-    active_sheet: Optional[str] = None
+    active_sheet: str | None = None
 
 
 class TransformAndSaveRequestDTO(CamelModel):
@@ -99,13 +99,13 @@ class TransformAndSaveRequestDTO(CamelModel):
     """
 
     file_id: str
-    active_sheet: Optional[str] = None
+    active_sheet: str | None = None
     platform: str
-    period_start: Optional[date] = None
-    period_end: Optional[date] = None
+    period_start: date | None = None
+    period_end: date | None = None
     column_mapping: ColumnMappingDTO
-    parent_row_rule: Optional[ParentRowRuleDTO] = None
-    cleaning_rules: List[CleaningRuleDTO] = Field(default_factory=list)
+    parent_row_rule: ParentRowRuleDTO | None = None
+    cleaning_rules: list[CleaningRuleDTO] = Field(default_factory=list)
     save_as_template: bool = True
 
 
@@ -121,7 +121,7 @@ class VariantPerformanceDTO(CamelModel):
     contribution_ratio: float
     # SQL aggregates by shade, so case color is never a grouping key; the
     # field is retained for contract parity and serializes null.
-    case_color: Optional[str] = None
+    case_color: str | None = None
 
 
 class ProductSummaryDTO(CamelModel):
@@ -140,12 +140,12 @@ class BatchSummaryDTO(CamelModel):
     platform: str
     # batch_history() returns parsed datetimes (never date-only), so datetime
     # is used to avoid Pydantic's inexact date-from-datetime rejection.
-    period_start: Optional[datetime] = None
-    period_end: Optional[datetime] = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
     total_products: int
     grand_total_qty: int
     grand_total_revenue: int
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
 
 class TransformResponseDTO(BatchSummaryDTO):

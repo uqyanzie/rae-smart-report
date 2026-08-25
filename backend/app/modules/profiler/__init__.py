@@ -23,7 +23,6 @@ from app.modules.profiler.fallback import (
     profile_spreadsheet_headers,
 )
 
-
 __all__ = [
     "BasePlatformAdapter",
     "CamelModel",

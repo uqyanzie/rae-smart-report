@@ -1,13 +1,8 @@
-import os
-from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-try:
-    from .path_resolver import get_bundle_dir
-except (ImportError, ValueError):
-    from path_resolver import get_bundle_dir
+from .path_resolver import get_bundle_dir
 
 def mount_frontend_spa(app: FastAPI):
     """

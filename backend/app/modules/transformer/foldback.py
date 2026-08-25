@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Dict, List, Tuple
-
-from app.domain.catalog import FAMILY_BY_NAME
 from app.domain.models import VariantRecord
 
 __all__ = [
@@ -24,22 +20,20 @@ class FoldBackEngine:
     4. Duplicate aggregation: If duplicate same-shade rows exist in raw data, they are aggregated.
     """
 
-    ALLOWED_FAMILIES = {"Glow Up Tint"}
+    ALLOWED_FAMILIES: frozenset[str] = frozenset({"Glow Up Tint"})
 
     def __init__(self, allowed_families: set[str] | None = None) -> None:
         self.allowed_families = allowed_families or self.ALLOWED_FAMILIES
 
-    def process_records(
-        self, records: List[Tuple[VariantRecord, bool]]
-    ) -> List[VariantRecord]:
+    def process_records(self, records: list[tuple[VariantRecord, bool]]) -> list[VariantRecord]:
         """Processes a list of (VariantRecord, is_same_shade_foldback) tuples.
 
         Non-foldback records pass through unchanged.
         Same-shade foldback records are validated, aggregated, multiplied (x2 qty, x1 rev),
         and re-routed as single-shade variant records.
         """
-        standard_records: List[VariantRecord] = []
-        foldback_pool: Dict[Tuple[str, str, str], Dict[str, int]] = {}
+        standard_records: list[VariantRecord] = []
+        foldback_pool: dict[tuple[str, str, str], dict[str, int]] = {}
         # Key: (platform, product_group, clean_variant) -> {"qty": total_qty, "rev": total_rev}
 
         for record, is_foldback in records:
@@ -67,7 +61,7 @@ class FoldBackEngine:
                 foldback_pool[key]["revenue"] += record.revenue
 
         # Convert folded pool into single-shade VariantRecords
-        folded_records: List[VariantRecord] = []
+        folded_records: list[VariantRecord] = []
         for (platform, product_group, clean_variant), totals in foldback_pool.items():
             folded_records.append(
                 VariantRecord(
@@ -87,9 +81,7 @@ class FoldBackEngine:
         return standard_records + folded_records
 
 
-def fold_back_same_shade_records(
-    records: List[Tuple[VariantRecord, bool]]
-) -> List[VariantRecord]:
+def fold_back_same_shade_records(records: list[tuple[VariantRecord, bool]]) -> list[VariantRecord]:
     """Helper function to execute fold-back processing with default engine."""
     engine = FoldBackEngine()
     return engine.process_records(records)

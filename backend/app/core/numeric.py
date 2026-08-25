@@ -25,9 +25,7 @@ _BLANK_MARKERS: Final[frozenset[str]] = frozenset(
     {"", "-", "--", "n/a", "na", "#n/a", "null", "none", "nan", "#div/0!", "#value!", "#ref!"}
 )
 
-_CURRENCY_NOISE: Final[re.Pattern[str]] = re.compile(
-    r"(?:rp|idr|myr|rm|usd|sgd|\$|€|£)", re.IGNORECASE
-)
+_CURRENCY_NOISE: Final[re.Pattern[str]] = re.compile(r"(?:rp|idr|myr|rm|usd|sgd|\$|€|£)", re.IGNORECASE)
 
 _NON_NUMERIC: Final[re.Pattern[str]] = re.compile(r"[^0-9,.\-+]")
 
@@ -43,7 +41,7 @@ def detect_csv_delimiter(content: bytes) -> str:
 
     candidates = [",", ";", "\t"]
     counts = {delim: sum(line.count(delim) for line in lines) for delim in candidates}
-    return max(counts, key=counts.get) if max(counts.values()) > 0 else ","
+    return max(counts, key=lambda delim: counts[delim]) if max(counts.values()) > 0 else ","
 
 
 def is_blank_marker(value: Any) -> bool:

@@ -9,7 +9,6 @@ from app.modules.ingestion.exceptions import (
     UnsupportedFormatError,
 )
 
-
 __all__ = [
     "IngestionError",
     "InvalidSpreadsheetError",

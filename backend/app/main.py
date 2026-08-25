@@ -6,8 +6,8 @@ module (e.g. ``uvicorn app.main:app``) never touches the filesystem.
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +20,7 @@ from app.core.config import get_settings
 from app.modules.storage.database import create_db_engine, init_db, session_factory_for
 
 
-def create_app(engine: Optional[Engine] = None) -> FastAPI:
+def create_app(engine: Engine | None = None) -> FastAPI:
     """Builds the FastAPI application.
 
     ``engine`` overrides the settings-resolved database URL (used by tests to
@@ -28,12 +28,8 @@ def create_app(engine: Optional[Engine] = None) -> FastAPI:
     """
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        resolved_engine = (
-            engine
-            if engine is not None
-            else create_db_engine(get_settings().database_url)
-        )
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        resolved_engine = engine if engine is not None else create_db_engine(get_settings().database_url)
         app.state.engine = resolved_engine
         app.state.session_factory = session_factory_for(resolved_engine)
         init_db(resolved_engine)

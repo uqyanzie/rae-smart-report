@@ -10,25 +10,25 @@ from __future__ import annotations
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 __all__ = [
-    "FORMAT_CURRENCY_IDR",
-    "FORMAT_PERCENTAGE",
-    "FORMAT_INTEGER",
+    "ALIGN_CENTER",
+    "ALIGN_LEFT",
+    "ALIGN_RIGHT",
+    "BORDER_REGULAR",
+    "BORDER_TOTAL",
+    "FILL_HEADER",
+    "FILL_TOTAL",
     "FONT_HEADER",
     "FONT_REGULAR",
     "FONT_TOTAL",
-    "FILL_HEADER",
-    "FILL_TOTAL",
-    "ALIGN_LEFT",
-    "ALIGN_RIGHT",
-    "ALIGN_CENTER",
-    "BORDER_REGULAR",
-    "BORDER_TOTAL",
+    "FORMAT_CURRENCY_IDR",
+    "FORMAT_INTEGER",
+    "FORMAT_PERCENTAGE",
 ]
 
 # Number Formatting Masks
 FORMAT_CURRENCY_IDR = '_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)'
-FORMAT_PERCENTAGE = '0.00%'
-FORMAT_INTEGER = '#,##0'
+FORMAT_PERCENTAGE = "0.00%"
+FORMAT_INTEGER = "#,##0"
 
 # Typography
 FONT_HEADER = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")

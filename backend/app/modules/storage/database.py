@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Iterator, Optional
+from typing import Any
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
@@ -56,16 +57,15 @@ def _set_sqlite_pragmas(dbapi_connection, connection_record) -> None:
     cursor.close()
 
 
-def create_db_engine(
-    database_url: str = "sqlite:///rae_smart_report.db", **engine_kwargs: object
-) -> Engine:
+def create_db_engine(database_url: str = "sqlite:///rae_smart_report.db", **engine_kwargs: object) -> Engine:
     """Creates a SQLite engine with the optimized PRAGMA set applied.
 
     ``database_url`` defaults to a local ``rae_smart_report.db`` beside the
     process working directory; pass ``sqlite://`` plus ``poolclass=StaticPool``
     for in-memory test databases.
     """
-    connect_args = dict(engine_kwargs.pop("connect_args", {}) or {})
+    connect_args_raw = engine_kwargs.pop("connect_args", None)
+    connect_args: dict[str, Any] = connect_args_raw if isinstance(connect_args_raw, dict) else {}
     connect_args.setdefault("check_same_thread", False)
     return create_engine(database_url, connect_args=connect_args, **engine_kwargs)
 
@@ -75,13 +75,13 @@ def init_db(engine: Engine) -> None:
     Base.metadata.create_all(engine)
 
 
-def session_factory_for(engine: Engine) -> sessionmaker:
+def session_factory_for(engine: Engine) -> sessionmaker[Session]:
     """Builds a configured session factory bound to the engine."""
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
 @contextmanager
-def session_scope(factory: sessionmaker) -> Iterator[Session]:
+def session_scope(factory: sessionmaker[Session]) -> Generator[Session, None, None]:
     """Context-managed session: commits on success, rolls back on error."""
     session = factory()
     try:

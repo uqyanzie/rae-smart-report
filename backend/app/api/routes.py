@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
 from dataclasses import replace
-from datetime import datetime, time, timezone
-from typing import Any, Dict, Iterator, List, Optional
+from datetime import UTC, datetime, time
+from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -20,8 +21,8 @@ from app.api.dtos import (
     IngestionResultDTO,
     ParentRowRuleDTO,
     ProductSummaryDTO,
-    ProfilerResponseDTO,
     ProfileRequestDTO,
+    ProfilerResponseDTO,
     TransformAndSaveRequestDTO,
     TransformResponseDTO,
     VariantPerformanceDTO,
@@ -53,9 +54,9 @@ router = APIRouter(prefix="/api", tags=["api"])
 # In-memory upload store (single-process runtime harness)
 # ---------------------------------------------------------------------------
 
-_UPLOADS: Dict[str, Dict[str, Any]] = {}
+_UPLOADS: dict[str, dict[str, Any]] = {}
 
-_PLATFORM_SUFFIX: Dict[str, str] = {"SHOPEE": "S", "TIKTOK_SHOP": "T"}
+_PLATFORM_SUFFIX: dict[str, str] = {"SHOPEE": "S", "TIKTOK_SHOP": "T"}
 
 
 def _store_upload(filename: str, content: bytes) -> str:
@@ -64,12 +65,10 @@ def _store_upload(filename: str, content: bytes) -> str:
     return file_id
 
 
-def _get_upload(file_id: str) -> Dict[str, Any]:
+def _get_upload(file_id: str) -> dict[str, Any]:
     upload = _UPLOADS.get(file_id)
     if upload is None:
-        raise HTTPException(
-            status_code=404, detail=f"Upload not found for file id '{file_id}'"
-        )
+        raise HTTPException(status_code=404, detail=f"Upload not found for file id '{file_id}'")
     return upload
 
 
@@ -80,45 +79,36 @@ def _get_repository(request: Request) -> Iterator[AnalyticsRepository]:
         yield AnalyticsRepository(session)
 
 
-def _build_batch_id(
-    platform: str, start: Optional[datetime], end: Optional[datetime]
-) -> str:
+def _build_batch_id(platform: str, start: datetime | None, end: datetime | None) -> str:
     if start is not None and end is not None:
         return f"{platform}-{start:%Y-%m-%d}-{end:%Y-%m-%d}-{uuid4().hex[:6]}"
     return f"{platform}-{uuid4().hex[:12]}"
 
 
-def _apply_cleaning_rules(
-    records: List[RawRecord], rules: List[CleaningRuleDTO]
-) -> List[RawRecord]:
+def _apply_cleaning_rules(records: list[RawRecord], rules: list[CleaningRuleDTO]) -> list[RawRecord]:
     """Applies regex cleaning rules to ``raw_variant`` before transformation."""
-    compiled: List[Any] = []
+    compiled: list[Any] = []
     for rule in rules:
         try:
             compiled.append((re.compile(rule.pattern), rule.replacement))
         except re.error as exc:
             raise HTTPException(
                 status_code=400,
-                detail=f"INVALID_CLEANING_RULE: invalid regex pattern "
-                f"'{rule.pattern}': {exc}",
-            )
+                detail=f"INVALID_CLEANING_RULE: invalid regex pattern '{rule.pattern}': {exc}",
+            ) from exc
     if not compiled:
         return records
 
-    cleaned: List[RawRecord] = []
+    cleaned: list[RawRecord] = []
     for rec in records:
         new_variant = rec.raw_variant
         for pattern, replacement in compiled:
             new_variant = pattern.sub(replacement, new_variant)
-        cleaned.append(
-            replace(rec, raw_variant=new_variant)
-            if new_variant != rec.raw_variant
-            else rec
-        )
+        cleaned.append(replace(rec, raw_variant=new_variant) if new_variant != rec.raw_variant else rec)
     return cleaned
 
 
-def _reported_records(records: List[Any]) -> List[Any]:
+def _reported_records(records: list[Any]) -> list[Any]:
     """Records that cross the report boundary of the standard sheets.
 
     Mirrors exactly what the Produk workbook emits via ``populate_grid``:
@@ -128,8 +118,7 @@ def _reported_records(records: List[Any]) -> List[Any]:
     Shopee 6,910 / 525,973,986; TikTok 11,575 / 658,458,817).
     """
     grid_keys = {
-        (row.product_group.rstrip(), row.clean_variant.rstrip())
-        for row in generate_full_produk_grid()
+        (row.product_group.rstrip(), row.clean_variant.rstrip()) for row in generate_full_produk_grid()
     }
     return [
         rec
@@ -198,14 +187,11 @@ async def profile_spreadsheet(
     if cached is not None:
         column_mapping = ColumnMappingDTO(**json.loads(cached["column_mapping_json"]))
         cleaning_rules = [
-            CleaningRuleDTO(**rule)
-            for rule in json.loads(cached.get("cleaning_rules_json") or "[]")
+            CleaningRuleDTO(**rule) for rule in json.loads(cached.get("cleaning_rules_json") or "[]")
         ]
         parent_row_rule = None
         if cached.get("parent_row_rule_json"):
-            parent_row_rule = ParentRowRuleDTO(
-                **json.loads(cached["parent_row_rule_json"])
-            )
+            parent_row_rule = ParentRowRuleDTO(**json.loads(cached["parent_row_rule_json"]))
         return ProfilerResponseDTO(
             is_cached=True,
             platform=cached["platform_name"],
@@ -227,8 +213,7 @@ async def profile_spreadsheet(
             else None
         ),
         suggested_cleaning_rules=[
-            CleaningRuleDTO(**rule.model_dump())
-            for rule in profiler_result.suggested_cleaning_rules
+            CleaningRuleDTO(**rule.model_dump()) for rule in profiler_result.suggested_cleaning_rules
         ],
     )
 
@@ -258,21 +243,15 @@ async def transform_and_save(
     try:
         adapter = get_adapter(platform)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     raw_records = adapter.adapt(raw_rows)
     raw_records = _apply_cleaning_rules(raw_records, payload.cleaning_rules)
     result = transform_records(raw_records)
 
-    start_dt = (
-        datetime.combine(payload.period_start, time.min)
-        if payload.period_start is not None
-        else None
-    )
+    start_dt = datetime.combine(payload.period_start, time.min) if payload.period_start is not None else None
     end_dt = (
-        datetime.combine(payload.period_end, time(23, 59, 59))
-        if payload.period_end is not None
-        else None
+        datetime.combine(payload.period_end, time(23, 59, 59)) if payload.period_end is not None else None
     )
 
     batch_id = _build_batch_id(platform, start_dt, end_dt)
@@ -283,9 +262,7 @@ async def transform_and_save(
             platform_name=platform,
             header_signature_hash=compute_header_signature(headers),
             column_mapping_json=json.dumps(payload.column_mapping.model_dump()),
-            cleaning_rules_json=json.dumps(
-                [rule.model_dump() for rule in payload.cleaning_rules]
-            ),
+            cleaning_rules_json=json.dumps([rule.model_dump() for rule in payload.cleaning_rules]),
             parent_row_rule_json=(
                 json.dumps(payload.parent_row_rule.model_dump())
                 if payload.parent_row_rule is not None
@@ -304,7 +281,7 @@ async def transform_and_save(
         total_products=total_products,
         grand_total_qty=sum(rec.qty_sold for rec in reported),
         grand_total_revenue=sum(rec.revenue for rec in reported),
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         inserted_count=persist.inserted_count,
         skipped_count=persist.skipped_unreported.count,
         skipped_qty=persist.skipped_unreported.qty,
@@ -318,31 +295,31 @@ async def transform_and_save(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/reports/batches", response_model=List[BatchSummaryDTO])
+@router.get("/reports/batches", response_model=list[BatchSummaryDTO])
 async def list_batches(
     repo: AnalyticsRepository = Depends(_get_repository),
-) -> List[BatchSummaryDTO]:
+) -> list[BatchSummaryDTO]:
     """Lists all persisted batches, newest first."""
     return [BatchSummaryDTO(**item) for item in repo.batch_history()]
 
 
-@router.get("/reports/batches/{batch_id}/variants", response_model=List[VariantPerformanceDTO])
+@router.get("/reports/batches/{batch_id}/variants", response_model=list[VariantPerformanceDTO])
 async def batch_variants(
     batch_id: str,
     is_cross_bundling: int = Query(default=0),
     repo: AnalyticsRepository = Depends(_get_repository),
-) -> List[VariantPerformanceDTO]:
+) -> list[VariantPerformanceDTO]:
     """Returns variant-level performance breakdown for a batch."""
     rows = repo.variant_analytics(batch_id, is_cross_bundling=is_cross_bundling)
     return [VariantPerformanceDTO(**row) for row in rows]
 
 
-@router.get("/reports/batches/{batch_id}/products", response_model=List[ProductSummaryDTO])
+@router.get("/reports/batches/{batch_id}/products", response_model=list[ProductSummaryDTO])
 async def batch_products(
     batch_id: str,
     is_cross_bundling: int = Query(default=0),
     repo: AnalyticsRepository = Depends(_get_repository),
-) -> List[ProductSummaryDTO]:
+) -> list[ProductSummaryDTO]:
     """Returns master product group rollups for a batch."""
     rows = repo.product_group_summary(batch_id, is_cross_bundling=is_cross_bundling)
     return [ProductSummaryDTO(**row) for row in rows]
@@ -365,7 +342,7 @@ async def delete_batch(
 
 @router.get("/export/excel")
 async def export_excel(
-    batch_ids: List[str] = Query(default=[], alias="batchIds"),
+    batch_ids: list[str] = Query(default=[], alias="batchIds"),
     repo: AnalyticsRepository = Depends(_get_repository),
 ) -> StreamingResponse:
     """Streams a 4-sheet executive workbook for the selected batches.
@@ -376,7 +353,7 @@ async def export_excel(
     history = repo.batch_history()
     by_id = {item["import_batch_id"]: item for item in history}
 
-    resolved: Dict[str, Dict[str, Any]] = {}
+    resolved: dict[str, dict[str, Any]] = {}
     for batch_id in batch_ids:
         item = by_id.get(batch_id)
         if item is None:
@@ -390,11 +367,9 @@ async def export_excel(
             )
         resolved[platform] = item
 
-    sheets: List[ReportSheet] = []
+    sheets: list[ReportSheet] = []
     for suffix, is_cross in (("S", 0), ("T", 0), ("S", 1), ("T", 1)):
-        platform = next(
-            (p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None
-        )
+        platform = next((p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None)
         if platform not in resolved:
             continue
         batch_id = resolved[platform]["import_batch_id"]
@@ -409,9 +384,7 @@ async def export_excel(
         sheets.append(
             ReportSheet(
                 title=title,
-                populated=repo.populate_grid(
-                    batch_id, is_cross_bundling=is_cross, grid=grid
-                ),
+                populated=repo.populate_grid(batch_id, is_cross_bundling=is_cross, grid=grid),
                 grid=grid,
                 group_order=group_order,
             )
@@ -423,22 +396,16 @@ async def export_excel(
             detail="No exportable platform selected; supported platforms: SHOPEE, TIKTOK_SHOP",
         )
 
-    starts = [
-        item["period_start"] for item in resolved.values() if item["period_start"]
-    ]
+    starts = [item["period_start"] for item in resolved.values() if item["period_start"]]
     ends = [item["period_end"] for item in resolved.values() if item["period_end"]]
     if starts and ends:
-        name = (
-            f"rae_smart_report_{min(starts).date():%Y%m%d}_{max(ends).date():%Y%m%d}"
-        )
+        name = f"rae_smart_report_{min(starts).date():%Y%m%d}_{max(ends).date():%Y%m%d}"
     else:
         name = "rae_smart_report"
 
     buffer = generate_executive_workbook(sheets)
     return StreamingResponse(
         iter([buffer.getvalue()]),
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
+        media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         headers={"Content-Disposition": f'attachment; filename="{name}.xlsx"'},
     )

@@ -1,0 +1,27 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://zed.dev/docs/configuring-zed#settings-files
+{
+  // Pin the ruff language server explicitly so Zed (re)starts it with the
+  // project config (see pyproject.toml per-file-ignores for .agents/ and tests/).
+  "lsp": {
+    "ruff": {
+      "binary": {
+        "path": "ruff",
+        "arguments": ["server"]
+      }
+    }
+  },
+  // This repo has no JS/TS tooling; the only .ts file is a skill reference
+  // asset. Detach eslint so it stops publishing its "no ESLint library"
+  // warning on that file.
+  "languages": {
+    "TypeScript": {
+      "language_servers": ["!eslint"]
+    },
+    "JavaScript": {
+      "language_servers": ["!eslint"]
+    }
+  }
+}

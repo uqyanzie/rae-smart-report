@@ -16,21 +16,22 @@ Single source of truth for:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Dict, Final, Mapping, Optional, Tuple
+from typing import Final
 
 __all__ = [
-    "Family",
+    "CASE_COLORS",
     "FAMILIES",
     "FAMILY_BY_NAME",
-    "CASE_COLORS",
+    "LIPCARE_INTRA_BUNDLE_LABELS",
+    "OTG_INTRA_BUNDLE_LABELS",
     "PACKAGING_TOKENS",
     "PRODUK_GROUP_ORDER",
-    "OTG_INTRA_BUNDLE_LABELS",
-    "LIPCARE_INTRA_BUNDLE_LABELS",
-    "resolve_shade",
+    "Family",
     "resolve_family",
+    "resolve_shade",
 ]
 
 
@@ -53,25 +54,25 @@ class Family:
     """
 
     name: str
-    shades: Tuple[str, ...]
-    aliases: Tuple[str, ...] = ()
+    shades: tuple[str, ...]
+    aliases: tuple[str, ...] = ()
     shade_aliases: Mapping[str, str] = field(default_factory=dict)
-    singles_order: Tuple[str, ...] = ()
-    display_order: Tuple[str, ...] = ()
-    cross_order: Tuple[str, ...] = ()
+    singles_order: tuple[str, ...] = ()
+    display_order: tuple[str, ...] = ()
+    cross_order: tuple[str, ...] = ()
     short_shade: Mapping[str, str] = field(default_factory=dict)
-    explicit_groups: Tuple[Tuple[str, str], ...] = ()
-    explicit_bundle_labels: Tuple[str, ...] = ()
+    explicit_groups: tuple[tuple[str, str], ...] = ()
+    explicit_bundle_labels: tuple[str, ...] = ()
 
-    def order_for_singles(self) -> Tuple[str, ...]:
+    def order_for_singles(self) -> tuple[str, ...]:
         """Row order for single-shade rows."""
         return self.singles_order or self.shades
 
-    def order_for_pairs(self) -> Tuple[str, ...]:
+    def order_for_pairs(self) -> tuple[str, ...]:
         """Row order for intra-family bundle pair generation."""
         return self.display_order or self.shades
 
-    def order_for_cross(self) -> Tuple[str, ...]:
+    def order_for_cross(self) -> tuple[str, ...]:
         """Token order for cross-family grid generation."""
         return self.cross_order or self.order_for_pairs()
 
@@ -83,79 +84,91 @@ class Family:
 
 
 # Observed shade aliases across Shopee and TikTok exports
-_GUT_ALIASES: Final[Mapping[str, str]] = MappingProxyType({
-    "cheerfull": "Cheerful",
-    "joyfull": "Joyful",
-    "energetic": "Energic",
-    "gorgeus": "Gorgeous",
-    "confidence": "Confident",
-})
+_GUT_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "cheerfull": "Cheerful",
+        "joyfull": "Joyful",
+        "energetic": "Energic",
+        "gorgeus": "Gorgeous",
+        "confidence": "Confident",
+    }
+)
 
-_OTG_ALIASES: Final[Mapping[str, str]] = MappingProxyType({
-    "ov cute": "Over Cute",
-    "ov drama": "Over Drama",
-    "ov hype": "Over Hype",
-    "ov lovie": "Over Lovie",
-    "ov react": "Over React",
-    "ov slay": "Over Slay",
-    "cute": "Over Cute",
-    "drama": "Over Drama",
-    "hype": "Over Hype",
-    "lovie": "Over Lovie",
-    "react": "Over React",
-    "slay": "Over Slay",
-})
+_OTG_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "ov cute": "Over Cute",
+        "ov drama": "Over Drama",
+        "ov hype": "Over Hype",
+        "ov lovie": "Over Lovie",
+        "ov react": "Over React",
+        "ov slay": "Over Slay",
+        "cute": "Over Cute",
+        "drama": "Over Drama",
+        "hype": "Over Hype",
+        "lovie": "Over Lovie",
+        "react": "Over React",
+        "slay": "Over Slay",
+    }
+)
 
-_PFVM_ALIASES: Final[Mapping[str, str]] = MappingProxyType({
-    "ambition": "Ambition Power",
-    "classy": "Classy Power",
-    "heart": "Heart Power",
-    "honest": "Honest Power",
-    "kind": "Kind Power",
-    "smart": "Smart Power",
-})
+_PFVM_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "ambition": "Ambition Power",
+        "classy": "Classy Power",
+        "heart": "Heart Power",
+        "honest": "Honest Power",
+        "kind": "Kind Power",
+        "smart": "Smart Power",
+    }
+)
 
-_TJB_ALIASES: Final[Mapping[str, str]] = MappingProxyType({
-    "bunpink": "Bunny Pink",
-    "bun pink": "Bunny Pink",
-    "wildmauv": "Wild Mauve",
-    "wild mauv": "Wild Mauve",
-    "wildmauve": "Wild Mauve",
-    "hiprose": "Hippie Rose",
-    "hip rose": "Hippie Rose",
-    "nudycaramel": "Nudy Caramel",
-    "nudy": "Nudy Caramel",
-    "spillnude": "Spill Nude",
-    "spill": "Spill Nude",
-    "redbabe": "Red Babe",
-    "red": "Red Babe",
-})
+_TJB_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "bunpink": "Bunny Pink",
+        "bun pink": "Bunny Pink",
+        "wildmauv": "Wild Mauve",
+        "wild mauv": "Wild Mauve",
+        "wildmauve": "Wild Mauve",
+        "hiprose": "Hippie Rose",
+        "hip rose": "Hippie Rose",
+        "nudycaramel": "Nudy Caramel",
+        "nudy": "Nudy Caramel",
+        "spillnude": "Spill Nude",
+        "spill": "Spill Nude",
+        "redbabe": "Red Babe",
+        "red": "Red Babe",
+    }
+)
 
-_LIPCARE_ALIASES: Final[Mapping[str, str]] = MappingProxyType({
-    "moist": "Lip Moist",
-    "lip moist": "Lip Moist",
-    "pdrn glow lip moist": "Lip Moist",
-    "exfo": "Lip Exfoliant",
-    "lip exfo": "Lip Exfoliant",
-    "exfoliant": "Lip Exfoliant",
-    "pha glow lip exfoliant": "Lip Exfoliant",
-    "suns": "Lip Sunscreen",
-    "sunscreen": "Lip Sunscreen",
-    "sun glow protect": "Lip Sunscreen",
-    "sun glow protect lip sunscreen": "Lip Sunscreen",
-})
+_LIPCARE_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "moist": "Lip Moist",
+        "lip moist": "Lip Moist",
+        "pdrn glow lip moist": "Lip Moist",
+        "exfo": "Lip Exfoliant",
+        "lip exfo": "Lip Exfoliant",
+        "exfoliant": "Lip Exfoliant",
+        "pha glow lip exfoliant": "Lip Exfoliant",
+        "suns": "Lip Sunscreen",
+        "sunscreen": "Lip Sunscreen",
+        "sun glow protect": "Lip Sunscreen",
+        "sun glow protect lip sunscreen": "Lip Sunscreen",
+    }
+)
 
-_PFVM_SHORT: Final[Mapping[str, str]] = MappingProxyType({
-    "Ambition Power": "Ambition",
-    "Classy Power": "Classy",
-    "Heart Power": "Heart",
-    "Honest Power": "Honest",
-    "Kind Power": "Kind",
-    "Smart Power": "Smart",
-})
+_PFVM_SHORT: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "Ambition Power": "Ambition",
+        "Classy Power": "Classy",
+        "Heart Power": "Heart",
+        "Honest Power": "Honest",
+        "Kind Power": "Kind",
+        "Smart Power": "Smart",
+    }
+)
 
 # Literal intra-family bundle labels for Over The Glaze
-OTG_INTRA_BUNDLE_LABELS: Final[Tuple[str, ...]] = (
+OTG_INTRA_BUNDLE_LABELS: Final[tuple[str, ...]] = (
     "Over Cute + Lovie",
     "Over Cute + Over Drama",
     "Over Cute + Over Hype",
@@ -174,7 +187,7 @@ OTG_INTRA_BUNDLE_LABELS: Final[Tuple[str, ...]] = (
 )
 
 # Literal intra-family bundle labels for Lipcare
-LIPCARE_INTRA_BUNDLE_LABELS: Final[Tuple[str, ...]] = (
+LIPCARE_INTRA_BUNDLE_LABELS: Final[tuple[str, ...]] = (
     "Lip Exfoliant (2pcs)",
     "Lip Exfoliant + Sunscreen",
     "Lip Moist (2pcs)",
@@ -184,27 +197,63 @@ LIPCARE_INTRA_BUNDLE_LABELS: Final[Tuple[str, ...]] = (
     "Lip Sunscreen (2pcs)",
 )
 
-FAMILIES: Final[Tuple[Family, ...]] = (
+FAMILIES: Final[tuple[Family, ...]] = (
     Family(
         name="Glow Up Tint",
         shades=(
-            "Active", "Brave", "Cheerful", "Confident", "Dynamic", "Energic",
-            "Gorgeous", "Happy", "Incredible", "Joyful", "Strong",
+            "Active",
+            "Brave",
+            "Cheerful",
+            "Confident",
+            "Dynamic",
+            "Energic",
+            "Gorgeous",
+            "Happy",
+            "Incredible",
+            "Joyful",
+            "Strong",
         ),
         aliases=("glow up tint", "liptint", "lip tint", "gut"),
         shade_aliases=_GUT_ALIASES,
         singles_order=(
-            "Active", "Brave", "Cheerful", "Confident", "Dynamic", "Energic",
-            "Gorgeous", "Happy", "Incredible", "Joyful", "Strong",
+            "Active",
+            "Brave",
+            "Cheerful",
+            "Confident",
+            "Dynamic",
+            "Energic",
+            "Gorgeous",
+            "Happy",
+            "Incredible",
+            "Joyful",
+            "Strong",
         ),
         # Marketplace ordinal order: Strong (09) precedes Happy (10).
         display_order=(
-            "Active", "Brave", "Cheerful", "Confident", "Dynamic", "Energic",
-            "Gorgeous", "Strong", "Happy", "Incredible", "Joyful",
+            "Active",
+            "Brave",
+            "Cheerful",
+            "Confident",
+            "Dynamic",
+            "Energic",
+            "Gorgeous",
+            "Strong",
+            "Happy",
+            "Incredible",
+            "Joyful",
         ),
         cross_order=(
-            "Active", "Brave", "Cheerful", "Confident", "Dynamic", "Energic",
-            "Gorgeous", "Strong", "Happy", "Incredible", "Joyful",
+            "Active",
+            "Brave",
+            "Cheerful",
+            "Confident",
+            "Dynamic",
+            "Energic",
+            "Gorgeous",
+            "Strong",
+            "Happy",
+            "Incredible",
+            "Joyful",
         ),
     ),
     Family(
@@ -218,22 +267,38 @@ FAMILIES: Final[Tuple[Family, ...]] = (
     Family(
         name="Power Frosted Velvet Matte",
         shades=(
-            "Ambition Power", "Classy Power", "Heart Power",
-            "Honest Power", "Kind Power", "Smart Power",
+            "Ambition Power",
+            "Classy Power",
+            "Heart Power",
+            "Honest Power",
+            "Kind Power",
+            "Smart Power",
         ),
         aliases=("power frosted velvet matte", "power frosted", "pfvm"),
         shade_aliases=_PFVM_ALIASES,
         singles_order=(
-            "Ambition Power", "Classy Power", "Heart Power",
-            "Honest Power", "Kind Power", "Smart Power",
+            "Ambition Power",
+            "Classy Power",
+            "Heart Power",
+            "Honest Power",
+            "Kind Power",
+            "Smart Power",
         ),
         display_order=(
-            "Kind Power", "Honest Power", "Classy Power",
-            "Smart Power", "Heart Power", "Ambition Power",
+            "Kind Power",
+            "Honest Power",
+            "Classy Power",
+            "Smart Power",
+            "Heart Power",
+            "Ambition Power",
         ),
         cross_order=(
-            "Kind Power", "Honest Power", "Classy Power",
-            "Smart Power", "Heart Power", "Ambition Power",
+            "Kind Power",
+            "Honest Power",
+            "Classy Power",
+            "Smart Power",
+            "Heart Power",
+            "Ambition Power",
         ),
         # Intra-family bundles drop the " Power" suffix: 'Kind + Honest'.
         short_shade=_PFVM_SHORT,
@@ -241,22 +306,38 @@ FAMILIES: Final[Tuple[Family, ...]] = (
     Family(
         name="Tinted Jelly Balm",
         shades=(
-            "Bunny Pink", "Wild Mauve", "Nudy Caramel",
-            "Spill Nude", "Red Babe", "Hippie Rose",
+            "Bunny Pink",
+            "Wild Mauve",
+            "Nudy Caramel",
+            "Spill Nude",
+            "Red Babe",
+            "Hippie Rose",
         ),
         aliases=("tinted jelly balm", "jelly balm", "tjb"),
         shade_aliases=_TJB_ALIASES,
         singles_order=(
-            "Bunny Pink", "Wild Mauve", "Nudy Caramel",
-            "Spill Nude", "Red Babe", "Hippie Rose",
+            "Bunny Pink",
+            "Wild Mauve",
+            "Nudy Caramel",
+            "Spill Nude",
+            "Red Babe",
+            "Hippie Rose",
         ),
         display_order=(
-            "Bunny Pink", "Wild Mauve", "Nudy Caramel",
-            "Spill Nude", "Red Babe", "Hippie Rose",
+            "Bunny Pink",
+            "Wild Mauve",
+            "Nudy Caramel",
+            "Spill Nude",
+            "Red Babe",
+            "Hippie Rose",
         ),
         cross_order=(
-            "Bunny Pink", "Wild Mauve", "Nudy Caramel",
-            "Spill Nude", "Red Babe", "Hippie Rose",
+            "Bunny Pink",
+            "Wild Mauve",
+            "Nudy Caramel",
+            "Spill Nude",
+            "Red Babe",
+            "Hippie Rose",
         ),
     ),
     Family(
@@ -270,22 +351,38 @@ FAMILIES: Final[Tuple[Family, ...]] = (
     Family(
         name="Over The Glaze",
         shades=(
-            "Over Cute", "Over Drama", "Over Hype",
-            "Over Lovie", "Over React", "Over Slay",
+            "Over Cute",
+            "Over Drama",
+            "Over Hype",
+            "Over Lovie",
+            "Over React",
+            "Over Slay",
         ),
         aliases=("over the glaze", "lip vinyl", "otg"),
         shade_aliases=_OTG_ALIASES,
         singles_order=(
-            "Over Cute", "Over Drama", "Over Hype",
-            "Over Lovie", "Over React", "Over Slay",
+            "Over Cute",
+            "Over Drama",
+            "Over Hype",
+            "Over Lovie",
+            "Over React",
+            "Over Slay",
         ),
         display_order=(
-            "Over Cute", "Over Lovie", "Over Slay",
-            "Over Hype", "Over React", "Over Drama",
+            "Over Cute",
+            "Over Lovie",
+            "Over Slay",
+            "Over Hype",
+            "Over React",
+            "Over Drama",
         ),
         cross_order=(
-            "Over Cute", "Over Slay", "Over Lovie",
-            "Over Hype", "Over React", "Over Drama",
+            "Over Cute",
+            "Over Slay",
+            "Over Lovie",
+            "Over Hype",
+            "Over React",
+            "Over Drama",
         ),
         explicit_bundle_labels=OTG_INTRA_BUNDLE_LABELS,
     ),
@@ -307,7 +404,7 @@ FAMILIES: Final[Tuple[Family, ...]] = (
 )
 
 # Canonical 16 report groups in emission order
-PRODUK_GROUP_ORDER: Final[Tuple[str, ...]] = (
+PRODUK_GROUP_ORDER: Final[tuple[str, ...]] = (
     "Glow Up Tint",
     "Bundling Glow Up Tint",
     "Swipe To Glow",
@@ -326,13 +423,11 @@ PRODUK_GROUP_ORDER: Final[Tuple[str, ...]] = (
     "Bundling Lipcare",
 )
 
-FAMILY_BY_NAME: Final[Mapping[str, Family]] = MappingProxyType(
-    {family.name: family for family in FAMILIES}
-)
+FAMILY_BY_NAME: Final[Mapping[str, Family]] = MappingProxyType({family.name: family for family in FAMILIES})
 
-CASE_COLORS: Final[Tuple[str, ...]] = ("Fizzy Pop", "Sweetie Pop", "Cherry Pop")
+CASE_COLORS: Final[tuple[str, ...]] = ("Fizzy Pop", "Sweetie Pop", "Cherry Pop")
 
-PACKAGING_TOKENS: Final[Tuple[str, ...]] = (
+PACKAGING_TOKENS: Final[tuple[str, ...]] = (
     "random keychain",
     "tanpa keychain",
     "free keychain",
@@ -356,8 +451,8 @@ PACKAGING_TOKENS: Final[Tuple[str, ...]] = (
 )
 
 
-def _build_shade_lookup() -> Mapping[str, Tuple[str, str]]:
-    lookup: Dict[str, Tuple[str, str]] = {}
+def _build_shade_lookup() -> Mapping[str, tuple[str, str]]:
+    lookup: dict[str, tuple[str, str]] = {}
     ambiguous: set[str] = set()
 
     for family in FAMILIES:
@@ -375,7 +470,7 @@ def _build_shade_lookup() -> Mapping[str, Tuple[str, str]]:
 
 
 def _build_family_lookup() -> Mapping[str, Family]:
-    lookup: Dict[str, Family] = {}
+    lookup: dict[str, Family] = {}
     for family in FAMILIES:
         lookup[family.name.casefold()] = family
         for alias in family.aliases:
@@ -383,11 +478,11 @@ def _build_family_lookup() -> Mapping[str, Family]:
     return MappingProxyType(lookup)
 
 
-SHADE_LOOKUP: Final[Mapping[str, Tuple[str, str]]] = _build_shade_lookup()
+SHADE_LOOKUP: Final[Mapping[str, tuple[str, str]]] = _build_shade_lookup()
 FAMILY_LOOKUP: Final[Mapping[str, Family]] = _build_family_lookup()
 
 
-def resolve_shade(token: str, *, family: Optional[Family] = None) -> Optional[Tuple[str, str]]:
+def resolve_shade(token: str, *, family: Family | None = None) -> tuple[str, str] | None:
     """Resolves a raw shade token to (family_name, canonical_shade)."""
     key = token.casefold().strip()
     if not key:
@@ -404,7 +499,7 @@ def resolve_shade(token: str, *, family: Optional[Family] = None) -> Optional[Tu
     return SHADE_LOOKUP.get(key)
 
 
-def resolve_family(token: str) -> Optional[Family]:
+def resolve_family(token: str) -> Family | None:
     """Resolves a product family name or alias to a canonical Family instance."""
     key = token.casefold().strip()
     if not key:

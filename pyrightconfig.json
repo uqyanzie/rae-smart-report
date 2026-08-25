@@ -1,0 +1,30 @@
+{
+  "executionEnvironments": [
+    {
+      "root": "backend",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "Windows"
+    }
+  ],
+  "exclude": [
+    "**/.agents/**",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv/**",
+    "backend/tests/**"
+  ],
+  "reportAny": "none",
+  "reportExplicitAny": "none",
+  "reportUnknownParameterType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownMemberType": "none",
+  "reportMissingParameterType": "none",
+  "reportCallInDefaultInitializer": "none",
+  "reportUnusedFunction": "none",
+  "reportUnusedParameter": "none",
+  "reportImplicitStringConcatenation": "none",
+  "reportUnannotatedClassAttribute": "none",
+  "reportUnusedCallResult": "none",
+  "reportImplicitOverride": "none"
+}
