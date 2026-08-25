@@ -16,6 +16,7 @@ from app.modules.transformer import (
     VariantNormalizer,
     extract_case_color,
     generate_cross_family_grid,
+    generate_full_produk2_grid,
     generate_full_produk_grid,
     generate_intra_family_grid,
     strip_ordinal_prefix,
@@ -254,6 +255,50 @@ class TestVariantNormalizer:
         assert rec.clean_variant == "Active, Over Cute"
         assert rec.is_bundling is True
         assert rec.is_cross_bundling is True
+
+    def test_normalize_power_frosted_space_short_pair(
+        self, normalizer: VariantNormalizer
+    ) -> None:
+        # 2026-08-26 sample: 'Honest Smart' (space-joined short forms) must
+        # resolve to the on-grid intra-family pair 'Honest + Smart'.
+        raw = RawRecord(
+            platform="TIKTOK_SHOP",
+            product_title="Bundling Power Frosted Velvet Matte",
+            raw_variant="Honest Smart",
+            qty_sold=1,
+            revenue=58700,
+        )
+        rec, _, _ = normalizer.normalize_single(raw)
+        assert rec is not None
+        assert rec.product_group == "Bundling Power Frosted Velvet Matte"
+        assert rec.clean_variant == "Honest + Smart"
+        assert rec.is_bundling is True
+        assert rec.is_cross_bundling is False
+        grid_keys = {(r.product_group, r.clean_variant) for r in generate_full_produk_grid()}
+        assert (rec.product_group, rec.clean_variant) in grid_keys
+
+    def test_normalize_cross_tjb_otg_drops_case_color(
+        self, normalizer: VariantNormalizer
+    ) -> None:
+        # 2026-08-26 sample: a cross TJB-OTG bundle with a case colour must
+        # report to the case-colour-free Produk 2 label ('Bunny Pink, Over
+        # React'); case_color stays stored as SKU metadata only.
+        raw = RawRecord(
+            platform="TIKTOK_SHOP",
+            product_title="Bundling Tinted Jelly Balm & Over The Glaze",
+            raw_variant="Over React + Bunny Pink / Fizzy Pop",
+            qty_sold=1,
+            revenue=178770,
+        )
+        rec, _, _ = normalizer.normalize_single(raw)
+        assert rec is not None
+        assert rec.product_group == "Bundling Tinted Jelly Balm & Over The Glaze"
+        assert rec.clean_variant == "Bunny Pink, Over React"
+        assert rec.case_color == "Fizzy Pop"
+        assert rec.is_bundling is True
+        assert rec.is_cross_bundling is True
+        grid_keys = {(r.product_group, r.clean_variant) for r in generate_full_produk2_grid()}
+        assert (rec.product_group, rec.clean_variant) in grid_keys
 
 
 class TestFoldBackEngine:
@@ -540,3 +585,44 @@ class TestTransformationGoldenOracleMatch:
         assert sum(r.revenue for r in result.records) == sum(
             r.revenue for r in raw_records
         ), "TikTok revenue leaked or was fabricated through transformation"
+
+    def test_tiktok_aug26_offgrid_corrections(self, raw_tts_aug_path) -> None:
+        """2026-08-26 sample: the previously-unreported 'Honest Smart' and
+        cross TJB-OTG case-colour rows are now classified as reported.
+
+        'Honest Smart' -> 'Bundling Power Frosted Velvet Matte / Honest + Smart'
+        and 'Over React + Bunny Pink / Fizzy Pop' ->
+        'Bundling Tinted Jelly Balm & Over The Glaze / Bunny Pink, Over React'
+        (case colour dropped from the Produk 2 label). Both pairs must land on
+        their catalog grid so the persistence boundary reports them.
+        """
+        _, raw_rows = extract_spreadsheet_rows(raw_tts_aug_path)
+        result = transform_records(TikTokShopAdapter().adapt(raw_rows))
+
+        aggregated: dict[tuple[str, str], dict[str, int]] = {}
+        for rec in result.records:
+            key = (rec.product_group.rstrip(), rec.clean_variant.rstrip())
+            entry = aggregated.setdefault(key, {"qty": 0, "revenue": 0})
+            entry["qty"] += rec.qty_sold
+            entry["revenue"] += rec.revenue
+
+        pfvm_pair = aggregated.get(
+            ("Bundling Power Frosted Velvet Matte", "Honest + Smart")
+        )
+        assert pfvm_pair == {"qty": 1, "revenue": 58700}, pfvm_pair
+
+        tjb_otg_pair = aggregated.get(
+            ("Bundling Tinted Jelly Balm & Over The Glaze", "Bunny Pink, Over React")
+        )
+        assert tjb_otg_pair == {"qty": 1, "revenue": 178770}, tjb_otg_pair
+
+        # Both clean keys must be on their respective catalog grids (reported).
+        grid1 = {(r.product_group, r.clean_variant) for r in generate_full_produk_grid()}
+        grid2 = {(r.product_group, r.clean_variant) for r in generate_full_produk2_grid()}
+        assert ("Bundling Power Frosted Velvet Matte", "Honest + Smart") in grid1
+        assert ("Bundling Tinted Jelly Balm & Over The Glaze", "Bunny Pink, Over React") in grid2
+
+        # No record retains the buggy case-colour-suffixed cross label.
+        assert not any(
+            rec.clean_variant.rstrip().endswith(", Fizzy Pop") for rec in result.records
+        )

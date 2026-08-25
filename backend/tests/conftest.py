@@ -31,3 +31,8 @@ def raw_shopee_path(sample_data_dir):
 def raw_tts_path(sample_data_dir):
     return sample_data_dir / "raw" / "raw_tts_13_19_Jul26.xlsx"
 
+
+@pytest.fixture(scope="session")
+def raw_tts_aug_path(sample_data_dir):
+    return sample_data_dir / "raw" / "raw_tts_17_23_Aug26.xlsx"
+

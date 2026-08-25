@@ -260,7 +260,15 @@ class VariantNormalizer:
     def resolve_tokens(
         self, tokens: list[str], family: Family | None = None
     ) -> tuple[list[tuple[str, str]], list[str]]:
-        """Resolves list of tokens into (family_name, canonical_shade) pairs and unmapped tokens."""
+        """Resolves list of tokens into (family_name, canonical_shade) pairs and unmapped tokens.
+
+        A token that does not resolve as a whole is retried as a whitespace
+        split of short-form shades (e.g. 'Honest Smart' -> Honest Power +
+        Smart Power). The split is only accepted when BOTH parts resolve to
+        distinct shades of the SAME family, so multi-word shades that resolve
+        whole ('Over Cute', 'Kind Power'), non-shade tokens ('HANYA KACA'),
+        and mixed-family space pairs ('Active Party') are unaffected.
+        """
         resolved: list[tuple[str, str]] = []
         unmapped: list[str] = []
 
@@ -268,10 +276,38 @@ class VariantNormalizer:
             match = resolve_shade(token, family=family)
             if match:
                 resolved.append(match)
+                continue
+            compound = self._resolve_compound_token(token, family=family)
+            if compound:
+                resolved.extend(compound)
             else:
                 unmapped.append(token)
 
         return resolved, unmapped
+
+    def _resolve_compound_token(
+        self, token: str, family: Family | None = None
+    ) -> list[tuple[str, str]]:
+        """Attempts to resolve a space-concatenated short-shade pair as one token.
+
+        Handles marketplace variants that join two short-form shades without a
+        delimiter, e.g. Power Frosted's 'Honest Smart' -> ('Honest Power',
+        'Smart Power'). Returns the two resolved entries only when BOTH parts
+        resolve to distinct shades of the same family; otherwise empty.
+        """
+        parts = [part for part in token.split() if part]
+        if len(parts) != 2:
+            return []
+
+        first = resolve_shade(parts[0], family=family)
+        second = resolve_shade(parts[1], family=family)
+        if first is None or second is None:
+            return []
+        if first[0] != second[0]:
+            return []
+        if first[1] == second[1]:
+            return []
+        return [first, second]
 
     def normalize_single(
         self, raw_record: RawRecord
@@ -513,10 +549,12 @@ class VariantNormalizer:
 
             cross_group_name = f"Bundling {f_first_name} & {f_second_name}"
 
-            if case_color:
-                clean_label = f"{s_first} + {s_second}, {case_color}"
-            else:
-                clean_label = f"{s_first}, {s_second}"
+            # Execution Rule 3: case colour is SKU metadata, never a report
+            # grid dimension. The Produk 2 grid (generate_full_produk2_grid)
+            # emits case-colour-free labels, so the cross label is always
+            # '{s_first}, {s_second}'; case_color is retained on the record
+            # for traceability only.
+            clean_label = f"{s_first}, {s_second}"
 
             record = VariantRecord(
                 platform=raw_record.platform,
