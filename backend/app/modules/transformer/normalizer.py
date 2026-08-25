@@ -130,6 +130,23 @@ for group in PRODUK_GROUP_ORDER:
     _CANONICAL_GROUP_MAP[group.strip().casefold()] = group
 
 
+def _canonicalize_otg_label(label: str, otg_family: Family) -> str | None:
+    """Canonicalizes a bundle label to 'shade + shade' in resolved form.
+
+    Splits on ' + ' and runs each token through ``resolve_shade`` so the
+    asymmetric grid label ('Over Cute + Lovie') and raw spellings
+    ('Ov Cute + Ov Lovie') collapse onto the same canonical pair (R7).
+    Returns None when any token is not an OTG shade.
+    """
+    resolved: list[str] = []
+    for part in label.split(" + "):
+        match = resolve_shade(part, family=otg_family)
+        if match is None:
+            return None
+        resolved.append(match[1])
+    return " + ".join(resolved).casefold()
+
+
 class VariantNormalizer:
     """Normalizes raw extracted e-commerce records into canonical domain records."""
 
@@ -436,8 +453,8 @@ class VariantNormalizer:
                     pair_str2 = f"{shade2} + {shade1}".casefold()
                     matched_label = None
                     for otg_label in OTG_INTRA_BUNDLE_LABELS:
-                        otg_cf = otg_label.casefold()
-                        if otg_cf in (pair_str1, pair_str2) or otg_cf.replace("over ", "") in (
+                        canonical_candidate = _canonicalize_otg_label(otg_label, fam)
+                        if canonical_candidate is not None and canonical_candidate in (
                             pair_str1,
                             pair_str2,
                         ):
@@ -512,6 +529,18 @@ class VariantNormalizer:
                 case_color=case_color,
             )
             return record, warning, False
+
+        # Multiplicity guard (R2): a same-shade pack of N>2 violates the
+        # fold-back contract (N=2 only, plan line 181). The engine never sees
+        # these rows, so the guard lives here where multiplicity is known.
+        if len(resolved_shades) >= 3 and len({(f, s) for f, s in resolved_shades}) == 1:
+            shade = resolved_shades[0][1]
+            sku = raw_record.sku or "(no SKU)"
+            raise ValueError(
+                f"Same-shade pack of N={len(resolved_shades)} for shade '{shade}' "
+                f"(raw variant '{raw_record.raw_variant}', SKU '{sku}') exceeds the "
+                "fold-back limit of N=2"
+            )
 
         # Case 3: 3+ shades resolved (e.g. Lip Moist + Exfoliant + Sunscreen or Mamari's picks)
         if len(resolved_shades) == 3:

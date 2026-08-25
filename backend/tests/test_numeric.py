@@ -124,13 +124,33 @@ def test_is_blank_marker(marker, is_blank):
     assert is_blank_marker(marker) is is_blank
 
 
-def test_detect_csv_delimiter():
-    """Verifies CSV delimiter sniffer across comma, semicolon, and tab."""
-    comma_content = b"header1,header2,header3\nval1,val2,val3\n"
-    semicolon_content = b"header1;header2;header3\nval1;val2;val3\n"
-    tab_content = b"header1\theader2\theader3\nval1\tval2\tval3\n"
-
-    assert detect_csv_delimiter(comma_content) == ","
-    assert detect_csv_delimiter(semicolon_content) == ";"
-    assert detect_csv_delimiter(tab_content) == "\t"
-    assert detect_csv_delimiter(b"") == ","
+@pytest.mark.parametrize(
+    "content, expected",
+    [
+        (b"header1,header2,header3\nval1,val2,val3\n", ","),
+        (b"header1;header2;header3\nval1;val2;val3\n", ";"),
+        (b"header1\theader2\theader3\nval1\tval2\tval3\n", "\t"),
+        (b"", ","),
+        # R6: comma-bearing quoted titles must not flip a ';'-delimited file,
+        # at either 2-column or 5-column width.
+        (
+            b'"Produk";"Nama Variasi"\n'
+            b'"Raecca Glow Up Tint, Lip Tint, Lip & Cheek";"05. Dynamic"\n'
+            b'"Raecca Over The Glaze, Cute, Matte";"Ov Cute"\n',
+            ";",
+        ),
+        (
+            b'"Produk";"Nama Variasi";"SKU";"Qty";"GMV"\n'
+            b'"Raecca Glow Up Tint, Lip Tint, Lip & Cheek, Waterproof, Long Lasting, 2pcs";"05. Dynamic";"SKU1";"2";"298.000"\n'
+            b'"Raecca Tinted Jelly Balm, Bunny Pink, Sheer";"Bunny Pink";"SKU2";"1";"149.000"\n',
+            ";",
+        ),
+        # R6: ragged rows (uneven column counts) make csv.Sniffer raise; the
+        # counting fallback must still pick the clear delimiter majority.
+        (b"Produk;Variasi;GMV\nA;B;1000\nC;D\nE;F;G;H\n", ";"),
+    ],
+)
+def test_detect_csv_delimiter(content: bytes, expected: str):
+    """Verifies CSV delimiter sniffer across comma, semicolon, and tab,
+    including quote-aware handling of comma-bearing quoted titles (R6)."""
+    assert detect_csv_delimiter(content) == expected

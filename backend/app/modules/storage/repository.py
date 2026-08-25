@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.domain.catalog import FAMILIES, PRODUK_GROUP_ORDER
 from app.domain.models import GridRow, VariantRecord
 from app.modules.storage.models import MappingTemplate, TransactionItem
-from app.modules.transformer.grid import generate_full_produk_grid
+from app.modules.transformer.grid import generate_full_produk2_grid, generate_full_produk_grid
 
 __all__ = [
     "AnalyticsRepository",
@@ -37,6 +37,17 @@ _CANONICAL_GROUPS: frozenset[str] = frozenset(
     | {f"Bundling {family_a.name} & {family_b.name}" for family_a, family_b in combinations(FAMILIES, 2)}
 )
 
+# Catalog grid keys, indexed by report boundary. persist_batch rejects rows
+# whose (product_group, clean_variant) pair lands on no grid row (R1): the
+# grid left-join silently swallows such rows, so the tally must catch them at
+# the persistence boundary instead of letting them vanish.
+_PRODUK_GRID_KEYS: frozenset[tuple[str, str]] = frozenset(
+    (row.product_group, row.clean_variant) for row in generate_full_produk_grid()
+)
+_PRODUK2_GRID_KEYS: frozenset[tuple[str, str]] = frozenset(
+    (row.product_group, row.clean_variant) for row in generate_full_produk2_grid()
+)
+
 # -- Query A: Variant-level performance & contribution ratio (Table 1) -------
 # Groups by (product_group, clean_variant) ONLY. case_color is deliberately
 # excluded: Tinted Jelly Balm totals are reported by shade across all case
@@ -45,15 +56,15 @@ _CANONICAL_GROUPS: frozenset[str] = frozenset(
 _QUERY_A_VARIANT_ANALYTICS = """
 WITH product_totals AS (
     SELECT
-        product_group,
+        rtrim(product_group) AS product_group,
         SUM(qty_sold) AS total_product_qty
     FROM transaction_items
     WHERE import_batch_id = :batch_id
       AND is_cross_bundling = :is_cross_bundling
-    GROUP BY product_group
+    GROUP BY rtrim(product_group)
 )
 SELECT
-    t.product_group,
+    rtrim(t.product_group) AS product_group,
     t.clean_variant,
     t.is_bundling,
     t.is_cross_bundling,
@@ -65,10 +76,10 @@ SELECT
         ELSE 0.0
     END AS contribution_ratio
 FROM transaction_items t
-JOIN product_totals pt ON rtrim(t.product_group) = rtrim(pt.product_group)
+JOIN product_totals pt ON rtrim(t.product_group) = pt.product_group
 WHERE t.import_batch_id = :batch_id
   AND t.is_cross_bundling = :is_cross_bundling
-GROUP BY t.product_group, t.clean_variant, t.is_bundling, t.is_cross_bundling,
+GROUP BY rtrim(t.product_group), t.clean_variant, t.is_bundling, t.is_cross_bundling,
          pt.total_product_qty
 ORDER BY t.product_group ASC, t.is_bundling ASC, total_qty DESC
 """
@@ -83,7 +94,7 @@ WITH grand_total AS (
       AND is_cross_bundling = :is_cross_bundling
 )
 SELECT
-    product_group,
+    rtrim(product_group) AS product_group,
     SUM(qty_sold) AS total_qty,
     SUM(revenue) AS total_revenue,
     CASE
@@ -94,7 +105,7 @@ SELECT
 FROM transaction_items
 WHERE import_batch_id = :batch_id
   AND is_cross_bundling = :is_cross_bundling
-GROUP BY product_group
+GROUP BY rtrim(product_group)
 ORDER BY total_qty DESC
 """
 
@@ -111,7 +122,7 @@ WITH grand_total AS (
 )
 SELECT
     platform,
-    product_group,
+    rtrim(product_group) AS product_group,
     clean_variant,
     SUM(qty_sold) AS total_qty,
     SUM(revenue) AS total_revenue,
@@ -125,7 +136,7 @@ WHERE (:platform IS NULL OR platform = :platform)
   AND (:start_date IS NULL OR period_start >= :start_date)
   AND (:end_date IS NULL OR period_end <= :end_date)
   AND (:is_cross_bundling IS NULL OR is_cross_bundling = :is_cross_bundling)
-GROUP BY platform, product_group, clean_variant
+GROUP BY platform, rtrim(product_group), clean_variant
 ORDER BY total_qty DESC
 """
 
@@ -137,7 +148,7 @@ SELECT
     platform,
     MIN(period_start) AS period_start,
     MAX(period_end) AS period_end,
-    COUNT(DISTINCT product_group) AS total_products,
+    COUNT(DISTINCT rtrim(product_group)) AS total_products,
     SUM(qty_sold) AS grand_total_qty,
     SUM(revenue) AS grand_total_revenue,
     MIN(created_at) AS created_at
@@ -209,10 +220,11 @@ class PersistResult:
 
     import_batch_id: str
     inserted_count: int = 0
-    # Combined excluded volume (sum of the two reason tallies below).
+    # Combined excluded volume (sum of the three reason tallies below).
     skipped_unreported: SkippedTally = field(default_factory=SkippedTally)
     skipped_dash_variant: SkippedTally = field(default_factory=SkippedTally)
     skipped_unresolved_group: SkippedTally = field(default_factory=SkippedTally)
+    skipped_off_grid: SkippedTally = field(default_factory=SkippedTally)
 
 
 class AnalyticsRepository:
@@ -241,13 +253,15 @@ class AnalyticsRepository:
         """Persists normalized records under one import batch.
 
         Enforces the golden-file scope boundary: records whose ``product_group``
-        does not resolve to a canonical catalog group, or whose ``clean_variant``
-        is '-'/empty (parent/summary rows), are excluded and tallied in the
+        does not resolve to a canonical catalog group, whose ``clean_variant``
+        is '-'/empty (parent/summary rows), or whose ``(group, variant)`` pair
+        is absent from the catalog grid are excluded and tallied in the
         returned ``skipped_unreported`` audit trail -- never silently dropped.
         Report keys are stored stripped so the grid left-join matches exactly.
         """
         unresolved = SkippedTally()
         dash = SkippedTally()
+        off_grid = SkippedTally()
         inserted: list[TransactionItem] = []
 
         for rec in records:
@@ -266,6 +280,17 @@ class AnalyticsRepository:
                     count=dash.count + 1,
                     qty=dash.qty + rec.qty_sold,
                     revenue=dash.revenue + rec.revenue,
+                )
+                continue
+            # Off-grid variant: a catalog group with a variant label the grid
+            # does not contain. The grid LEFT JOIN would silently absorb it, so
+            # it is rejected here and surfaced in the tally (R1).
+            grid_keys = _PRODUK2_GRID_KEYS if rec.is_cross_bundling else _PRODUK_GRID_KEYS
+            if (product_group, clean_variant) not in grid_keys:
+                off_grid = SkippedTally(
+                    count=off_grid.count + 1,
+                    qty=off_grid.qty + rec.qty_sold,
+                    revenue=off_grid.revenue + rec.revenue,
                 )
                 continue
 
@@ -294,9 +319,10 @@ class AnalyticsRepository:
         return PersistResult(
             import_batch_id=import_batch_id,
             inserted_count=len(inserted),
-            skipped_unreported=unresolved + dash,
+            skipped_unreported=unresolved + dash + off_grid,
             skipped_dash_variant=dash,
             skipped_unresolved_group=unresolved,
+            skipped_off_grid=off_grid,
         )
 
     # ------------------------------------------------------------------
@@ -355,20 +381,38 @@ class AnalyticsRepository:
         """Cross-batch aggregation with optional platform/date/cross filters."""
         params: dict[str, Any] = {
             "platform": platform,
-            "start_date": self._coerce_bound(start_date),
-            "end_date": self._coerce_bound(end_date),
+            "start_date": self._coerce_start_bound(start_date),
+            "end_date": self._coerce_end_bound(end_date),
             "is_cross_bundling": (None if is_cross_bundling is None else int(bool(is_cross_bundling))),
         }
         rows = self._session.execute(text(_QUERY_C_MULTI_PLATFORM), params).mappings().all()
         return [dict(row) for row in rows]
 
     @staticmethod
-    def _coerce_bound(value: datetime | date | None) -> datetime | None:
-        """Normalizes date-only bounds to midnight datetimes for SQLite."""
+    def _coerce_start_bound(value: datetime | date | None) -> datetime | None:
+        """Normalizes a start bound to an inclusive midnight datetime for SQLite."""
         if isinstance(value, datetime):
             return value
         if isinstance(value, date):
             return datetime.combine(value, time.min)
+        return value
+
+    @staticmethod
+    def _coerce_end_bound(value: datetime | date | None) -> datetime | None:
+        """Normalizes an end bound to an inclusive upper bound for SQLite.
+
+        SQLAlchemy's DateTime stores microsecond-suffixed ISO text
+        ('...23:59:59.000000'); a bare end-of-day bound ('...23:59:59')
+        compares lexicographically below it and silently excludes the intended
+        day (R9). Both a bare ``date`` and an exact 23:59:59 ``datetime``
+        therefore resolve to 23:59:59.999999.
+        """
+        if isinstance(value, datetime):
+            if value.time() == time(23, 59, 59):
+                return value.replace(microsecond=999999)
+            return value
+        if isinstance(value, date):
+            return datetime.combine(value, time(23, 59, 59, 999999))
         return value
 
     # ------------------------------------------------------------------
@@ -422,6 +466,13 @@ class AnalyticsRepository:
         grid_rows = list(grid) if grid is not None else list(generate_full_produk_grid())
         if not grid_rows:
             return []
+
+        # Host-parameter ceiling: SQLite binds at most 32,766 parameters, and
+        # each grid row binds 5 (product_group, clean_variant, is_bundling,
+        # is_cross_bundling, expected_label) plus 2 fixed batch params. The
+        # current Produk 2 grid (813 rows -> 4,067 params) has ~8x headroom;
+        # the ceiling lands at ~6,550 grid rows. Chunk the VALUES list if the
+        # catalog ever approaches that size (R10).
 
         placeholders = ", ".join(
             f"(:p{i}, :p{i + 1}, :p{i + 2}, :p{i + 3}, :p{i + 4})" for i in range(0, len(grid_rows) * 5, 5)

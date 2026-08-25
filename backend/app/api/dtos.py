@@ -16,6 +16,7 @@ from pydantic import Field
 from app.modules.profiler.fallback import CamelModel, ParentRowIgnoreCondition
 
 __all__ = [
+    "BatchMetaDTO",
     "BatchSummaryDTO",
     "CamelModel",
     "CleaningRuleDTO",
@@ -133,8 +134,8 @@ class ProductSummaryDTO(CamelModel):
     contribution_ratio: float
 
 
-class BatchSummaryDTO(CamelModel):
-    """Historical batch summary row."""
+class BatchMetaDTO(CamelModel):
+    """Shared batch identity/metadata carried by every batch-shaped response."""
 
     import_batch_id: str
     platform: str
@@ -142,15 +143,32 @@ class BatchSummaryDTO(CamelModel):
     # is used to avoid Pydantic's inexact date-from-datetime rejection.
     period_start: datetime | None = None
     period_end: datetime | None = None
-    total_products: int
-    grand_total_qty: int
-    grand_total_revenue: int
     created_at: datetime | None = None
 
 
-class TransformResponseDTO(BatchSummaryDTO):
-    """Batch summary plus persistence audit details."""
+class BatchSummaryDTO(BatchMetaDTO):
+    """Storage-level batch summary row (Query D raw transaction sums).
 
+    ``total_products`` / ``grand_total_*`` are whole-batch figures including
+    cross-bundling rows; they are NOT the workbook (grid-intersected) totals.
+    """
+
+    total_products: int
+    grand_total_qty: int
+    grand_total_revenue: int
+
+
+class TransformResponseDTO(BatchMetaDTO):
+    """Report-boundary batch summary plus persistence audit details.
+
+    ``reported_*`` mirrors the Produk workbook (grid-intersected), distinct
+    from the storage-level ``grandTotal*`` figures on ``/reports/batches``
+    (R5). The audit fields come from the ``persist_batch`` tally.
+    """
+
+    reported_product_count: int
+    reported_total_qty: int
+    reported_total_revenue: int
     inserted_count: int
     skipped_count: int
     skipped_qty: int

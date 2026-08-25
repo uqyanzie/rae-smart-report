@@ -23,7 +23,9 @@ class FoldBackEngine:
     ALLOWED_FAMILIES: frozenset[str] = frozenset({"Glow Up Tint"})
 
     def __init__(self, allowed_families: set[str] | None = None) -> None:
-        self.allowed_families = allowed_families or self.ALLOWED_FAMILIES
+        self.allowed_families = (
+            allowed_families if allowed_families is not None else self.ALLOWED_FAMILIES
+        )
 
     def process_records(self, records: list[tuple[VariantRecord, bool]]) -> list[VariantRecord]:
         """Processes a list of (VariantRecord, is_same_shade_foldback) tuples.
@@ -49,7 +51,9 @@ class FoldBackEngine:
                 )
 
             # Check multiplicity
-            # In our normalizer, same-shade detection is 2 tokens. If someone passes higher multiplicity:
+            # Same-shade N>2 packs never reach the engine: the normalizer raises
+            # before marking a record as fold-back (R2), so every fold-back row
+            # here is exactly N=2.
             key = (record.platform, record.product_group, record.clean_variant)
             if key not in foldback_pool:
                 foldback_pool[key] = {

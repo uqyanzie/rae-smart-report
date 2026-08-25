@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -96,7 +96,7 @@ def _ingest(client: TestClient, path: Path) -> str:
     return body["fileId"]
 
 
-def _profile(client: TestClient, file_id: str) -> Dict[str, Any]:
+def _profile(client: TestClient, file_id: str) -> dict[str, Any]:
     resp = client.post("/api/profile", json={"fileId": file_id})
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -105,8 +105,8 @@ def _profile(client: TestClient, file_id: str) -> Dict[str, Any]:
 
 
 def _transform(
-    client: TestClient, file_id: str, profile: Dict[str, Any]
-) -> Dict[str, Any]:
+    client: TestClient, file_id: str, profile: dict[str, Any]
+) -> dict[str, Any]:
     payload = {
         "fileId": file_id,
         "platform": profile["platform"],
@@ -124,10 +124,10 @@ def _transform(
     return body
 
 
-def _sheet_qty_sums(workbook_bytes: bytes) -> Dict[str, int]:
+def _sheet_qty_sums(workbook_bytes: bytes) -> dict[str, int]:
     """Sums the left-table Produk Terjual (col C) per sheet."""
     wb = load_workbook(io.BytesIO(workbook_bytes))
-    totals: Dict[str, int] = {}
+    totals: dict[str, int] = {}
     for title in wb.sheetnames:
         total = 0
         for r in range(2, wb[title].max_row + 1):
@@ -222,8 +222,14 @@ def test_transform_shopee_golden_totals(client, raw_shopee_path):
     resp = _transform(client, file_id, profile)
 
     assert resp["platform"] == "SHOPEE"
-    assert resp["grandTotalQty"] == GOLDEN_SHOPEE_QTY
-    assert resp["grandTotalRevenue"] == GOLDEN_SHOPEE_REVENUE
+    # R5: transform reports the workbook (grid-intersected) boundary under
+    # distinct names; the storage-level grandTotal* fields stay on batches.
+    assert resp["reportedTotalQty"] == GOLDEN_SHOPEE_QTY
+    assert resp["reportedTotalRevenue"] == GOLDEN_SHOPEE_REVENUE
+    assert "grandTotalQty" not in resp
+    assert "grandTotalRevenue" not in resp
+    assert "totalProducts" not in resp
+    assert isinstance(resp["reportedProductCount"], int)
     assert resp["skippedCount"] == SHOPEE_SKIPPED_COUNT
     assert resp["skippedQty"] == SHOPEE_SKIPPED_QTY
     assert resp["skippedRevenue"] == SHOPEE_SKIPPED_REVENUE
@@ -241,11 +247,14 @@ def test_transform_tiktok_golden_totals(client, raw_tts_path):
     resp = _transform(client, file_id, profile)
 
     assert resp["platform"] == "TIKTOK_SHOP"
-    assert resp["grandTotalQty"] == GOLDEN_TIKTOK_QTY
-    assert resp["grandTotalRevenue"] == GOLDEN_TIKTOK_REVENUE
-    assert resp["skippedCount"] == 0
-    assert resp["skippedQty"] == 0
-    assert resp["skippedRevenue"] == 0
+    assert resp["reportedTotalQty"] == GOLDEN_TIKTOK_QTY
+    assert resp["reportedTotalRevenue"] == GOLDEN_TIKTOK_REVENUE
+    assert "grandTotalQty" not in resp
+    # R1: the Tinted Jelly Balm 'Default' orphan (qty 1, rev 22,637) is now
+    # surfaced in the skipped tally instead of leaking past it.
+    assert resp["skippedCount"] == 1
+    assert resp["skippedQty"] == 1
+    assert resp["skippedRevenue"] == 22_637
     tiktok_batch_id = resp["importBatchId"]
 
 
@@ -369,6 +378,37 @@ def test_delete_batch_idempotent(client):
     resp = client.get(f"/api/reports/batches/{shopee_batch_id}/variants")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_transform_missing_required_columns_422(client):
+    """R4: a platform-mismatched file fails loudly instead of persisting an
+    empty batch (422 MISSING_REQUIRED_COLUMN) and the batch count is stable."""
+    content = b"ColA,ColB,ColC\n1,2,3\n"
+    resp = client.post(
+        "/api/ingest",
+        files={"file": ("mismatch.csv", content, "text/csv")},
+    )
+    assert resp.status_code == 200, resp.text
+    file_id = resp.json()["fileId"]
+
+    before = len(client.get("/api/reports/batches").json())
+
+    payload = {
+        "fileId": file_id,
+        "platform": "SHOPEE",
+        "columnMapping": {
+            "productGroup": "Produk",
+            "rawVariant": "Nama Variasi",
+            "qtySold": "Produk (Pesanan Siap Dikirim)",
+            "revenue": "Penjualan (Pesanan Siap Dikirim) (IDR)",
+        },
+    }
+    resp = client.post("/api/transform", json=payload)
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["code"] == "MISSING_REQUIRED_COLUMN"
+    assert len(client.get("/api/reports/batches").json()) == before
 
 
 def test_transform_unknown_file_id_404(client):

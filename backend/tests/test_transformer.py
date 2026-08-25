@@ -150,6 +150,45 @@ class TestVariantNormalizer:
         assert rec.product_group == "Glow Up Tint"
         assert rec.clean_variant == "Dynamic"
 
+    def test_normalize_same_shade_triple_raises(self, normalizer: VariantNormalizer) -> None:
+        """R2: a same-shade N>2 pack violates the fold-back contract (N=2
+        only) and raises with the shade, raw variant, and SKU named."""
+        raw = RawRecord(
+            platform="SHOPEE",
+            product_title="Raecca Bundling Glow Up Tint",
+            raw_variant="Dynamic, 05. Dynamic, Dynamic",
+            qty_sold=3,
+            revenue=419700,
+            sku="SKU-TRIPLE-01",
+        )
+        with pytest.raises(ValueError) as excinfo:
+            normalizer.normalize_single(raw)
+        message = str(excinfo.value)
+        assert "Dynamic" in message
+        assert "Dynamic, 05. Dynamic, Dynamic" in message
+        assert "SKU-TRIPLE-01" in message
+
+    def test_normalize_otg_asymmetric_label_reachable(
+        self, normalizer: VariantNormalizer
+    ) -> None:
+        """R7: 'Ov Cute + Ov Lovie' resolves to the grid label
+        'Over Cute + Lovie' instead of landing off-grid."""
+        raw = RawRecord(
+            platform="SHOPEE",
+            product_title="Raecca Bundling Over The Glaze",
+            raw_variant="Ov Cute + Ov Lovie",
+            qty_sold=0,
+            revenue=0,
+        )
+        rec, warn, is_foldback = normalizer.normalize_single(raw)
+        assert warn is None
+        assert is_foldback is False
+        assert rec is not None
+        assert rec.product_group == "Bundling Over The Glaze"
+        assert rec.clean_variant == "Over Cute + Lovie"
+        assert rec.is_bundling is True
+        assert rec.is_cross_bundling is False
+
     def test_normalize_lipcare_singles_and_bundles(self, normalizer: VariantNormalizer) -> None:
         # Lipcare single shade maps to distinct group
         raw_single = RawRecord(
@@ -291,6 +330,12 @@ class TestFoldBackEngine:
         ]
         with pytest.raises(ValueError, match="unverified family"):
             engine.process_records(records)
+
+    def test_foldback_allowed_families_empty_set_stays_empty(self) -> None:
+        """R8: an explicit empty allow-list is respected, not replaced by
+        the default family set."""
+        engine = FoldBackEngine(allowed_families=set())
+        assert engine.allowed_families == frozenset()
 
 
 class TestFixedGridGenerator:

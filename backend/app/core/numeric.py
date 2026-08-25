@@ -9,6 +9,7 @@ Pins default formatting to Indonesian Locale (id-ID):
 
 from __future__ import annotations
 
+import csv
 import math
 import re
 from typing import Any, Final
@@ -33,15 +34,26 @@ _NBSP: Final[str] = "\u00a0"
 
 
 def detect_csv_delimiter(content: bytes) -> str:
-    """Detects comma, semicolon, or tab delimiter by inspecting the first 5 lines."""
+    """Detects comma, semicolon, or tab delimiter, quote-aware.
+
+    Uses ``csv.Sniffer`` so delimiters inside quoted fields never affect the
+    decision (comma-rich product titles in ';'-delimited exports would flip a
+    raw character count -- R6). When the sniffer cannot decide (ragged rows
+    with uneven column counts raise ``csv.Error``), falls back to the raw
+    character count so a clear delimiter majority still wins.
+    """
     sample = content[:4096].decode("utf-8", errors="ignore")
     lines = [line for line in sample.splitlines() if line.strip()][:5]
     if not lines:
         return ","
 
-    candidates = [",", ";", "\t"]
-    counts = {delim: sum(line.count(delim) for line in lines) for delim in candidates}
-    return max(counts, key=lambda delim: counts[delim]) if max(counts.values()) > 0 else ","
+    try:
+        dialect = csv.Sniffer().sniff("\n".join(lines), delimiters=",;\t")
+    except (csv.Error, StopIteration):
+        counts = {delim: sum(line.count(delim) for line in lines) for delim in (",", ";", "\t")}
+        best = max(counts, key=lambda delim: counts[delim])
+        return best if counts[best] > 0 else ","
+    return dialect.delimiter
 
 
 def is_blank_marker(value: Any) -> bool:

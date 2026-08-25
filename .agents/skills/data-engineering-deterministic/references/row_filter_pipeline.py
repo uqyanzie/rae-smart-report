@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import re
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any
+
 import pandas as pd
 
 try:
@@ -13,7 +16,7 @@ BUNDLE_KEYWORDS = [
     "duo", "trio", "paket"
 ]
 
-def is_parent_or_summary_row(raw_variant: Optional[str], ignore_condition: str = "EQUALS_DASH") -> bool:
+def is_parent_or_summary_row(raw_variant: str | None, ignore_condition: str = "EQUALS_DASH") -> bool:
     """
     Evaluates if a row represents an aggregate/parent row that must be excluded.
     Prevents double-counting in marketplace sales reports.
@@ -34,7 +37,7 @@ def is_parent_or_summary_row(raw_variant: Optional[str], ignore_condition: str =
         
     return False
 
-def parse_tiktok_concatenated_title(title_str: str) -> Tuple[str, str]:
+def parse_tiktok_concatenated_title(title_str: str) -> tuple[str, str]:
     """
     Parses TikTok Shop concatenated title format:
     '<Master Product Title>: <Variant / Marketing Suffix>'
@@ -53,8 +56,8 @@ def parse_tiktok_concatenated_title(title_str: str) -> Tuple[str, str]:
 def extract_clean_variant_and_bundles(
     raw_variant: str,
     product_group: str = "",
-    cleaning_rules: Optional[List[Dict[str, str]]] = None
-) -> Tuple[str, bool, bool]:
+    cleaning_rules: list[dict[str, str]] | None = None
+) -> tuple[str, bool, bool]:
     """
     Cleans raw variant string using deterministic regex rules and detects bundling types:
     - is_bundling: True if product is an intra-line bundle (e.g. 'Active + Brave')
@@ -100,7 +103,7 @@ def process_shopee_dataframe(
     import_batch_id: str,
     period_start = None,
     period_end = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Ingests and processes Shopee raw data from 'Produk dengan Performa Terbaik' sheet.
     Explicit Column Standards:
@@ -165,7 +168,7 @@ def process_tiktok_dataframe(
     import_batch_id: str,
     period_start = None,
     period_end = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Ingests and processes TikTok Shop raw export data.
     Explicit Column Standards:

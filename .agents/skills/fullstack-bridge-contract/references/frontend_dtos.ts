@@ -49,7 +49,7 @@ export interface TransformAndSaveRequestDTO {
   columnMapping: ColumnMappingDTO;
   parentRowRule?: ParentRowRuleDTO | null;
   cleaningRules: CleaningRuleDTO[];
-  saveAsTemplate: boolean;
+  saveAsTemplate?: boolean; // defaults to true on the backend
 }
 
 export interface VariantPerformanceDTO {
@@ -69,13 +69,33 @@ export interface ProductSummaryDTO {
   contributionRatio: number; // 0-1 unit share
 }
 
-export interface BatchSummaryDTO {
+export interface BatchMetaDTO {
   importBatchId: string;
   platform: string;
   periodStart?: string;
   periodEnd?: string;
+  createdAt?: string;
+}
+
+export interface BatchSummaryDTO extends BatchMetaDTO {
+  // Storage-level batch summary (raw transaction sums). These are whole-batch
+  // figures INCLUDING cross-bundling rows; they are NOT the workbook
+  // (grid-intersected) totals -- use the `reported*` fields on the transform
+  // response for those.
   totalProducts: number;
   grandTotalQty: number;
   grandTotalRevenue: number;
-  createdAt: string;
+}
+
+export interface TransformResponseDTO extends BatchMetaDTO {
+  // Report-boundary (grid-intersected) workbook totals, distinct from the
+  // storage-level `grandTotal*` figures on BatchSummaryDTO.
+  reportedProductCount: number;
+  reportedTotalQty: number;
+  reportedTotalRevenue: number;
+  insertedCount: number;
+  skippedCount: number;
+  skippedQty: number;
+  skippedRevenue: number;
+  warningCount: number;
 }

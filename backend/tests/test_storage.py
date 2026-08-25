@@ -8,9 +8,10 @@ Golden numbers referenced below are read from ``fixtures/golden_totals.json``
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -20,7 +21,11 @@ from app.modules.profiler.adapters import ShopeeAdapter, TikTokShopAdapter
 from app.modules.storage import AnalyticsRepository, SkippedTally
 from app.modules.storage.database import init_db, session_scope
 from app.modules.storage.models import TransactionItem
-from app.modules.transformer import transform_records
+from app.modules.transformer import (
+    generate_full_produk2_grid,
+    generate_full_produk_grid,
+    transform_records,
+)
 
 PERIOD_START = datetime(2026, 7, 13)
 PERIOD_END = datetime(2026, 7, 19, 23, 59, 59)
@@ -128,7 +133,8 @@ def test_warning_counts_after_ignorable_tokens(shopee_result, tiktok_result):
 
 def test_skipped_unreported_tally(shopee_result, persisted):
     """The auditable excluded-volume tally reports exactly 180 Shopee
-    exclusions (qty 1, Rp 4,950) and nothing for TikTok."""
+    exclusions (qty 1, Rp 4,950) and TikTok's single off-grid orphan
+    (qty 1, Rp 22,637)."""
     shopee = persisted["shopee"]
     assert shopee.skipped_unreported == SkippedTally(
         count=SHOPEE_SKIPPED_COUNT,
@@ -138,7 +144,7 @@ def test_skipped_unreported_tally(shopee_result, persisted):
 
     # Reason breakdown must sum back to the combined tally (audit invariant).
     breakdown = (
-        shopee.skipped_dash_variant + shopee.skipped_unresolved_group
+        shopee.skipped_dash_variant + shopee.skipped_unresolved_group + shopee.skipped_off_grid
     )
     assert breakdown == shopee.skipped_unreported
     # Out-of-catalog products (Body Toner, Face Toner, Lippie Serum, Blurring
@@ -146,8 +152,15 @@ def test_skipped_unreported_tally(shopee_result, persisted):
     assert shopee.skipped_unresolved_group.revenue == 0
     assert shopee.skipped_unresolved_group.count == 13
     assert shopee.skipped_dash_variant.count == 167
+    # R7 keeps Shopee's only off-grid pair on-grid ('Over Cute + Lovie'), so
+    # the off-grid bucket stays empty for Shopee.
+    assert shopee.skipped_off_grid == SkippedTally(0, 0, 0)
 
-    assert persisted["tiktok"].skipped_unreported == SkippedTally(0, 0, 0)
+    tiktok = persisted["tiktok"]
+    assert tiktok.skipped_unreported == SkippedTally(1, 1, 22_637)
+    assert tiktok.skipped_off_grid == SkippedTally(1, 1, 22_637)
+    assert tiktok.skipped_dash_variant == SkippedTally(0, 0, 0)
+    assert tiktok.skipped_unresolved_group == SkippedTally(0, 0, 0)
 
     # Transform-level cross-check: 180 dash-variant records exist pre-persist.
     transform_dash = [
@@ -207,6 +220,73 @@ def test_query_a_tinted_jelly_balm_six_shade_rows(factory, persisted):
     assert {r["clean_variant"] for r in tjb} == TJB_SHADES
     assert sum(r["total_qty"] for r in tjb) == GOLDEN_TJB_QTY
     assert sum(r["total_revenue"] for r in tjb) == GOLDEN_TJB_REVENUE
+
+
+def test_query_a_ratio_no_fanout_on_untrimmed_group(factory, persisted):
+    """R3: untrimmed group keys inserted directly via ORM must not fan out.
+
+    Query A's CTE, join, and GROUP BY are rtrim()-normalized, so two
+    spellings of one group collapse to two rows whose ratios sum to 1.0.
+    """
+    _, session = _repo(factory)
+    try:
+        session.add_all(
+            [
+                TransactionItem(
+                    id=str(uuid4()),
+                    import_batch_id="R3-BATCH",
+                    platform="SHOPEE",
+                    product_group="Swipe To Glow",
+                    raw_variant="Date",
+                    clean_variant="Date",
+                    is_bundling=False,
+                    is_cross_bundling=False,
+                    qty_sold=10,
+                    revenue=600_000,
+                ),
+                TransactionItem(
+                    id=str(uuid4()),
+                    import_batch_id="R3-BATCH",
+                    platform="SHOPEE",
+                    # Trailing space survives a direct ORM insert (persist_batch
+                    # strips keys, so this only happens bypassing it).
+                    product_group="Swipe To Glow ",
+                    raw_variant="Work",
+                    clean_variant="Work",
+                    is_bundling=False,
+                    is_cross_bundling=False,
+                    qty_sold=5,
+                    revenue=300_000,
+                ),
+            ]
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    repo, session = _repo(factory)
+    try:
+        rows = repo.variant_analytics("R3-BATCH", is_cross_bundling=0)
+    finally:
+        session.close()
+
+    assert len(rows) == 2
+    assert all(r["product_group"] == "Swipe To Glow" for r in rows)
+    by_variant = {r["clean_variant"]: r for r in rows}
+    assert by_variant["Date"]["total_qty"] == 10
+    assert by_variant["Work"]["total_qty"] == 5
+    assert by_variant["Date"]["contribution_ratio"] == 10 / 15
+    assert by_variant["Work"]["contribution_ratio"] == 5 / 15
+    assert sum(r["contribution_ratio"] for r in rows) == 1.0
+
+    # Clean up: R3-BATCH carries deliberately dirty keys that would otherwise
+    # pollute the whole-table hygiene tests later in this module.
+    _, session = _repo(factory)
+    try:
+        session.execute(delete(TransactionItem).where(TransactionItem.import_batch_id == "R3-BATCH"))
+        session.commit()
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +409,41 @@ def test_grid_population_preserves_all_rows_and_stg_totals(factory, persisted):
     assert sold_keys.issubset(grid_keys)
 
 
+def test_reconciliation_grid_plus_skipped_equals_transform(
+    factory, persisted, shopee_result, tiktok_result
+):
+    """R1 acceptance: grid qty + grid2 qty + skipped == transform records.
+
+    For both reference batches, every sheet's grid rows plus every skipped
+    tally equals the transform-level totals exactly -- nothing leaks past the
+    audit boundary -- and the same holds for revenue.
+    """
+    repo, session = _repo(factory)
+    try:
+        for batch_id, result, persist_result in (
+            (BATCH_SHOPEE, shopee_result, persisted["shopee"]),
+            (BATCH_TIKTOK, tiktok_result, persisted["tiktok"]),
+        ):
+            grid0 = repo.populate_grid(
+                batch_id, is_cross_bundling=0, grid=generate_full_produk_grid()
+            )
+            grid1 = repo.populate_grid(
+                batch_id, is_cross_bundling=1, grid=generate_full_produk2_grid()
+            )
+            grid_qty = sum(r["total_qty"] for r in grid0) + sum(
+                r["total_qty"] for r in grid1
+            )
+            grid_rev = sum(r["total_revenue"] for r in grid0) + sum(
+                r["total_revenue"] for r in grid1
+            )
+            rec_qty = sum(r.qty_sold for r in result.records)
+            rec_rev = sum(r.revenue for r in result.records)
+            assert grid_qty + persist_result.skipped_unreported.qty == rec_qty
+            assert grid_rev + persist_result.skipped_unreported.revenue == rec_rev
+    finally:
+        session.close()
+
+
 # ---------------------------------------------------------------------------
 # Query B: product group summary
 # ---------------------------------------------------------------------------
@@ -376,14 +491,16 @@ def test_query_c_multi_platform_and_date_range(factory, persisted):
         platforms = {r["platform"] for r in all_rows}
         assert platforms == {"SHOPEE", "TIKTOK_SHOP"}
 
-        # Same period bounds -> identical row set. The end bound carries
-        # microseconds: SQLite compares datetime columns as ISO strings, and a
-        # bare '...23:59:59' bound compares less than the stored
-        # '...23:59:59.000000', wrongly excluding every row.
-        period_rows = repo.multi_platform_aggregation(
-            start_date=PERIOD_START, end_date=datetime(2026, 7, 19, 23, 59, 59, 999999)
-        )
-        assert len(period_rows) == len(all_rows)
+        # R9: a bare end-of-day datetime and a bare date both resolve to an
+        # inclusive upper bound (23:59:59.999999), so the full period matches.
+        for end in (
+            datetime(2026, 7, 19, 23, 59, 59),
+            datetime(2026, 7, 19).date(),
+        ):
+            period_rows = repo.multi_platform_aggregation(
+                start_date=PERIOD_START, end_date=end
+            )
+            assert len(period_rows) == len(all_rows)
 
         # Platform filter -> only that platform's rows.
         shopee_rows = repo.multi_platform_aggregation(platform="SHOPEE")
@@ -416,8 +533,10 @@ def test_query_d_batch_history(factory, persisted):
 
     tiktok = by_batch[BATCH_TIKTOK]
     assert tiktok["platform"] == "TIKTOK_SHOP"
-    assert tiktok["grand_total_qty"] == 11_589
-    assert tiktok["grand_total_revenue"] == 660_533_024
+    # R1: the Tinted Jelly Balm 'Default' orphan (qty 1, rev 22,637) is now
+    # excluded at the persistence boundary, so stored totals drop accordingly.
+    assert tiktok["grand_total_qty"] == 11_588
+    assert tiktok["grand_total_revenue"] == 660_510_387
 
 
 # ---------------------------------------------------------------------------

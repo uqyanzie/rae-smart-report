@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 
 import pytest
@@ -15,19 +14,14 @@ from app.modules.ingestion.exceptions import (
 )
 from app.modules.ingestion.reader import (
     extract_spreadsheet_rows,
-    inspect_sheet_names,
     read_spreadsheet,
-    select_default_sheet,
 )
 from app.modules.profiler.adapters import (
     PlatformEnum,
     ShopeeAdapter,
     TikTokShopAdapter,
-    clean_brand_prefix,
     detect_adapter,
-    get_adapter,
     is_parent_or_summary_row,
-    parse_tiktok_concatenated_title,
 )
 from app.modules.profiler.fallback import (
     ParentRowIgnoreCondition,

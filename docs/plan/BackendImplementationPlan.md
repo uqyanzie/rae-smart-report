@@ -154,7 +154,7 @@ backend/
   - Compute canonical SHA-256 header signatures.
   - Mapping template cache lookup.
 - [x] Author `backend/tests/test_ingestion.py`:
-  - Ingest `sample_data/raw/raw_shopee_13_19_Jul26.xlsx` and verify exactly 295 parent rows pruned from 1061 total rows (766 child rows).
+  - Ingest `sample_data/raw/raw_shopee_13_19_Jul26.xlsx` and verify exactly 295 parent rows pruned from 1061 total rows (766 child rows). (Verified at implementation: 1061 total rows -> 295 dash rows; 110 of those belong to products WITH child variants and are pruned as true parent summaries, while 185 dash rows are retained as standalone single-variant listings. The adapter therefore returns 951 records = 766 child + 185 standalone; the non-reportable dash rows are excluded at the `persist_batch` boundary and counted in `skipped_unreported`.)
   - Ingest `sample_data/raw/raw_tts_13_19_Jul26.xlsx` and verify 270 rows extracted.
 
 **Success Criteria:**

@@ -245,6 +245,11 @@ async def transform_and_save(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Fail loudly before adapting when the platform's required columns are
+    # missing; adapter.adapt() degrades absent columns to zeros and would
+    # otherwise persist a silent empty batch (R4).
+    adapter.validate_headers(headers)
+
     raw_records = adapter.adapt(raw_rows)
     raw_records = _apply_cleaning_rules(raw_records, payload.cleaning_rules)
     result = transform_records(raw_records)
@@ -278,9 +283,9 @@ async def transform_and_save(
         platform=platform,
         period_start=start_dt,
         period_end=end_dt,
-        total_products=total_products,
-        grand_total_qty=sum(rec.qty_sold for rec in reported),
-        grand_total_revenue=sum(rec.revenue for rec in reported),
+        reported_product_count=total_products,
+        reported_total_qty=sum(rec.qty_sold for rec in reported),
+        reported_total_revenue=sum(rec.revenue for rec in reported),
         created_at=datetime.now(UTC),
         inserted_count=persist.inserted_count,
         skipped_count=persist.skipped_unreported.count,
