@@ -452,12 +452,11 @@ async def export_excel(
             detail="No exportable platform selected; supported platforms: SHOPEE, TIKTOK_SHOP",
         )
 
-    starts = [item["period_start"] for item in resolved.values() if item["period_start"]]
-    ends = [item["period_end"] for item in resolved.values() if item["period_end"]]
-    if starts and ends:
-        name = f"rae_smart_report_{min(starts).date():%Y%m%d}_{max(ends).date():%Y%m%d}"
-    else:
-        name = "rae_smart_report"
+    # Filename derives from the persisted import batch id(s) so the export is
+    # traceable back to its source batch (one id per platform; joined by '_'
+    # when both Shopee and TikTok are exported). Import batch ids only contain
+    # [A-Z0-9-_], so no extra sanitization is required.
+    name = "_".join(sorted(item["import_batch_id"] for item in resolved.values())) or "rae_smart_report"
 
     buffer = generate_executive_workbook(sheets)
     return StreamingResponse(

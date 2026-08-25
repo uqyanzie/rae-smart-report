@@ -13,13 +13,14 @@ The complete reporting system encompasses 16 sheets across 4 e-commerce platform
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **`Produk`** (Single & Intra-Family Bundles) | Y | Y | Y | Y | **Phase 1 (`S`, `T`)** / Phase 2 (`TP`, `L`) |
 | **`Produk 2`** (Cross-Family Bundles / *Bundling Silang*) | Y | Y | — | — | **Phase 1 (`S`, `T`)** |
+| **`Tidak Terlaporkan`** (Unreported Entries, 2026-08-26) | Y | Y | — | — | **Phase 1 (`S`, `T`)** |
 | **`Tinjauan Data`** (Daily Performance Series) | Y | Y | Y | Y | Phase 2 |
 | **`Promosi`** (Discounts & Flash Sales) | Y | Y | Y | Y | Phase 2 |
 | **`BC`** (Broadcast Chat Performance) | Y | — | — | — | Phase 2 |
 | **`Ekspor`** (Destination Country Breakdown) | Y | — | — | — | Phase 2 |
 
 > [!IMPORTANT]
-> **Phase 1 Target:** Focuses exclusively on the four product performance sheets with complete raw exports and verified golden oracle workbooks: `Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`.
+> **Phase 1 Target:** Focuses on the four product performance sheets plus the unreported sheets with complete raw exports and verified golden oracle workbooks: `Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`, and `Tidak Terlaporkan S` / `Tidak Terlaporkan T`. The unreported sheets carry **persisted non-reportable** entries (off-grid variants such as standalone `tidak boleh ecer` / `free gift`, and non-catalog product groups); they are additive and never alter the four Produk sheets.
 
 ---
 
@@ -75,6 +76,22 @@ Each product sheet contains two synchronized tables separated by an empty spacin
 * **Col I (`Revenue`):** Group total revenue via formula: `=SUM(D{start_row}:D{end_row})`.
 * **Col J (`Kontribusi`):** Product group **quantity share** of platform total via formula: `=(H{row}/$H${grand_total_row})*100%`.
 * **Grand Total Row:** Placed immediately below the summary table with `=SUM(H2:H{last_row})` and `=SUM(I2:I{last_row})`.
+
+### 4.1 Unreported Entries Sheet (Tidak Terlaporkan S / T)
+
+Added by the 2026-08-26 scope extension. One sheet per platform batch present in the export (`Tidak Terlaporkan S`, `Tidak Terlaporkan T`), rendered **after** the platform's `Produk` and `Produk 2` sheets. The sheet is a single simple table backed by Query G (`is_reported = 0`) — it has no combinatorial grid and no contribution column:
+
+| Col | Header | Source | Format |
+| :--- | :--- | :--- | :--- |
+| A | `Produk` | `product_group` | text |
+| B | `Nama Variasi` | `clean_variant` | text |
+| C | `Raw Variant` | `raw_variant` (full provenance) | text |
+| D | `Produk Terjual` | `total_qty` | `#,##0` |
+| E | `Revenue` | `total_revenue` | IDR accounting |
+
+- **TOTAL row:** `=SUM(D{start}:D{end})` and `=SUM(E{start}:E{end})` beneath the last data row, styled with the double-bottom accounting border.
+- **Styling:** identical slate palette, header fill, thin borders, and number masks as the Produk sheets.
+- **Boundary:** unreported rows appear **only** here — never in `Produk S/T` or `Produk 2 S/T`, whose queries filter `is_reported = 1`. When a platform batch has no unreported entries, its `Tidak Terlaporkan` sheet is still emitted with only the header + a `0` TOTAL row.
 
 ---
 

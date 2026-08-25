@@ -43,7 +43,7 @@
 +─────────────────────v───────────────────────────────────────────────v───+
 |                        PERSISTENCE LAYER (DB)                           |
 |                      SQLite Engine (app_data.db)                        |
-|  - transaction_items: Atomic labeled granular transaction records       |
+|  - transaction_items: Atomic labeled granular transaction records (with `is_reported` flag separating report-grid rows from persisted non-dash unreported entries)       |
 |  - mapping_templates: SHA-256 header signature cache                    |
 +─────────────────────────────────────────────────────────────────────────+
 ```

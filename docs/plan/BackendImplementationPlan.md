@@ -2,7 +2,7 @@
 
 ## Objective & Target Architecture
 
-Build a deterministic, production-grade Python backend engine for **RAE Smart Report** that ingests raw sales exports (Shopee and TikTok Shop XLSX/CSV), normalizes variant data across 3 dimensions, executes same-shade fold-back arithmetic, persists atomic records into SQLite with $100\%$ financial precision, generates executive multi-table Excel reports across 4 sheets (`Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`), and exposes REST API endpoints via FastAPI.
+Build a deterministic, production-grade Python backend engine for **RAE Smart Report** that ingests raw sales exports (Shopee and TikTok Shop XLSX/CSV), normalizes variant data across 3 dimensions, executes same-shade fold-back arithmetic, persists atomic records into SQLite with $100\%$ financial precision, generates executive multi-table Excel reports across 4 sheets (`Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`) plus per-platform unreported sheets (`Tidak Terlaporkan S` / `Tidak Terlaporkan T`, Phase 7), and exposes REST API endpoints via FastAPI.
 
 ### Architecture Overview
 
@@ -62,7 +62,8 @@ backend/
 ## Execution Rules & Protocols
 
 1. **The STOP Protocol:** Each execution session MUST work on exactly ONE phase. When a phase is completed and its success criteria are proven, execution STOPS. The next phase MUST be initiated in a fresh session to preserve context hygiene.
-2. **Golden-File Scope Boundary:** The target is reproducing the golden report. **Anything the golden workbook does not report is out of scope and is excluded, not reconciled.** This covers dash-variant rows (`clean_variant == '-'`), non-lip-category products (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings), and case colour as a dimension. Excluded volume MUST be counted in an auditable tally so it is reviewable, but it must never reach a report figure. Verified necessity: including the single non-zero dash row would push golden's Tinted Jelly Balm total from 24 to 25 units and break the match. Full raw-export reconciliation is a separate, later concern.
+2. **Golden-File Scope Boundary:** The target is reproducing the golden report. **Anything the golden workbook does not report is out of scope for report figures** and must never reach a report figure. This covers dash-variant rows (`clean_variant == '-'`) and case colour as a dimension. Verified necessity: including the single non-zero dash row would push golden's Tinted Jelly Balm total from 24 to 25 units and break the match. Full raw-export reconciliation is a separate, later concern.
+   - **Phase 7 amendment (DevelopmentFeedback20260826):** non-dash unreported entries — off-grid variant labels (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings) — are **persisted into `transaction_items` with `is_reported = 0`** instead of being excluded. Dash rows remain excluded and are counted in an auditable tally. Persisted unreported volume is reviewable via `GET /api/reports/batches/{id}/unreported` and the `Tidak Terlaporkan S/T` export sheets, but **every report query and the four Produk sheets filter `is_reported = 1`**, so golden totals are byte-identical.
 3. **Case Colour Is Not A Dimension:** Tinted Jelly Balm case colours are SKU metadata. Report totals aggregate by shade across all colours. `case_color` is stored for traceability but must never appear in a reporting `GROUP BY`, and must never expand a grid. Verified: golden reports `Bunny Pink` = 15 units spanning four case colours as ONE row, and all 324 case-colour grid rows in the reference workbook are empty scaffolding.
 4. **No Deviations:** Code must strictly adhere to the verified domain rules (zero LLM math, declarative grid generation, integer IDR, 0-1 unit share, same-shade fold-back).
 5. **Proactive Updates:** If any unforeseen edge case is discovered during execution, stop and discuss before making plan changes.
@@ -306,6 +307,33 @@ backend/
 
 ---
 
+### Phase 7: Persist & Report Unreported Entries [Pending]
+
+**Goal:** Persist non-dash unreported entries — off-grid variants (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups — into `transaction_items` with an `is_reported` flag, surface their qty/revenue through the API, and emit per-platform unreported sheets in the exported workbook, **without moving any golden report figure**. Added from `DevelopmentFeedback20260826.md`; runs before the frontend Phase H/I work.
+
+- [ ] Add `is_reported: bool` (default `True`, indexed) to the `TransactionItem` model.
+- [ ] Idempotent startup migration in `init_db`: `PRAGMA table_info(transaction_items)` check, then `ALTER TABLE ... ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1` when missing so pre-existing DBs treat stored rows as reported.
+- [ ] Rework the `persist_batch` boundary:
+  - Dash/empty-variant rows remain excluded and are tallied (`skipped_dash_variant`).
+  - On-grid rows persist with `is_reported = True`.
+  - Off-grid variants and non-catalog product groups persist with `is_reported = False`.
+  - `PersistResult` gains `inserted_reported` / `persisted_unreported` (with off-grid / unresolved sub-tallies); the combined `skipped_unreported` aggregate is retired.
+- [ ] Report-boundary guards: Queries A, B, C, D and the grid left-join template add `is_reported = 1` so the Produk workbook, batch `grandTotal*`, the aggregate endpoint, and golden totals stay byte-identical (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
+- [ ] New **Query G (unreported breakdown):** per `(product_group, clean_variant, raw_variant)` totals (`total_qty`, `total_revenue`) with `WHERE import_batch_id = :batch_id AND is_reported = 0`.
+- [ ] API: `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`; `TransformResponseDTO` gains `unreportedCount` / `unreportedQty` / `unreportedRevenue`; `skipped*` fields are now documented as dash-only.
+- [ ] Exporter: `render_unreported_sheet` (single table: `Produk` | `Nama Variasi` | `Raw Variant` | `Produk Terjual` | `Revenue` + TOTAL row, same slate palette and number masks) emitting `Tidak Terlaporkan S` / `Tidak Terlaporkan T` for each platform batch present in the export; the four Produk sheets are untouched.
+- [ ] Tests:
+  - Rewrite `test_skipped_unreported_tally`: 167 Shopee dash rows still skipped; 13 Shopee unresolved + 1 TikTok off-grid row now **persisted** as unreported.
+  - Assert Queries A/B/C/D + aggregate + Produk grid exclude unreported rows (golden figures unchanged).
+  - Query G returns the expected unreported rows; export contains the `Tidak Terlaporkan S/T` sheets with the unreported rows and none in Produk sheets.
+  - Update the R1 reconciliation invariant: `reported grid qty + unreported persisted qty + dash-skipped qty == raw record qty`.
+
+**Success Criteria:**
+- `pytest backend/tests/` passes with all tests green; golden totals unchanged.
+- Unreported rows are persisted (never silently dropped), retrievable via the endpoint, present in the `Tidak Terlaporkan S/T` sheets, and absent from the four Produk sheets.
+
+---
+
 ## Verification Plan
 
 ### Automated Tests
@@ -348,8 +376,8 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
     - Validated exact matching of golden report numbers (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817).
   - **Full Backend Suite:** 193 passed in ~11.2s across all 8 test modules (`test_numeric.py`, `test_domain_catalog.py`, `test_ingestion.py`, `test_transformer.py`, `test_storage.py`, `test_exporter.py`, `test_api.py`, `test_fixtures.py`).
 - **What is next:** 
-  - Backend implementation is complete and sealed.
-  - Next milestone: Frontend SPA development (React + TypeScript + Vite) connecting to the verified FastAPI REST endpoints.
+  - **Phase 7 (Persist & Report Unreported Entries)** — added from `DevelopmentFeedback20260826.md`: persist non-dash unreported entries (`tidak boleh ecer`, `free gift`, off-grid variants, non-catalog products) into `transaction_items` with `is_reported = 0`, guard every report query with `is_reported = 1`, add `GET /api/reports/batches/{id}/unreported`, and emit `Tidak Terlaporkan S/T` export sheets.
+  - After Phase 7: frontend **Phase H (Unreported Entries display)** then **Phase I (Integration & Packaging)** per `FrontendDevelopmentPlan.md`.
 - **Artifacts:**
   - Plan: [BackendImplementationPlan.md](BackendImplementationPlan.md)
   - Skill references: `.agents/skills/fullstack-bridge-contract/`, `.agents/skills/pyinstaller-packaging-guardian/`, `.agents/skills/rae-report-template/SKILL.md`

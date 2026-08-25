@@ -488,9 +488,9 @@ def test_export_excel_streams_workbook(client):
         resp.headers["content-type"]
         == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    assert "rae_smart_report_20260713_20260719.xlsx" in resp.headers[
-        "content-disposition"
-    ]
+    # The exported filename derives from the source import batch id(s).
+    expected_name = "_".join(sorted([shopee_batch_id, tiktok_batch_id])) + ".xlsx"
+    assert expected_name in resp.headers["content-disposition"]
 
     sums = _sheet_qty_sums(resp.content)
     assert list(sums) == ["Produk S", "Produk T", "Produk 2 S", "Produk 2 T"]

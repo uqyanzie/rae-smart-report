@@ -64,6 +64,17 @@ class TransactionItem(Base):
     clean_variant = Column(String(255), nullable=False, index=True)  # e.g. "Active", "Brave"
     is_bundling = Column(Boolean, default=False, nullable=False)
     is_cross_bundling = Column(Boolean, default=False, nullable=False, index=True)  # Bundling Silang
+    # Report boundary (2026-08-26 scope extension). True when the record
+    # participates in the workbook report grids: Queries A-D and the grid
+    # left-join filter on `is_reported = 1`. False for persisted NON-DASH
+    # unreported entries -- off-grid variants (standalone 'tidak boleh ecer',
+    # 'free gift', etc.) and non-catalog product groups (Body Toner, Face
+    # Toner, Lippie Serum, Blurring Powder, deleted listings) -- which are
+    # stored for traceability, surfaced via Query G and the 'Tidak Terlaporkan
+    # S/T' export sheets, but never reach a report figure. Dash/empty-variant
+    # rows are NOT persisted at all; they are excluded at the boundary and
+    # tallied (skipped_dash_variant).
+    is_reported = Column(Boolean, default=True, nullable=False, index=True)
     # SKU-level provenance ONLY: Tinted Jelly Balm ships in a coloured case
     # ("Fizzy Pop", "Sweetie Pop", "Cherry Pop", "Buttered Yellow",
     # "Matcha Strawberry", and any future colour). NULL for every other family.
@@ -102,11 +113,26 @@ class MappingTemplate(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 ```
 
+### 3.1 Persistence Boundary (`is_reported`)
+
+`persist_batch` classifies every normalized record into one of three paths:
+
+| Record class | Example | Action |
+| :--- | :--- | :--- |
+| **Reported (on-grid)** | `Glow Up Tint -> Dynamic` | Persist with `is_reported = True` |
+| **Unreported (off-grid)** | standalone `tidak boleh ecer`, `free gift`, non-catalog groups (Body Toner, ...) | Persist with `is_reported = False` |
+| **Dash / empty variant** | `clean_variant == '-'` (parent summaries) | **Not persisted**; counted in the `skipped_dash_variant` tally |
+
+Every report query (A/B/C/D and the grid left-join) filters `is_reported = 1`, so unreported volume can never reach a report figure or the four Produk sheets. The returned `PersistResult` carries `inserted_reported`, `persisted_unreported` (with off-grid / unresolved sub-tallies) and `skipped_dash_variant`.
+
+> [!IMPORTANT]
+> **Startup migration:** `init_db` runs an idempotent `PRAGMA table_info(transaction_items)` check and issues `ALTER TABLE ... ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1` when the column is missing, so pre-existing databases treat stored rows as reported.
+
 ---
 
 ## 4. SQL Analytics & Aggregation Catalog
 
-All metrics are computed dynamically using parameter-bound SQL queries executed against `transaction_items`.
+All metrics are computed dynamically using parameter-bound SQL queries executed against `transaction_items`. Every **report** query (A/B/C/D) and the grid left-join filters `is_reported = 1` so persisted unreported entries never reach a report figure; only Query G reads `is_reported = 0`.
 
 ### Query A: Variant-Level Performance & Contribution (Populates Table 1)
 Calculates units sold, total revenue, and the **quantity-share contribution ratio (0–1 scale)** of each variant relative to its master product group:
@@ -118,6 +144,7 @@ WITH product_totals AS (
         SUM(qty_sold) AS total_product_qty
     FROM transaction_items
     WHERE import_batch_id = :batch_id
+      AND is_reported = 1
     GROUP BY product_group
 )
 SELECT 
@@ -135,6 +162,7 @@ SELECT
 FROM transaction_items t
 JOIN product_totals pt ON t.product_group = pt.product_group
 WHERE t.import_batch_id = :batch_id
+  AND t.is_reported = 1
 GROUP BY t.product_group, t.clean_variant, t.is_bundling, t.is_cross_bundling, pt.total_product_qty
 ORDER BY t.product_group ASC, t.is_bundling ASC, total_revenue DESC;
 ```
@@ -147,6 +175,7 @@ WITH grand_total AS (
     SELECT SUM(qty_sold) AS grand_qty
     FROM transaction_items 
     WHERE import_batch_id = :batch_id
+      AND is_reported = 1
 )
 SELECT 
     product_group,
@@ -159,6 +188,7 @@ SELECT
     END AS contribution_ratio
 FROM transaction_items
 WHERE import_batch_id = :batch_id
+  AND is_reported = 1
 GROUP BY product_group
 ORDER BY total_revenue DESC;
 ```
@@ -176,6 +206,7 @@ SELECT
     SUM(revenue) AS grand_total_revenue,
     MIN(created_at) AS created_at
 FROM transaction_items
+WHERE is_reported = 1
 GROUP BY import_batch_id, platform
 ORDER BY created_at DESC;
 ```
@@ -184,6 +215,22 @@ ORDER BY created_at DESC;
 Deletes all records associated with a specific batch ID atomically:
 ```sql
 DELETE FROM transaction_items WHERE import_batch_id = :batch_id;
+```
+
+### Query G: Unreported Breakdown (2026-08-26 scope extension)
+Returns persisted **non-reportable** entries for a batch — off-grid variants (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups — aggregated per `(product_group, clean_variant, raw_variant)`. `is_reported` is always `0`; rows carry their raw variant label for full provenance:
+```sql
+SELECT 
+    rtrim(product_group) AS product_group,
+    clean_variant,
+    raw_variant,
+    SUM(qty_sold) AS total_qty,
+    SUM(revenue) AS total_revenue
+FROM transaction_items
+WHERE import_batch_id = :batch_id
+  AND is_reported = 0
+GROUP BY rtrim(product_group), clean_variant, raw_variant
+ORDER BY total_qty DESC, total_revenue DESC;
 ```
 
 ### Query E: Mapping Template Lookup
@@ -235,4 +282,12 @@ class BatchSummaryDTO(BaseDTO):
     grand_total_qty: int
     grand_total_revenue: float
     created_at: datetime
+
+class UnreportedVariantDTO(BaseDTO):
+    # Persisted non-reportable entry (Query G, is_reported == 0).
+    product_group: str
+    clean_variant: str
+    raw_variant: str
+    total_qty: int
+    total_revenue: int
 ```

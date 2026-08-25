@@ -71,6 +71,17 @@ export interface ProductSummaryDTO {
   contributionRatio: number; // 0-1 unit share
 }
 
+export interface UnreportedVariantDTO {
+  // Persisted non-reportable entry (Query G, is_reported = 0): off-grid
+  // variants (standalone 'tidak boleh ecer', 'free gift') and non-catalog
+  // product groups. Never appears in report queries or the Produk sheets.
+  productGroup: string;
+  cleanVariant: string;
+  rawVariant: string;
+  totalQty: number;
+  totalRevenue: number;
+}
+
 export interface AggregateRowDTO {
   platform: string;
   productGroup: string;
@@ -105,8 +116,15 @@ export interface TransformResponseDTO extends BatchMetaDTO {
   reportedTotalQty: number;
   reportedTotalRevenue: number;
   insertedCount: number;
+  // Dash-row-only excluded volume tally (parent summaries). May be non-zero
+  // for valid files -- surface it as informational, not an error.
   skippedCount: number;
   skippedQty: number;
   skippedRevenue: number;
+  // Persisted non-reportable entries (off-grid variants, non-catalog
+  // products); never part of a report figure.
+  unreportedCount: number;
+  unreportedQty: number;
+  unreportedRevenue: number;
   warningCount: number;
 }

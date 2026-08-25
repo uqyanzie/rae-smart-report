@@ -60,6 +60,10 @@ Variant strings undergo multi-pass cleaning and canonical alias resolution:
 ### 3.4 Unmapped Token Safety Guarantee
 - Any token that cannot be resolved against the authoritative product catalog and alias maps MUST be surfaced as an **unmapped token warning** in the transformation result. Tokens must **never** be silently discarded, dropped, or hallucinated, as that would cause revenue to vanish.
 
+### 3.5 Unreported Entry Preservation (2026-08-26)
+- Non-dash records whose resolved variant is absent from the catalog grid — e.g. standalone `tidak boleh ecer`, `free gift`, and non-catalog product groups (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings) — are **preserved** and tagged `is_reported = False` at the persistence boundary. They remain queryable (Query G) and are exported only to the `Tidak Terlaporkan S/T` sheets; report queries filter them out.
+- Only dash/empty-variant parent rows (`clean_variant == '-'`) are eliminated before persistence and counted in the `skipped_dash_variant` tally.
+
 ---
 
 ## 4. Same-Shade 2-Pack Fold-Back Rule
@@ -109,4 +113,12 @@ class LabeledTransactionRecord(BaseModel):
     qty_sold: int
     revenue: int  # exact integer IDR, matching BigInteger storage
     unit_multiplier: int = 1
+    # Report boundary (2026-08-26 scope extension). True = participates in the
+    # workbook report grids. False = a persisted NON-DASH unreported entry:
+    # an off-grid variant label (standalone 'tidak boleh ecer', 'free gift',
+    # etc.) or a non-catalog product group. Never used in a report figure.
+    is_reported: bool = True
 ```
+
+> [!IMPORTANT]
+> **Unreported Entry Preservation (2026-08-26):** non-dash records that resolve to no catalog grid row — standalone `tidak boleh ecer`, `free gift`, and non-catalog product groups — are **preserved, not dropped**. They persist into `transaction_items` with `is_reported = False` for traceability and are surfaced via Query G / the `Tidak Terlaporkan S/T` export sheets, but they never participate in report aggregation (all report queries filter `is_reported = 1`). Only dash/empty-variant rows (`clean_variant == '-'`) are eliminated at the persistence boundary, and they are counted in the `skipped_dash_variant` tally.

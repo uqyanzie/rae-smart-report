@@ -34,6 +34,17 @@ The former **Phase F (Integration & Packaging)** is renamed **Phase H** and now 
 
 ---
 
+## 2026-08-26 Scope Extension (DevelopmentFeedback20260826.md)
+
+New feedback supersedes the persist boundary of `BackendImplementationPlan.md` Rule 2 and adds a feature phase that must run **before** Integration & Packaging:
+
+1. **Persist unreported non-dash entries** (`tidak boleh ecer`, `free gift`, off-grid variants, non-catalog products) into `transaction_items` with an `is_reported` flag, and surface their qty/revenue on `HomePage` and batch data display. Backend implementation is **Phase 7** of `BackendImplementationPlan.md`.
+2. **New Phase H (Unreported Entries)** is inserted before the packaging milestone; the packaging milestone is **renamed Phase I** and runs last so the packaged smoke test exercises the unreported display and export sheets.
+
+The golden boundary is preserved: every report query and the four Produk sheets filter `is_reported = 1`; unreported volume appears only via the new endpoint, the dashboard/batch display, and the `Tidak Terlaporkan S/T` export sheets.
+
+---
+
 ## Phase A: Backend Contract Reconciliation & Completion [Complete]
 
 **Goal:** Eliminate the remaining contract gaps so the frontend never has to chase a moving API.
@@ -193,37 +204,62 @@ The former **Phase F (Integration & Packaging)** is renamed **Phase H** and now 
 
 ---
 
-## Phase H: Integration & Packaging [Pending]
+## Phase H: Unreported Entries (Persistence & Display) [Pending]
 
-**Goal:** Ship a single desktop executable bundling the SPA with the backend (PyInstaller). Renamed from the former Phase F; now runs after the Phase F/G feature work so the packaged smoke test exercises the new display and dashboard.
+**Goal:** Implement the `DevelopmentFeedback20260826.md` scope extension — persist non-dash unreported entries and show their qty/revenue on `HomePage` and batch data display. Covers backend **Phase 7** of `BackendImplementationPlan.md` plus the frontend wiring. Runs before Integration & Packaging.
+
+**Backend (Phase 7 — see `BackendImplementationPlan.md`):**
+- [ ] `is_reported: bool` column on `transaction_items` + idempotent startup migration in `init_db`.
+- [ ] `persist_batch` boundary: dash/empty rows stay excluded (`skipped_dash_variant`); off-grid variants and non-catalog groups persist with `is_reported = 0`.
+- [ ] Report guards: Queries A/B/C/D + grid left-join filter `is_reported = 1` (golden totals fixed).
+- [ ] `GET /api/reports/batches/{batch_id}/unreported` → `UnreportedVariantDTO[]`; `TransformResponseDTO` gains `unreportedCount` / `unreportedQty` / `unreportedRevenue`.
+- [ ] Exporter `render_unreported_sheet` → `Tidak Terlaporkan S` / `Tidak Terlaporkan T` sheets.
+
+**Frontend (dashboard + batch display):**
+- [ ] Regenerate `frontend/src/services/api.ts` via `npm run generate:api` (new endpoint + DTO + transform fields).
+- [ ] `apiClient.batchUnreported(batchId)` typed method.
+- [ ] `HomePage`: "Unreported" summary card (qty + revenue) for the selected batch plus a row-level detail list (product group / variant / raw variant / qty / revenue).
+- [ ] `BatchDetailPage`: unreported totals + detail list; update the audit-card copy so `skipped*` reads "dash rows only" and unreported is described as persisted-but-unreported.
+- [ ] `npm run typecheck`, `npm run lint`, `npm run build` clean.
+
+**Success Criteria:**
+- Unreported qty/revenue render correctly on `HomePage` and `BatchDetailPage` for the sample batches (13 Shopee unresolved + 1 TikTok off-grid persisted rows).
+- Golden totals stay fixed; the four Produk workbook sheets contain no unreported rows while the `Tidak Terlaporkan S/T` sheets do.
+- No regression in BatchDetail / Export / dashboard flows.
+
+---
+
+## Phase I: Integration & Packaging [Pending]
+
+**Goal:** Ship a single desktop executable bundling the SPA with the backend (PyInstaller). Renamed from the former Phase H; now runs **last** so the packaged smoke test exercises the new batch dashboard, the unreported display, and the `Tidak Terlaporkan S/T` export sheets.
 
 - [ ] Configure PyInstaller with the SPA build copied into the bundle; verify `sys._MEIPASS` asset resolution and the writable DB path fallback per the `@pyinstaller-packaging-guardian` skill.
 - [ ] Automated browser launch on start (skill-configured), hidden console, and clean shutdown.
-- [ ] End-to-end smoke test on a clean machine: launch → upload sample `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → export → open workbook (golden display).
+- [ ] End-to-end smoke test on a clean machine: launch → upload sample `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open workbook (golden display + `Tidak Terlaporkan S/T` sheets).
 
 **Success Criteria:**
-- The packaged `.exe` serves the SPA (including the new batch dashboard), persists to `%LOCALAPPDATA%/RAESmartReport`, and reproduces the golden workbook from the sample files.
+- The packaged `.exe` serves the SPA (including the new batch dashboard and unreported display), persists to `%LOCALAPPDATA%/RAESmartReport`, and reproduces the golden workbook from the sample files plus the unreported sheets.
 
 ---
 
 ## Verification Plan
 
 ```powershell
-# Backend (Phases A)
+# Backend (Phases A + backend Phase 7)
 pytest backend/tests/ -v
 ruff check backend/
 
-# Frontend (Phases B–G)
+# Frontend (Phases B–H)
 cd frontend
-npm run generate:api   # re-run after Phase G backend changes to pick up isBundling
+npm run generate:api   # re-run after backend changes to pick up isBundling + unreported endpoint
 npm run typecheck
 npm run build
 
-# Packaging (Phase H)
+# Packaging (Phase I)
 pyinstaller packaging.spec   # then launch the produced .exe
 ```
 
-Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817), and the R1 reconciliation invariant must hold (`grid qty + skipped qty == persisted qty` for both platforms).
+Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817), and the R1 reconciliation invariant must hold per platform: `reported grid qty + unreported persisted qty + dash-skipped qty == raw record qty` (the 2026-08-26 extension moved off-grid/non-catalog rows from the skipped bucket into the persisted-unreported partition).
 
 ---
 
@@ -231,6 +267,7 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 - **Current Phase:** Phase G (Batch-Scoped Dashboard Redesign) — **complete**.
 - **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (the final milestone, runs after F/G). Per the STOP protocol, the next session starts the final **Phase H**. This Handoff Brief will be updated again at the end of each phase.
+- **2026-08-26 Scope extension applied:** `DevelopmentFeedback20260826.md` adds **Phase H (Unreported Entries)** — persist non-dash unreported entries (`tidak boleh ecer`, `free gift`, off-grid variants, non-catalog products) into `transaction_items` with `is_reported = 0`, show their qty/revenue on `HomePage` and batch data display, and emit `Tidak Terlaporkan S/T` export sheets. The packaging milestone is **renamed Phase I** and now runs **after** the unreported work so the packaged smoke test exercises it. Backend implementation is Phase 7 of `BackendImplementationPlan.md`; golden figures stay fixed because every report query filters `is_reported = 1`.
 - **Done so far (Phase G):**
   - **Backend `isBundling` filter:** `backend/app/modules/storage/repository.py` — `variant_analytics` (Query A) and `product_group_summary` (Query B) accept `is_bundling: bool | int | None = None`; both SQL CTEs (`product_totals` / `grand_total`) **and** the outer WHERE apply `(:is_bundling IS NULL OR is_bundling = :is_bundling)` so `contribution_ratio` is computed within the selected partition. New `_coerce_bundling_flag` normalizes the binding. `backend/app/api/routes.py` — `is_bundling: int | None = Query(default=None, alias="isBundling")` added to `GET /variants` and `GET /products`.
   - **API client regen:** `frontend/src/services/api.ts` regenerated from the live `/openapi.json` (now exposes `isBundling?: number | null`); `apiClient.batchVariants`/`batchProducts` gained an optional `isBundling` param (`is_cross_bundling` stays `snake_case` on the wire; `isBundling` is the camelCase alias).
@@ -243,7 +280,8 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
     - Bridge doc `.agents/skills/fullstack-bridge-contract/references/api_endpoints.md` updated with the `isBundling` query param on both endpoints.
   - **No regression** in existing BatchDetail (`useBatchDetail`/`BatchDetailPage`) or Export flows — their endpoint call shapes are unchanged (they pass only `is_cross_bundling`).
 - **What is next (fresh session):**
-  1. Phase H (Integration & Packaging) — the final milestone: PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, hidden console, clean shutdown, and the clean-machine smoke test reproducing the golden workbook from the sample files (launch → upload `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → export → open the workbook).
+  1. **Phase H (Unreported Entries)** — backend Phase 7 of `BackendImplementationPlan.md` (`is_reported` column + migration, persist boundary, `is_reported = 1` report guards, `GET /api/reports/batches/{id}/unreported`, `Tidak Terlaporkan S/T` export sheets) plus the frontend: regenerate `api.ts`, `apiClient.batchUnreported`, `HomePage` unreported card + detail list, `BatchDetailPage` unreported totals/list, and audit-card copy update.
+  2. **Phase I (Integration & Packaging)** — the final milestone: PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, hidden console, clean shutdown, and the clean-machine smoke test reproducing the golden workbook from the sample files (launch → upload `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open the workbook incl. `Tidak Terlaporkan S/T`).
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`
