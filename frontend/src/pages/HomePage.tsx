@@ -253,7 +253,7 @@ export default function HomePage() {
 
       {selectedBatchId && batches.length > 0 && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs font-medium text-slate-500">Variant rows</p>
               <p className="mt-1 text-lg font-semibold text-slate-800">
@@ -270,6 +270,12 @@ export default function HomePage() {
               <p className="text-xs font-medium text-indigo-600">Total revenue</p>
               <p className="mt-1 text-lg font-semibold text-indigo-800">
                 {formatCurrency(totalRevenue)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-stone-400 bg-amber-50 p-4">
+              <p className="text-xs font-medium text-slate-500">Unreported revenue</p>
+              <p className="mt-1 text-lg font-semibold text-slate-800">
+                {formatCurrency(unreportedTotals.revenue)}
               </p>
             </div>
           </div>

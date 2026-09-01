@@ -188,6 +188,8 @@ def test_produk_group_order_contains_16_groups():
         ("wildmauv", "Tinted Jelly Balm", "Wild Mauve"),
         ("hiprose", "Tinted Jelly Balm", "Hippie Rose"),
         ("nudy", "Tinted Jelly Balm", "Nudy Caramel"),
+        ("nudcaramel", "Tinted Jelly Balm", "Nudy Caramel"),
+        ("nudcara", "Tinted Jelly Balm", "Nudy Caramel"),
         ("spill", "Tinted Jelly Balm", "Spill Nude"),
         ("red", "Tinted Jelly Balm", "Red Babe"),
         ("ambition", "Power Frosted Velvet Matte", "Ambition Power"),

@@ -132,6 +132,8 @@ _TJB_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
         "hiprose": "Hippie Rose",
         "hip rose": "Hippie Rose",
         "nudycaramel": "Nudy Caramel",
+        "nudcaramel": "Nudy Caramel",
+        "nudcara": "Nudy Caramel",
         "nudy": "Nudy Caramel",
         "spillnude": "Spill Nude",
         "spill": "Spill Nude",

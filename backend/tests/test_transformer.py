@@ -137,6 +137,37 @@ class TestVariantNormalizer:
         assert rec.is_bundling is True
         assert rec.is_cross_bundling is False
 
+    def test_normalize_tjb_bundle_nudy_aliases(self, normalizer: VariantNormalizer) -> None:
+        """TJB bundle variants using 'NudCara'/'NudCaramel' for 'Nudy Caramel'
+        must resolve to the full two-shade grid label instead of degrading to a
+        single-shade row in the unreported sheet (alias drift from the skill
+        reference catalog)."""
+        title = (
+            "[NEW CASE LAUNCHING] Bundling Raecca Tinted Jelly Balm - "
+            "Rekomendasi Lipbalm Melembabkan Bibir Kering #1stLipSpecialist"
+        )
+        cases = [
+            ("Wild Mauve + NudCara,Fizzy + Sweetie", "Wild Mauve + Nudy Caramel"),
+            ("BunPink + NudCaramel,Fizzy + Cherry", "Bunny Pink + Nudy Caramel"),
+            ("NudCara + Red Babe,Fizzy + Cherry", "Nudy Caramel + Red Babe"),
+        ]
+        for raw_variant, expected in cases:
+            raw = RawRecord(
+                platform="SHOPEE",
+                product_title=title,
+                raw_variant=raw_variant,
+                qty_sold=1,
+                revenue=97500,
+            )
+            rec, warn, is_foldback = normalizer.normalize_single(raw)
+            assert warn is None, raw_variant
+            assert is_foldback is False
+            assert rec is not None
+            assert rec.product_group == "Bundling Tinted Jelly Balm"
+            assert rec.clean_variant == expected
+            assert rec.is_bundling is True
+            assert rec.is_cross_bundling is False
+
     def test_normalize_same_shade_detection(self, normalizer: VariantNormalizer) -> None:
         raw = RawRecord(
             platform="SHOPEE",
