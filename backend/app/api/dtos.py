@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.modules.profiler.fallback import CamelModel, ParentRowIgnoreCondition
 
@@ -97,19 +97,25 @@ class ProfileRequestDTO(CamelModel):
 class TransformAndSaveRequestDTO(CamelModel):
     """Body for the transform-and-save pipeline.
 
-    ``period_start`` / ``period_end`` are optional ISO dates supplied by the
+    ``period_start`` / ``period_end`` are required ISO dates supplied by the
     user; the route expands them to day-bounded datetimes for persistence.
     """
 
     file_id: str
     active_sheet: str | None = None
     platform: str
-    period_start: date | None = None
-    period_end: date | None = None
+    period_start: date
+    period_end: date
     column_mapping: ColumnMappingDTO
     parent_row_rule: ParentRowRuleDTO | None = None
     cleaning_rules: list[CleaningRuleDTO] = Field(default_factory=list)
     save_as_template: bool = True
+
+    @model_validator(mode="after")
+    def _period_range_must_be_ordered(self) -> TransformAndSaveRequestDTO:
+        if self.period_end < self.period_start:
+            raise ValueError("periodEnd must be on or after periodStart")
+        return self
 
 
 class VariantPerformanceDTO(CamelModel):

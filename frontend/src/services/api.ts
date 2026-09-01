@@ -418,7 +418,7 @@ export interface components {
          * TransformAndSaveRequestDTO
          * @description Body for the transform-and-save pipeline.
          *
-         *     ``period_start`` / ``period_end`` are optional ISO dates supplied by the
+         *     ``period_start`` / ``period_end`` are required ISO dates supplied by the
          *     user; the route expands them to day-bounded datetimes for persistence.
          */
         TransformAndSaveRequestDTO: {
@@ -429,9 +429,9 @@ export interface components {
             /** Platform */
             platform: string;
             /** Periodstart */
-            periodStart?: string | null;
+            periodStart: string;
             /** Periodend */
-            periodEnd?: string | null;
+            periodEnd: string;
             columnMapping: components["schemas"]["ColumnMappingDTO"];
             parentRowRule?: components["schemas"]["ParentRowRuleDTO"] | null;
             /** Cleaningrules */

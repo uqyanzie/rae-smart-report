@@ -271,6 +271,52 @@ def test_transform_tiktok_golden_totals(client, raw_tts_path):
     tiktok_batch_id = resp["importBatchId"]
 
 
+def test_transform_requires_reporting_period(client, raw_shopee_path):
+    """The reporting period is mandatory: a transform request without
+    ``periodStart`` / ``periodEnd`` must be rejected as unprocessable."""
+    file_id = _ingest(client, raw_shopee_path)
+    profile = _profile(client, file_id)
+
+    payload = {
+        "fileId": file_id,
+        "platform": profile["platform"],
+        "columnMapping": profile["columnMapping"],
+        "parentRowRule": profile["parentRowRule"],
+        "cleaningRules": profile["suggestedCleaningRules"],
+        "saveAsTemplate": True,
+    }
+    resp = client.post("/api/transform", json=payload)
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["code"] == "VALIDATION_ERROR"
+    fields = {entry["loc"][-1] for entry in body["details"]}
+    assert {"periodStart", "periodEnd"} <= fields
+
+
+def test_transform_rejects_reversed_period(client, raw_shopee_path):
+    """A period whose start is after its end must be rejected."""
+    file_id = _ingest(client, raw_shopee_path)
+    profile = _profile(client, file_id)
+
+    payload = {
+        "fileId": file_id,
+        "platform": profile["platform"],
+        "periodStart": PERIOD_END,
+        "periodEnd": PERIOD_START,
+        "columnMapping": profile["columnMapping"],
+        "parentRowRule": profile["parentRowRule"],
+        "cleaningRules": profile["suggestedCleaningRules"],
+        "saveAsTemplate": True,
+    }
+    resp = client.post("/api/transform", json=payload)
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["code"] == "VALIDATION_ERROR"
+    assert "periodEnd must be on or after periodStart" in resp.text
+
+
 def test_profile_returns_cached_template(client, raw_shopee_path):
     """After transform saved a template, re-profiling the same headers is cached."""
     file_id = _ingest(client, raw_shopee_path)
@@ -598,6 +644,8 @@ def test_transform_missing_required_columns_422(client):
     payload = {
         "fileId": file_id,
         "platform": "SHOPEE",
+        "periodStart": PERIOD_START,
+        "periodEnd": PERIOD_END,
         "columnMapping": {
             "productGroup": "Produk",
             "rawVariant": "Nama Variasi",
@@ -633,6 +681,8 @@ def test_transform_same_shade_triple_422(client):
     payload = {
         "fileId": file_id,
         "platform": "SHOPEE",
+        "periodStart": PERIOD_START,
+        "periodEnd": PERIOD_END,
         "columnMapping": {
             "productGroup": "Produk",
             "rawVariant": "Nama Variasi",
@@ -655,6 +705,8 @@ def test_transform_unknown_file_id_404(client):
     payload = {
         "fileId": "no-such-upload",
         "platform": "SHOPEE",
+        "periodStart": PERIOD_START,
+        "periodEnd": PERIOD_END,
         "columnMapping": {
             "productGroup": "Produk",
             "rawVariant": "Nama Variasi",

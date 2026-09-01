@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { components } from '../services/api'
+import { transformRequestSchema } from '../utils/validation'
 import PeriodPicker from './PeriodPicker'
 
 type Ingestion = components['schemas']['IngestionResultDTO']
@@ -10,7 +11,7 @@ type ParentRowIgnoreCondition = components['schemas']['ParentRowIgnoreCondition'
 type ParentRowRuleDTO = components['schemas']['ParentRowRuleDTO']
 type TransformAndSaveRequestDTO = components['schemas']['TransformAndSaveRequestDTO']
 
-const KNOWN_PLATFORMS = ['SHOPEE', 'TIKTOK_SHOP'] as const
+const KNOWN_PLATFORMS = ['SHOPEE', 'TIKTOK_SHOP', 'TOKOPEDIA'] as const
 
 const MAPPING_FIELDS: { key: keyof ColumnMappingDTO; label: string; required: boolean }[] = [
   { key: 'productGroup', label: 'Product group', required: true },
@@ -74,38 +75,26 @@ export default function MappingEditor({
   }
 
   function buildPayload(): TransformAndSaveRequestDTO | null {
-    const problems: string[] = []
-    if (!KNOWN_PLATFORMS.includes(platform as (typeof KNOWN_PLATFORMS)[number])) {
-      problems.push('Select a platform (SHOPEE or TIKTOK_SHOP).')
-    }
-    for (const field of MAPPING_FIELDS) {
-      if (field.required && !mapping[field.key]?.trim()) {
-        problems.push(`${field.label} is required.`)
-      }
-    }
-    if (parentEnabled && !parentRule.targetColumn.trim()) {
-      problems.push('Parent-row rule needs a target column.')
-    }
-    for (const rule of cleaningRules) {
-      if (!rule.pattern.trim()) {
-        problems.push('Cleaning rule pattern cannot be empty.')
-        break
-      }
-    }
-    setErrors(problems)
-    if (problems.length > 0) return null
-
-    return {
+    const candidate = {
       fileId: ingest.fileId,
       activeSheet,
       platform,
-      periodStart: periodStart || undefined,
-      periodEnd: periodEnd || undefined,
+      periodStart,
+      periodEnd,
       columnMapping: mapping,
       parentRowRule: parentEnabled ? parentRule : null,
       cleaningRules,
       saveAsTemplate: true,
     }
+
+    const result = transformRequestSchema.safeParse(candidate)
+    if (!result.success) {
+      setErrors(result.error.issues.map((issue) => issue.message))
+      return null
+    }
+
+    setErrors([])
+    return candidate
   }
 
   function handlePrimaryClick() {

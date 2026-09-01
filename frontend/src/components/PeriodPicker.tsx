@@ -12,12 +12,28 @@ export default function PeriodPicker({ start, end, onStartChange, onEndChange }:
   return (
     <div className="flex flex-wrap items-end gap-3">
       <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-        Period start
-        <input type="date" className={inputClass} value={start} onChange={(e) => onStartChange(e.target.value)} />
+        <span>
+          Period start<span className="ml-0.5 text-red-500">*</span>
+        </span>
+        <input
+          type="date"
+          required
+          className={inputClass}
+          value={start}
+          onChange={(e) => onStartChange(e.target.value)}
+        />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-        Period end
-        <input type="date" className={inputClass} value={end} onChange={(e) => onEndChange(e.target.value)} />
+        <span>
+          Period end<span className="ml-0.5 text-red-500">*</span>
+        </span>
+        <input
+          type="date"
+          required
+          className={inputClass}
+          value={end}
+          onChange={(e) => onEndChange(e.target.value)}
+        />
       </label>
     </div>
   )

@@ -37,7 +37,7 @@ from app.modules.exporter.styles import (
     FORMAT_PERCENTAGE,
 )
 from app.modules.ingestion.reader import extract_spreadsheet_rows
-from app.modules.profiler.adapters import ShopeeAdapter, TikTokShopAdapter
+from app.modules.profiler.adapters import ShopeeAdapter, TikTokShopAdapter, TokopediaAdapter
 from app.modules.storage import AnalyticsRepository
 from app.modules.storage.database import init_db, session_scope
 from app.modules.transformer import (
@@ -49,6 +49,14 @@ PERIOD_START = datetime(2026, 7, 13)
 PERIOD_END = datetime(2026, 7, 19, 23, 59, 59)
 BATCH_SHOPEE = "SHOPEE-2026-07-13-19"
 BATCH_TIKTOK = "TIKTOK-2026-07-13-19"
+
+# Tokopedia reference batch (raw_tp_1_31_Aug26.xlsx) and its reported-boundary
+# golden totals (grid-intersected, is_reported = 1, non-cross).
+BATCH_TOKOPEDIA = "TOKOPEDIA-2026-08-01-31"
+TP_PERIOD_START = datetime(2026, 8, 1)
+TP_PERIOD_END = datetime(2026, 8, 31, 23, 59, 59)
+GOLDEN_TOKOPEDIA_QTY = 760
+GOLDEN_TOKOPEDIA_REVENUE = 30_070_377
 
 # Golden totals (from fixtures/golden_totals.json)
 GOLDEN_SHOPEE_QTY = 6_910
@@ -94,6 +102,26 @@ def shopee_result(raw_shopee_path):
 def tiktok_result(raw_tts_path):
     _, raw_rows = extract_spreadsheet_rows(raw_tts_path)
     return transform_records(TikTokShopAdapter().adapt(raw_rows))
+
+
+@pytest.fixture(scope="module")
+def tokopedia_result(raw_tp_path):
+    _, raw_rows = extract_spreadsheet_rows(raw_tp_path)
+    return transform_records(TokopediaAdapter().adapt(raw_rows))
+
+
+@pytest.fixture(scope="module")
+def tokopedia_batch(factory, tokopedia_result):
+    """Persists the Tokopedia reference batch once; returns the PersistResult."""
+    with session_scope(factory) as session:
+        repo = AnalyticsRepository(session)
+        return repo.persist_batch(
+            BATCH_TOKOPEDIA,
+            "TOKOPEDIA",
+            TP_PERIOD_START,
+            TP_PERIOD_END,
+            tokopedia_result.records,
+        )
 
 
 @pytest.fixture(scope="module")
@@ -143,6 +171,16 @@ def populated(factory, persisted, grids):
                 BATCH_TIKTOK, is_cross_bundling=1, grid=grids["produk2"]
             ),
         }
+
+
+@pytest.fixture(scope="module")
+def populated_tp(factory, tokopedia_batch, grids):
+    """populate_grid() for the Tokopedia Produk sheet (real pipeline data)."""
+    with session_scope(factory) as session:
+        repo = AnalyticsRepository(session)
+        return repo.populate_grid(
+            BATCH_TOKOPEDIA, is_cross_bundling=0, grid=grids["produk"]
+        )
 
 
 @pytest.fixture(scope="module")
@@ -650,3 +688,63 @@ def test_render_unreported_sheet_empty_emits_zero_total():
     assert ws.cell(row=2, column=1).value == "TOTAL"
     assert ws.cell(row=2, column=5).value == 0
     assert ws.cell(row=2, column=6).value == 0
+
+
+# ---------------------------------------------------------------------------
+# 12. Tokopedia: Produk TP sheet (raw_tp_1_31_Aug26.xlsx)
+# ---------------------------------------------------------------------------
+
+
+def _tp_workbook_bytes(populated_tp, grids):
+    """Single-sheet workbook with the Produk TP report sheet."""
+    sheets = [
+        ReportSheet(
+            title="Produk TP",
+            populated=populated_tp,
+            grid=grids["produk"],
+            group_order=PRODUK_GROUP_ORDER,
+        )
+    ]
+    return generate_executive_workbook(sheets)
+
+
+def test_tokopedia_persist_tallies(tokopedia_batch):
+    """The Tokopedia batch persists every row; off-grid HANYA KACA variants are
+    classified unreported (never a report figure)."""
+    assert tokopedia_batch.inserted_count == 121
+    assert tokopedia_batch.inserted_reported.qty == GOLDEN_TOKOPEDIA_QTY
+    assert tokopedia_batch.inserted_reported.revenue == GOLDEN_TOKOPEDIA_REVENUE
+    assert tokopedia_batch.persisted_unreported.count == 3
+    assert tokopedia_batch.persisted_unreported.qty == 2
+
+
+def test_produk_tp_sheet_renders(populated_tp, grids):
+    """The Produk TP sheet follows the same dual-table contract as Produk T:
+    right-table completeness in canonical group order, TOTAL row, and emitted
+    totals that conserve the Tokopedia reported boundary."""
+    wb = _load(_tp_workbook_bytes(populated_tp, grids))
+    assert wb.sheetnames == ["Produk TP"]
+    ws = wb["Produk TP"]
+
+    # Right table: every canonical group present in order + TOTAL row.
+    groups = [ws.cell(row=r, column=7).value for r in range(2, 2 + len(PRODUK_GROUP_ORDER))]
+    assert groups == list(PRODUK_GROUP_ORDER)
+    grand_total_row = 2 + len(PRODUK_GROUP_ORDER)
+    assert ws.cell(row=grand_total_row, column=7).value == "TOTAL"
+
+    # Left table conserves the reported totals through the full grid.
+    qty = sum(_cell_int(ws, r, 3) for r in range(2, ws.max_row + 1))
+    rev = sum(_cell_int(ws, r, 4) for r in range(2, ws.max_row + 1))
+    assert (qty, rev) == (GOLDEN_TOKOPEDIA_QTY, GOLDEN_TOKOPEDIA_REVENUE)
+
+    # Glow Up Tint dominates; its H/I formulas cover its full grid span.
+    gut_qty, gut_rev = _group_emitted_sum(ws, PRODUK_GROUP_ORDER, "Glow Up Tint")
+    assert gut_qty > 0 and gut_rev > 0
+
+
+def test_produk_tp_sheet_number_formats(populated_tp, grids):
+    """Tokopedia sheet applies the same INTEGER/CURRENCY/PERCENTAGE masks."""
+    ws = _load(_tp_workbook_bytes(populated_tp, grids))["Produk TP"]
+    assert ws.cell(row=2, column=8).number_format == FORMAT_INTEGER
+    assert ws.cell(row=2, column=9).number_format == FORMAT_CURRENCY_IDR
+    assert ws.cell(row=2, column=10).number_format == FORMAT_PERCENTAGE

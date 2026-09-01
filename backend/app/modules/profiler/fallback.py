@@ -13,6 +13,7 @@ from app.modules.profiler.adapters import (
     PlatformEnum,
     ShopeeAdapter,
     TikTokShopAdapter,
+    TokopediaAdapter,
     detect_adapter,
 )
 
@@ -141,6 +142,27 @@ def profile_spreadsheet_headers(headers: list[str], sheet_name: str | None = Non
                 revenue=TikTokShopAdapter.COL_REV,
             ),
             parent_row_rule=None,  # TikTok Shop has zero parent rows (atomic SKU-level)
+            suggested_cleaning_rules=[
+                CleaningRule(
+                    pattern=r"[/,]\s*(random keychain|tanpa keychain|free gift|free pouch|gift).*$",
+                    replacement="",
+                    description="Strip marketing and packaging suffixes",
+                ),
+            ],
+        )
+
+    elif isinstance(adapter, TokopediaAdapter):
+        return ProfilerResult(
+            platform=PlatformEnum.TOKOPEDIA,
+            confidence=1.0,
+            column_mapping=ColumnMapping(
+                product_group=TokopediaAdapter.COL_PROD,
+                raw_variant=TokopediaAdapter.COL_PROD,  # Split by ':' during ingestion
+                sku=TokopediaAdapter.COL_SKU,
+                qty_sold=TokopediaAdapter.COL_QTY,
+                revenue=TokopediaAdapter.COL_REV,
+            ),
+            parent_row_rule=None,  # Tokopedia has zero parent rows (atomic SKU-level)
             suggested_cleaning_rules=[
                 CleaningRule(
                     pattern=r"[/,]\s*(random keychain|tanpa keychain|free gift|free pouch|gift).*$",

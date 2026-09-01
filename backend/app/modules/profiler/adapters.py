@@ -1,4 +1,4 @@
-"""Deterministic platform adapters for marketplace sales exports (Shopee, TikTok Shop)."""
+"""Deterministic platform adapters for marketplace sales exports (Shopee, TikTok Shop, Tokopedia)."""
 
 from __future__ import annotations
 
@@ -253,6 +253,22 @@ class TikTokShopAdapter(BasePlatformAdapter):
         return records
 
 
+class TokopediaAdapter(TikTokShopAdapter):
+    """
+    Deterministic adapter for Tokopedia sales export ('Sheet1').
+
+    Tokopedia exports share the exact column schema with TikTok Shop
+    ('SKU ID', 'Product ID', 'Produk', 'Status', 'GMV', 'Pesanan SKU',
+    'Produk terjual') including the concatenated '<Master>: <Variant>'
+    title format, so extraction reuses the TikTok logic unchanged; only the
+    platform tag differs (report suffix 'TP').
+
+    Parent-row pruning: None (all Tokopedia rows are atomic SKU level).
+    """
+
+    platform = PlatformEnum.TOKOPEDIA
+
+
 def detect_adapter(headers: list[str], sheet_name: str | None = None) -> BasePlatformAdapter | None:
     """
     Inspects column headers and sheet name to detect matching deterministic platform adapter.
@@ -268,13 +284,26 @@ def detect_adapter(headers: list[str], sheet_name: str | None = None) -> BasePla
     }.issubset(headers_set):
         return ShopeeAdapter()
 
-    # TikTok Shop detection
+    # TikTok Shop detection (checked before Tokopedia). Both TikTok Shop and
+    # Tokopedia export the identical 7-column schema, so a header-signature
+    # match cannot tell them apart; TikTok wins the tie (primary platform) and
+    # Tokopedia is selected explicitly in the UI or via a cached template.
     if {
         TikTokShopAdapter.COL_PROD,
         TikTokShopAdapter.COL_QTY,
         TikTokShopAdapter.COL_REV,
     }.issubset(headers_set):
         return TikTokShopAdapter()
+
+    # Tokopedia: identical schema to TikTok Shop (see above), so this branch is
+    # unreachable for current exports; kept so a future export variant with a
+    # distinguishing column resolves to the correct adapter instead of UNKNOWN.
+    if {
+        TokopediaAdapter.COL_PROD,
+        TokopediaAdapter.COL_QTY,
+        TokopediaAdapter.COL_REV,
+    }.issubset(headers_set):
+        return TokopediaAdapter()
 
     return None
 
@@ -286,4 +315,6 @@ def get_adapter(platform: PlatformEnum | str) -> BasePlatformAdapter:
         return ShopeeAdapter()
     elif p_str == PlatformEnum.TIKTOK_SHOP.value:
         return TikTokShopAdapter()
+    elif p_str == PlatformEnum.TOKOPEDIA.value:
+        return TokopediaAdapter()
     raise ValueError(f"No adapter registered for platform '{platform}'")

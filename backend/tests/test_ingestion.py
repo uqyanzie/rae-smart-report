@@ -20,7 +20,9 @@ from app.modules.profiler.adapters import (
     PlatformEnum,
     ShopeeAdapter,
     TikTokShopAdapter,
+    TokopediaAdapter,
     detect_adapter,
+    get_adapter,
     is_parent_or_summary_row,
 )
 from app.modules.profiler.fallback import (
@@ -118,6 +120,72 @@ class TestTikTokShopIngestion:
         adapter = detect_adapter(headers)
         assert isinstance(adapter, TikTokShopAdapter)
         assert adapter.platform == PlatformEnum.TIKTOK_SHOP
+
+
+class TestTokopediaIngestion:
+    """Tests for Tokopedia export parsing.
+
+    Tokopedia exports share the exact column schema with TikTok Shop
+    ('SKU ID', 'Product ID', 'Produk', 'Status', 'GMV', 'Pesanan SKU',
+    'Produk terjual') including the concatenated '<Master>: <Variant>' title
+    format, so extraction is identical; only the platform tag differs.
+    """
+
+    def test_tokopedia_metadata_and_row_count(self, raw_tp_path: Path):
+        assert raw_tp_path.exists(), f"Missing fixture at {raw_tp_path}"
+        meta = read_spreadsheet(raw_tp_path)
+
+        assert meta.active_sheet == "Sheet1"
+        assert meta.available_sheets == ["Sheet1"]
+        assert meta.total_rows == 121
+        assert "Produk" in meta.raw_headers
+        assert "Produk terjual" in meta.raw_headers
+        assert "GMV" in meta.raw_headers
+        assert len(meta.sample_rows) == 10
+
+    def test_tokopedia_adapter_extracts_all_rows(self, raw_tp_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_tp_path)
+        assert len(rows) == 121
+
+        adapter = TokopediaAdapter()
+        adapter.validate_headers(headers)
+        records = adapter.adapt(rows)
+
+        # All 121 rows are atomic SKU level; 0 parent rows pruned.
+        assert len(records) == 121
+        for rec in records:
+            assert rec.platform == PlatformEnum.TOKOPEDIA.value
+            assert rec.qty_sold >= 0
+            assert rec.revenue >= 0
+            assert not rec.product_title.lower().startswith("raecca ")
+
+    def test_tokopedia_adapter_parses_concatenated_title(self, raw_tp_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_tp_path)
+        records = TokopediaAdapter().adapt(rows)
+
+        # First data row: '... #1stLipSpecialist: Cheerful / Tanpa Keychain'
+        # splits into master title + variant exactly like TikTok Shop.
+        first = records[0]
+        assert first.raw_variant == "Cheerful / Tanpa Keychain"
+        assert first.product_title.startswith("Glow Up Tint")
+        assert first.sku == "1729821744670737438"
+
+    def test_tokopedia_get_adapter(self):
+        adapter = get_adapter(PlatformEnum.TOKOPEDIA)
+        assert isinstance(adapter, TokopediaAdapter)
+        assert adapter.platform == PlatformEnum.TOKOPEDIA
+        assert get_adapter("TOKOPEDIA").platform == PlatformEnum.TOKOPEDIA
+
+    def test_tokopedia_headers_match_tiktok_signature(self, raw_tp_path: Path, raw_tts_path: Path):
+        """Tokopedia shares TikTok's exact 7-column schema, so header-signature
+        detection cannot distinguish them (TikTok wins the tie); the platform
+        is resolved explicitly via get_adapter."""
+        tp_headers, _ = extract_spreadsheet_rows(raw_tp_path)
+        tts_headers, _ = extract_spreadsheet_rows(raw_tts_path)
+
+        assert compute_header_signature(tp_headers) == compute_header_signature(tts_headers)
+        adapter = detect_adapter(tp_headers)
+        assert isinstance(adapter, TikTokShopAdapter)
 
 
 class TestCSVIngestionAndDelimiters:

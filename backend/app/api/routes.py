@@ -62,7 +62,7 @@ router = APIRouter(prefix="/api", tags=["api"])
 
 _UPLOADS: dict[str, dict[str, Any]] = {}
 
-_PLATFORM_SUFFIX: dict[str, str] = {"SHOPEE": "S", "TIKTOK_SHOP": "T"}
+_PLATFORM_SUFFIX: dict[str, str] = {"SHOPEE": "S", "TIKTOK_SHOP": "T", "TOKOPEDIA": "TP"}
 
 
 def _store_upload(filename: str, content: bytes) -> str:
@@ -260,10 +260,8 @@ async def transform_and_save(
     raw_records = _apply_cleaning_rules(raw_records, payload.cleaning_rules)
     result = transform_records(raw_records)
 
-    start_dt = datetime.combine(payload.period_start, time.min) if payload.period_start is not None else None
-    end_dt = (
-        datetime.combine(payload.period_end, time(23, 59, 59)) if payload.period_end is not None else None
-    )
+    start_dt = datetime.combine(payload.period_start, time.min)
+    end_dt = datetime.combine(payload.period_end, time(23, 59, 59))
 
     batch_id = _build_batch_id(platform, start_dt, end_dt)
     persist = repo.persist_batch(batch_id, platform, start_dt, end_dt, result.records)
@@ -427,10 +425,10 @@ async def export_excel(
     batch_ids: list[str] = Query(default=[], alias="batchIds"),
     repo: AnalyticsRepository = Depends(_get_repository),
 ) -> StreamingResponse:
-    """Streams a 4-sheet executive workbook for the selected batches.
+    """Streams a multi-sheet executive workbook for the selected batches.
 
     Exactly one batch per platform is required; sheets are emitted in
-    canonical order ``Produk S, Produk T, Produk 2 S, Produk 2 T``.
+    canonical order ``Produk <S|T|TP>`` then ``Produk 2 <S|T|TP>``.
     """
     history = repo.batch_history()
     by_id = {item["import_batch_id"]: item for item in history}
@@ -450,32 +448,33 @@ async def export_excel(
         resolved[platform] = item
 
     sheets: list[ReportSheet] = []
-    for suffix, is_cross in (("S", 0), ("T", 0), ("S", 1), ("T", 1)):
-        platform = next((p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None)
-        if platform not in resolved:
-            continue
-        batch_id = resolved[platform]["import_batch_id"]
-        if is_cross == 0:
-            grid = generate_full_produk_grid()
-            group_order = PRODUK_GROUP_ORDER
-            title = f"Produk {suffix}"
-        else:
-            grid = generate_full_produk2_grid()
-            group_order = PRODUK2_GROUP_ORDER
-            title = f"Produk 2 {suffix}"
-        sheets.append(
-            ReportSheet(
-                title=title,
-                populated=repo.populate_grid(batch_id, is_cross_bundling=is_cross, grid=grid),
-                grid=grid,
-                group_order=group_order,
+    for is_cross in (0, 1):
+        for suffix in _PLATFORM_SUFFIX.values():
+            platform = next((p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None)
+            if platform not in resolved:
+                continue
+            batch_id = resolved[platform]["import_batch_id"]
+            if is_cross == 0:
+                grid = generate_full_produk_grid()
+                group_order = PRODUK_GROUP_ORDER
+                title = f"Produk {suffix}"
+            else:
+                grid = generate_full_produk2_grid()
+                group_order = PRODUK2_GROUP_ORDER
+                title = f"Produk 2 {suffix}"
+            sheets.append(
+                ReportSheet(
+                    title=title,
+                    populated=repo.populate_grid(batch_id, is_cross_bundling=is_cross, grid=grid),
+                    grid=grid,
+                    group_order=group_order,
+                )
             )
-        )
 
     # Per-platform unreported sheets (Phase 7): emitted after the Produk
     # sheets for every platform batch present in the export.
     unreported_sheets: list[UnreportedSheet] = []
-    for suffix in ("S", "T"):
+    for suffix in _PLATFORM_SUFFIX.values():
         platform = next((p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None)
         if platform in resolved:
             unreported_sheets.append(
@@ -488,7 +487,7 @@ async def export_excel(
     if not sheets:
         raise HTTPException(
             status_code=400,
-            detail="No exportable platform selected; supported platforms: SHOPEE, TIKTOK_SHOP",
+            detail="No exportable platform selected; supported platforms: SHOPEE, TIKTOK_SHOP, TOKOPEDIA",
         )
 
     # Filename derives from the persisted import batch id(s) so the export is
