@@ -56,6 +56,11 @@ class TransactionItem(Base):
     case_color = Column(String(32), nullable=True)
     sku = Column(String(100), nullable=True)
 
+    # Raw source product column value (verbatim from the spreadsheet), kept
+    # for provenance so an unreported row can be traced back to its origin.
+    # Never a report key and never surfaced in a Produk sheet.
+    raw_product = Column(Text, nullable=True)
+
     # Quantitative metrics (integer IDR avoids floating-point drift)
     qty_sold = Column(Integer, nullable=False, default=0)
     revenue = Column(BigInteger, nullable=False, default=0)  # exact IDR integer

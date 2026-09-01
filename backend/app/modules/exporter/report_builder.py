@@ -63,7 +63,14 @@ __all__ = [
 
 LEFT_HEADERS: tuple[str, ...] = ("Produk", "Nama Variasi", "Produk Terjual", "Revenue", "Kontribusi")
 RIGHT_HEADERS: tuple[str, ...] = ("Produk", "Produk Terjual", "Revenue", "Kontribusi")
-UNREPORTED_HEADERS: tuple[str, ...] = ("Produk", "Nama Variasi", "Raw Variant", "Produk Terjual", "Revenue")
+UNREPORTED_HEADERS: tuple[str, ...] = (
+    "Produk",
+    "Nama Variasi",
+    "Raw Product",
+    "Raw Variant",
+    "Produk Terjual",
+    "Revenue",
+)
 SEPARATOR_WIDTH = 4
 MIN_COLUMN_WIDTH = 14
 
@@ -136,16 +143,16 @@ def _style_total_row(ws: Worksheet, row: int) -> None:
 def _style_unreported_cell(ws: Worksheet, row: int, col: int) -> None:
     """Applies regular styling + the unreported sheet's number masks.
 
-    Columns: A Produk (text), B Nama Variasi (text), C Raw Variant (text),
-    D Produk Terjual (integer), E Revenue (IDR currency).
+    Columns: A Produk (text), B Nama Variasi (text), C Raw Product (text),
+    D Raw Variant (text), E Produk Terjual (integer), F Revenue (IDR currency).
     """
     cell = ws.cell(row=row, column=col)
     cell.font = FONT_REGULAR
     cell.border = BORDER_REGULAR
-    cell.alignment = ALIGN_RIGHT if col in (4, 5) else ALIGN_LEFT
-    if col == 4:
+    cell.alignment = ALIGN_RIGHT if col in (5, 6) else ALIGN_LEFT
+    if col == 5:
         cell.number_format = FORMAT_INTEGER
-    elif col == 5:
+    elif col == 6:
         cell.number_format = FORMAT_CURRENCY_IDR
 
 
@@ -258,11 +265,11 @@ def render_side_by_side_sheet(
 def render_unreported_sheet(ws: Worksheet, *, rows: Sequence[dict[str, Any]]) -> None:
     """Renders one unreported sheet (Tidak Terlaporkan S/T) into ``ws``.
 
-    A single five-column table backed by ``unreported_analytics`` (Query G,
-    ``is_reported = 0``): product group, clean variant, raw variant, qty,
-    revenue, plus a TOTAL row. No combinatorial grid and no contribution
-    column. Persisted unreported entries appear only here -- never in the
-    Produk sheets.
+    A single six-column table backed by ``unreported_analytics`` (Query G,
+    ``is_reported = 0``): product group, clean variant, raw product, raw
+    variant, qty, revenue, plus a TOTAL row. No combinatorial grid and no
+    contribution column. Persisted unreported entries appear only here -- never
+    in the Produk sheets.
     """
     ws.sheet_view.showGridLines = True
     for col, header in enumerate(UNREPORTED_HEADERS, start=1):
@@ -276,10 +283,11 @@ def render_unreported_sheet(ws: Worksheet, *, rows: Sequence[dict[str, Any]]) ->
     for row in rows:
         ws.cell(row=next_row, column=1, value=row["product_group"])
         ws.cell(row=next_row, column=2, value=row["clean_variant"])
-        ws.cell(row=next_row, column=3, value=row["raw_variant"])
-        ws.cell(row=next_row, column=4, value=int(row["total_qty"]))
-        ws.cell(row=next_row, column=5, value=int(row["total_revenue"]))
-        for col in range(1, 6):
+        ws.cell(row=next_row, column=3, value=row.get("raw_product"))
+        ws.cell(row=next_row, column=4, value=row["raw_variant"])
+        ws.cell(row=next_row, column=5, value=int(row["total_qty"]))
+        ws.cell(row=next_row, column=6, value=int(row["total_revenue"]))
+        for col in range(1, 7):
             _style_unreported_cell(ws, next_row, col)
         next_row += 1
 
@@ -288,24 +296,24 @@ def render_unreported_sheet(ws: Worksheet, *, rows: Sequence[dict[str, Any]]) ->
     last_data = next_row - 1
     ws.cell(row=next_row, column=1, value="TOTAL")
     if last_data >= 2:
-        ws.cell(row=next_row, column=4, value=f"=SUM(D2:D{last_data})")
         ws.cell(row=next_row, column=5, value=f"=SUM(E2:E{last_data})")
+        ws.cell(row=next_row, column=6, value=f"=SUM(F2:F{last_data})")
     else:
-        ws.cell(row=next_row, column=4, value=0)
         ws.cell(row=next_row, column=5, value=0)
-    for col in (1, 4, 5):
+        ws.cell(row=next_row, column=6, value=0)
+    for col in (1, 5, 6):
         cell = ws.cell(row=next_row, column=col)
         cell.font = FONT_TOTAL
         cell.fill = FILL_TOTAL
         cell.border = BORDER_TOTAL
-        cell.alignment = ALIGN_RIGHT if col in (4, 5) else ALIGN_LEFT
-    ws.cell(row=next_row, column=4).number_format = FORMAT_INTEGER
-    ws.cell(row=next_row, column=5).number_format = FORMAT_CURRENCY_IDR
+        cell.alignment = ALIGN_RIGHT if col in (5, 6) else ALIGN_LEFT
+    ws.cell(row=next_row, column=5).number_format = FORMAT_INTEGER
+    ws.cell(row=next_row, column=6).number_format = FORMAT_CURRENCY_IDR
 
 
 def _auto_fit_unreported_columns(ws: Worksheet) -> None:
-    """Auto-fits columns A-E of an unreported sheet measuring cell strings."""
-    for col_idx in range(1, 6):
+    """Auto-fits columns A-F of an unreported sheet measuring cell strings."""
+    for col_idx in range(1, 7):
         letter = get_column_letter(col_idx)
         max_len = 0
         for row in ws.iter_rows(min_col=col_idx, max_col=col_idx):

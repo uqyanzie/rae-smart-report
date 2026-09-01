@@ -19,6 +19,9 @@ class VariantRecord:
     revenue: int
     sku: str | None = None
     case_color: str | None = None
+    # Raw source product column value (verbatim from the spreadsheet), kept
+    # for provenance so an unreported row can be traced back to its origin.
+    raw_product: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

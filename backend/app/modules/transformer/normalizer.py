@@ -338,6 +338,7 @@ class VariantNormalizer:
                         revenue=raw_record.revenue,
                         sku=raw_record.sku,
                         case_color=case_color,
+                        raw_product=raw_record.raw_product,
                     )
                     return record, None, False
 
@@ -355,6 +356,7 @@ class VariantNormalizer:
                     revenue=raw_record.revenue,
                     sku=raw_record.sku,
                     case_color=case_color,
+                    raw_product=raw_record.raw_product,
                 )
                 return record, None, False
 
@@ -378,6 +380,7 @@ class VariantNormalizer:
                         revenue=raw_record.revenue,
                         sku=raw_record.sku,
                         case_color=case_color,
+                        raw_product=raw_record.raw_product,
                     )
                     return record, None, False
 
@@ -423,6 +426,7 @@ class VariantNormalizer:
                 revenue=raw_record.revenue,
                 sku=raw_record.sku,
                 case_color=case_color,
+                raw_product=raw_record.raw_product,
             )
             return record, warning, False
 
@@ -454,6 +458,7 @@ class VariantNormalizer:
                 revenue=raw_record.revenue,
                 sku=raw_record.sku,
                 case_color=case_color,
+                raw_product=raw_record.raw_product,
             )
             return record, warning, False
 
@@ -476,6 +481,7 @@ class VariantNormalizer:
                     revenue=raw_record.revenue,
                     sku=raw_record.sku,
                     case_color=case_color,
+                    raw_product=raw_record.raw_product,
                 )
                 return record, warning, True
 
@@ -532,6 +538,7 @@ class VariantNormalizer:
                     revenue=raw_record.revenue,
                     sku=raw_record.sku,
                     case_color=case_color,
+                    raw_product=raw_record.raw_product,
                 )
                 return record, warning, False
 
@@ -567,6 +574,7 @@ class VariantNormalizer:
                 revenue=raw_record.revenue,
                 sku=raw_record.sku,
                 case_color=case_color,
+                raw_product=raw_record.raw_product,
             )
             return record, warning, False
 
@@ -595,6 +603,7 @@ class VariantNormalizer:
                     revenue=raw_record.revenue,
                     sku=raw_record.sku,
                     case_color=case_color,
+                    raw_product=raw_record.raw_product,
                 )
                 return record, warning, False
             if all(f == "Glow Up Tint" for f, _ in resolved_shades):
@@ -614,6 +623,7 @@ class VariantNormalizer:
                     revenue=raw_record.revenue,
                     sku=raw_record.sku,
                     case_color=case_color,
+                    raw_product=raw_record.raw_product,
                 )
                 return record, warning, False
 
@@ -631,5 +641,6 @@ class VariantNormalizer:
             revenue=raw_record.revenue,
             sku=raw_record.sku,
             case_color=case_color,
+            raw_product=raw_record.raw_product,
         )
         return record, warning, False

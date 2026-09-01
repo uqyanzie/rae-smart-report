@@ -203,7 +203,7 @@ backend/
   - Dialect-guarded connection event hook.
   - Context-managed database session maker.
 - [x] Implement `backend/app/modules/storage/models.py`:
-  - `TransactionItem`: `id`, `import_batch_id`, `platform`, `period_start`, `period_end`, `product_group`, `raw_variant`, `clean_variant`, `is_bundling`, `is_cross_bundling`, `case_color` (nullable, **SKU traceability only — never in a reporting `GROUP BY`**), `sku`, `qty_sold` (Integer), `revenue` (BigInteger exact IDR), `created_at` (UTC).
+  - `TransactionItem`: `id`, `import_batch_id`, `platform`, `period_start`, `period_end`, `product_group`, `raw_variant`, `clean_variant`, `is_bundling`, `is_cross_bundling`, `case_color` (nullable, **SKU traceability only — never in a reporting `GROUP BY`**), `sku`, `raw_product` (nullable, verbatim source product column for provenance), `qty_sold` (Integer), `revenue` (BigInteger exact IDR), `created_at` (UTC).
   - Note: `transaction_date` (nullable) included for future Phase 2 daily series schema compatibility.
   - Composite indexes: `(import_batch_id, is_cross_bundling, product_group)`, `(platform, period_start, period_end)`, and grid key `(import_batch_id, product_group, clean_variant)`. `case_color` is deliberately **excluded** from the grid key.
   - `MappingTemplate`: cached column mappings and cleaning rules.

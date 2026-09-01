@@ -212,11 +212,15 @@ def test_unreported_analytics_returns_persisted_entries(factory, persisted):
 
     # Shopee: 13 persisted records collapse to 12 distinct (group, variant,
     # raw) rows (two 'Tidak dapat memperoleh informasi produk karena
-    # penghapusan' listings share a key); all zero revenue.
+    # penghapusan' listings share a key -- identical raw product too); all zero
+    # revenue.
     assert len(shopee_unreported) == 12
     assert sum(r["total_qty"] for r in shopee_unreported) == 0
     assert sum(r["total_revenue"] for r in shopee_unreported) == 0
     assert all(r["clean_variant"] in ("-", "") for r in shopee_unreported)
+    # Raw provenance persists: every unreported row carries its source product
+    # column value.
+    assert all(r["raw_product"] for r in shopee_unreported)
 
     # TikTok: the off-grid Tinted Jelly Balm 'Default' orphan.
     assert len(tiktok_unreported) == 1
@@ -226,6 +230,7 @@ def test_unreported_analytics_returns_persisted_entries(factory, persisted):
     assert row["total_qty"] == 1
     assert row["total_revenue"] == 22_637
     assert row["raw_variant"]
+    assert row["raw_product"]
 
 
 def test_report_queries_exclude_unreported_rows(factory, persisted):

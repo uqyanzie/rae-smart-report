@@ -178,19 +178,21 @@ WHERE import_batch_id = :batch_id
 
 # -- Query G: Persisted unreported breakdown ---------------------------------
 # is_reported = 0 rows only: off-grid variants (standalone 'tidak boleh ecer',
-# 'free gift', etc.) and non-catalog product groups. raw_variant is carried so
-# the UI/export can show full provenance.
+# 'free gift', etc.) and non-catalog product groups. raw_variant and
+# raw_product are carried so the UI/export can show full provenance back to
+# the original spreadsheet row.
 _QUERY_G_UNREPORTED = """
 SELECT
     rtrim(product_group) AS product_group,
     clean_variant,
     raw_variant,
+    raw_product,
     SUM(qty_sold) AS total_qty,
     SUM(revenue) AS total_revenue
 FROM transaction_items
 WHERE import_batch_id = :batch_id
   AND is_reported = 0
-GROUP BY rtrim(product_group), clean_variant, raw_variant
+GROUP BY rtrim(product_group), clean_variant, raw_variant, raw_product
 ORDER BY total_qty DESC, total_revenue DESC
 """
 
@@ -366,6 +368,7 @@ class AnalyticsRepository:
                     is_cross_bundling=rec.is_cross_bundling,
                     case_color=rec.case_color,
                     sku=rec.sku,
+                    raw_product=rec.raw_product,
                     qty_sold=rec.qty_sold,
                     revenue=rec.revenue,
                     is_reported=is_reported,
@@ -457,9 +460,11 @@ class AnalyticsRepository:
         """Query G: persisted non-reportable entries for a batch.
 
         Returns ``is_reported = 0`` rows aggregated per
-        ``(product_group, clean_variant, raw_variant)`` -- off-grid variants
-        and non-catalog product groups -- with their qty/revenue for the
-        dashboard and the 'Tidak Terlaporkan S/T' export sheets.
+        ``(product_group, clean_variant, raw_variant, raw_product)`` -- off-grid
+        variants and non-catalog product groups -- with their qty/revenue for
+        the dashboard and the 'Tidak Terlaporkan S/T' export sheets. Rows carry
+        their raw product/variant labels so the original spreadsheet row stays
+        traceable.
         """
         rows = (
             self._session.execute(

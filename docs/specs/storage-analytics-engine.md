@@ -87,6 +87,12 @@ class TransactionItem(Base):
     case_color = Column(String(32), nullable=True)
     sku = Column(String(100), nullable=True)
 
+    # Raw source product column value (verbatim from the spreadsheet), kept
+    # for provenance so an unreported row can be traced back to its origin.
+    # Never a report key and never surfaced in a Produk sheet; NULL for rows
+    # persisted before this column was added.
+    raw_product = Column(Text, nullable=True)
+
     # Quantitative Metrics (integer IDR: exact, no floating-point drift)
     qty_sold = Column(Integer, nullable=False, default=0)
     revenue = Column(BigInteger, nullable=False, default=0)
@@ -218,18 +224,19 @@ DELETE FROM transaction_items WHERE import_batch_id = :batch_id;
 ```
 
 ### Query G: Unreported Breakdown (2026-08-26 scope extension)
-Returns persisted **non-reportable** entries for a batch — off-grid variants (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups — aggregated per `(product_group, clean_variant, raw_variant)`. `is_reported` is always `0`; rows carry their raw variant label for full provenance:
+Returns persisted **non-reportable** entries for a batch — off-grid variants (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups — aggregated per `(product_group, clean_variant, raw_variant, raw_product)`. `is_reported` is always `0`; rows carry their raw variant and raw product labels so the original spreadsheet row stays traceable:
 ```sql
 SELECT 
     rtrim(product_group) AS product_group,
     clean_variant,
     raw_variant,
+    raw_product,
     SUM(qty_sold) AS total_qty,
     SUM(revenue) AS total_revenue
 FROM transaction_items
 WHERE import_batch_id = :batch_id
   AND is_reported = 0
-GROUP BY rtrim(product_group), clean_variant, raw_variant
+GROUP BY rtrim(product_group), clean_variant, raw_variant, raw_product
 ORDER BY total_qty DESC, total_revenue DESC;
 ```
 

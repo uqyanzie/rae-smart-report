@@ -85,11 +85,12 @@ Added by the 2026-08-26 scope extension. One sheet per platform batch present in
 | :--- | :--- | :--- | :--- |
 | A | `Produk` | `product_group` | text |
 | B | `Nama Variasi` | `clean_variant` | text |
-| C | `Raw Variant` | `raw_variant` (full provenance) | text |
-| D | `Produk Terjual` | `total_qty` | `#,##0` |
-| E | `Revenue` | `total_revenue` | IDR accounting |
+| C | `Raw Product` | `raw_product` (verbatim source product column) | text |
+| D | `Raw Variant` | `raw_variant` (full provenance) | text |
+| E | `Produk Terjual` | `total_qty` | `#,##0` |
+| F | `Revenue` | `total_revenue` | IDR accounting |
 
-- **TOTAL row:** `=SUM(D{start}:D{end})` and `=SUM(E{start}:E{end})` beneath the last data row, styled with the double-bottom accounting border.
+- **TOTAL row:** `=SUM(E{start}:E{end})` and `=SUM(F{start}:F{end})` beneath the last data row, styled with the double-bottom accounting border.
 - **Styling:** identical slate palette, header fill, thin borders, and number masks as the Produk sheets.
 - **Boundary:** unreported rows appear **only** here — never in `Produk S/T` or `Produk 2 S/T`, whose queries filter `is_reported = 1`. When a platform batch has no unreported entries, its `Tidak Terlaporkan` sheet is still emitted with only the header + a `0` TOTAL row.
 

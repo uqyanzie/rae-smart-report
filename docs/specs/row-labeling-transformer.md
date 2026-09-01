@@ -110,6 +110,9 @@ class LabeledTransactionRecord(BaseModel):
     is_cross_bundling: bool = False  # persisted column name; "bundling silang"
     case_color: Optional[str] = None
     sku: Optional[str] = None
+    # Raw source product column value (verbatim), kept for provenance so an
+    # unreported row can be traced back to its original spreadsheet row.
+    raw_product: Optional[str] = None
     qty_sold: int
     revenue: int  # exact integer IDR, matching BigInteger storage
     unit_multiplier: int = 1

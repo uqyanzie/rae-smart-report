@@ -495,7 +495,8 @@ export interface components {
          *     etc.) and non-catalog product groups. Stored for traceability and shown on
          *     the dashboard / 'Tidak Terlaporkan S/T' export sheets; never appears in a
          *     report query or the four Produk sheets. ``raw_variant`` carries the full
-         *     original label for provenance.
+         *     original variant label and ``raw_product`` the verbatim source product
+         *     column value for provenance.
          */
         UnreportedVariantDTO: {
             /** Productgroup */
@@ -504,6 +505,8 @@ export interface components {
             cleanVariant: string;
             /** Rawvariant */
             rawVariant: string;
+            /** Rawproduct */
+            rawProduct?: string | null;
             /** Totalqty */
             totalQty: number;
             /** Totalrevenue */

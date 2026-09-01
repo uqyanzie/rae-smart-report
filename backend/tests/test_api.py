@@ -128,12 +128,12 @@ def _transform(
 
 
 def _sheet_qty_sums(workbook_bytes: bytes) -> dict[str, int]:
-    """Sums the per-sheet quantity column (col C on Produk sheets, col D on
+    """Sums the per-sheet quantity column (col C on Produk sheets, col E on
     'Tidak Terlaporkan' sheets)."""
     wb = load_workbook(io.BytesIO(workbook_bytes))
     totals: dict[str, int] = {}
     for title in wb.sheetnames:
-        qty_col = 4 if title.startswith("Tidak Terlaporkan") else 3
+        qty_col = 5 if title.startswith("Tidak Terlaporkan") else 3
         total = 0
         for r in range(2, wb[title].max_row + 1):
             cell_value = wb[title].cell(row=r, column=qty_col).value
@@ -356,6 +356,7 @@ def test_batch_unreported_endpoint(client):
     assert row["totalQty"] == 1
     assert row["totalRevenue"] == 22_637
     assert row["rawVariant"]
+    assert row["rawProduct"]
 
 
 # ---------------------------------------------------------------------------
@@ -775,6 +776,7 @@ def test_openapi_contract_matches_bridge_dtos(client):
         "productGroup",
         "cleanVariant",
         "rawVariant",
+        "rawProduct",
         "totalQty",
         "totalRevenue",
     }

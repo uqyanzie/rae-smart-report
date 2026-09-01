@@ -143,12 +143,14 @@ class UnreportedVariantDTO(CamelModel):
     etc.) and non-catalog product groups. Stored for traceability and shown on
     the dashboard / 'Tidak Terlaporkan S/T' export sheets; never appears in a
     report query or the four Produk sheets. ``raw_variant`` carries the full
-    original label for provenance.
+    original variant label and ``raw_product`` the verbatim source product
+    column value for provenance.
     """
 
     product_group: str
     clean_variant: str
     raw_variant: str
+    raw_product: str | None = None
     total_qty: int
     total_revenue: int
 

@@ -74,6 +74,7 @@ def init_db(engine: Engine) -> None:
     """Creates all tables on the given engine, then applies additive migrations."""
     Base.metadata.create_all(engine)
     _ensure_is_reported_column(engine)
+    _ensure_raw_product_column(engine)
 
 
 def _ensure_is_reported_column(engine: Engine) -> None:
@@ -96,6 +97,29 @@ def _ensure_is_reported_column(engine: Engine) -> None:
             text(
                 "ALTER TABLE transaction_items "
                 "ADD COLUMN is_reported BOOLEAN NOT NULL DEFAULT 1"
+            )
+        )
+
+
+def _ensure_raw_product_column(engine: Engine) -> None:
+    """Idempotently adds ``raw_product`` to a pre-change ``transaction_items``.
+
+    Existing rows predating the column carry NULL (no raw provenance is
+    recoverable retroactively); new ingests populate it at the persistence
+    boundary. SQLite-specific syntax, so it is skipped for non-SQLite engines.
+    """
+    if not engine.dialect.name == "sqlite":
+        return
+    if "transaction_items" not in inspect(engine).get_table_names():
+        return
+    columns = {column["name"] for column in inspect(engine).get_columns("transaction_items")}
+    if "raw_product" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE transaction_items "
+                "ADD COLUMN raw_product TEXT"
             )
         )
 

@@ -24,7 +24,12 @@ class PlatformEnum(StrEnum):
 
 @dataclass(frozen=True)
 class RawRecord:
-    """Canonical raw extracted record prior to deep domain transformation."""
+    """Canonical raw extracted record prior to deep domain transformation.
+
+    ``product_title`` is the brand-stripped title used for matching; the
+    untrimmed source value is preserved verbatim on ``raw_product`` for
+    traceability back to the original spreadsheet row.
+    """
 
     platform: str
     product_title: str
@@ -33,6 +38,7 @@ class RawRecord:
     revenue: int
     sku: str | None = None
     case_color: str | None = None
+    raw_product: str | None = None
 
 
 def is_parent_or_summary_row(raw_variant: Any | None, ignore_condition: str = "EQUALS_DASH") -> bool:
@@ -175,6 +181,7 @@ class ShopeeAdapter(BasePlatformAdapter):
                     qty_sold=qty_sold,
                     revenue=revenue,
                     sku=sku,
+                    raw_product=prod_str,
                 )
             )
         return records
@@ -240,6 +247,7 @@ class TikTokShopAdapter(BasePlatformAdapter):
                     qty_sold=qty_sold,
                     revenue=revenue,
                     sku=sku,
+                    raw_product=product_title_raw,
                 )
             )
         return records

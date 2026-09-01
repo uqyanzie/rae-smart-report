@@ -596,15 +596,16 @@ def test_unreported_sheets_render_persisted_entries(workbook_bytes_with_unreport
     assert len(unreported_rows["s"]) == 12
     assert ws_s.max_row == 12 + 1 + 1  # header + data + TOTAL
     for r in range(2, 2 + 12):
-        assert ws_s.cell(row=r, column=3).value  # raw variant present
-        assert ws_s.cell(row=r, column=4).value == 0
+        assert ws_s.cell(row=r, column=3).value  # raw product present
+        assert ws_s.cell(row=r, column=4).value  # raw variant present
         assert ws_s.cell(row=r, column=5).value == 0
-        assert ws_s.cell(row=r, column=4).number_format == FORMAT_INTEGER
-        assert ws_s.cell(row=r, column=5).number_format == FORMAT_CURRENCY_IDR
+        assert ws_s.cell(row=r, column=6).value == 0
+        assert ws_s.cell(row=r, column=5).number_format == FORMAT_INTEGER
+        assert ws_s.cell(row=r, column=6).number_format == FORMAT_CURRENCY_IDR
     total_row_s = 2 + 12
     assert ws_s.cell(row=total_row_s, column=1).value == "TOTAL"
-    assert ws_s.cell(row=total_row_s, column=4).value == f"=SUM(D2:D{total_row_s - 1})"
     assert ws_s.cell(row=total_row_s, column=5).value == f"=SUM(E2:E{total_row_s - 1})"
+    assert ws_s.cell(row=total_row_s, column=6).value == f"=SUM(F2:F{total_row_s - 1})"
 
     ws_t = wb["Tidak Terlaporkan T"]
     assert len(unreported_rows["t"]) == 1
@@ -612,12 +613,13 @@ def test_unreported_sheets_render_persisted_entries(workbook_bytes_with_unreport
     assert ws_t.max_row == 3
     assert ws_t.cell(row=2, column=1).value == "Tinted Jelly Balm"
     assert ws_t.cell(row=2, column=2).value == "Default"
-    assert ws_t.cell(row=2, column=3).value  # raw variant
-    assert ws_t.cell(row=2, column=4).value == 1
-    assert ws_t.cell(row=2, column=5).value == 22_637
+    assert ws_t.cell(row=2, column=3).value  # raw product
+    assert ws_t.cell(row=2, column=4).value  # raw variant
+    assert ws_t.cell(row=2, column=5).value == 1
+    assert ws_t.cell(row=2, column=6).value == 22_637
     assert ws_t.cell(row=3, column=1).value == "TOTAL"
-    assert ws_t.cell(row=3, column=4).value == "=SUM(D2:D2)"
     assert ws_t.cell(row=3, column=5).value == "=SUM(E2:E2)"
+    assert ws_t.cell(row=3, column=6).value == "=SUM(F2:F2)"
 
 
 def test_unreported_rows_absent_from_produk_sheets(workbook_bytes_with_unreported):
@@ -646,5 +648,5 @@ def test_render_unreported_sheet_empty_emits_zero_total():
     render_unreported_sheet(ws, rows=[])
     assert ws.max_row == 2  # header + TOTAL
     assert ws.cell(row=2, column=1).value == "TOTAL"
-    assert ws.cell(row=2, column=4).value == 0
     assert ws.cell(row=2, column=5).value == 0
+    assert ws.cell(row=2, column=6).value == 0

@@ -455,6 +455,7 @@ export default function HomePage() {
                     <tr>
                       <th className={thClass}>Product group</th>
                       <th className={thClass}>Variant</th>
+                      <th className={thClass}>Raw product</th>
                       <th className={thClass}>Raw variant</th>
                       <th className={`${thClass} text-right`}>Qty</th>
                       <th className={`${thClass} text-right`}>Revenue</th>
@@ -465,6 +466,7 @@ export default function HomePage() {
                       <tr key={`${row.productGroup}-${row.cleanVariant}-${row.rawVariant}`} className="hover:bg-slate-50">
                         <td className={`${tdClass} font-medium text-slate-800`}>{row.productGroup}</td>
                         <td className={tdClass}>{row.cleanVariant}</td>
+                        <td className={`${tdClass} font-mono text-xs text-slate-500`}>{row.rawProduct ?? '—'}</td>
                         <td className={`${tdClass} font-mono text-xs text-slate-500`}>{row.rawVariant}</td>
                         <td className={`${tdClass} text-right`}>{formatNumber(row.totalQty)}</td>
                         <td className={`${tdClass} text-right`}>{formatCurrency(row.totalRevenue)}</td>
@@ -476,7 +478,7 @@ export default function HomePage() {
                       <td colSpan={2} className="px-4 py-2 text-xs font-medium text-slate-500">
                         Unreported totals
                       </td>
-                      <td className="px-4 py-2 text-xs font-medium text-slate-500">
+                      <td colSpan={2} className="px-4 py-2 text-xs font-medium text-slate-500">
                         {unreportedTotals.rows} rows
                       </td>
                       <td className="px-4 py-2 text-right text-sm font-semibold text-slate-800">
