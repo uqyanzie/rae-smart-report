@@ -18,6 +18,7 @@ __all__ = [
     "get_writable_app_dir",
     "resolve_database_url",
     "resolve_frontend_dist",
+    "resolve_sku_mapping_path",
 ]
 
 _APP_DIR_NAME = "RAESmartReport"
@@ -90,6 +91,24 @@ def resolve_frontend_dist() -> Path:
             return Path(meipass) / "frontend" / "dist"
         return _exe_dir() / "frontend" / "dist"
     return _find_repo_root() / "frontend" / "dist"
+
+
+def resolve_sku_mapping_path() -> Path:
+    """Resolves the Lazada ``sku_mapping.json`` runtime artifact.
+
+    Priority: ``RAE_SKU_MAPPING`` env var -> bundled ``sys._MEIPASS/data`` or
+    the executable directory for PyInstaller builds -> repository
+    ``backend/app/data/sku_mapping.json`` for development.
+    """
+    env_path = os.environ.get("RAE_SKU_MAPPING")
+    if env_path:
+        return Path(env_path)
+    if _is_frozen():
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            return Path(meipass) / "data" / "sku_mapping.json"
+        return _exe_dir() / "data" / "sku_mapping.json"
+    return _find_repo_root() / "backend" / "app" / "data" / "sku_mapping.json"
 
 
 @dataclass(frozen=True)

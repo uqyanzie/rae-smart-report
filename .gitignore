@@ -21,6 +21,9 @@ frontend/.vite/
 *.sqlite
 *.sqlite3
 data/
+# Lazada SKU mapping is a committed runtime artifact (not runtime data).
+!backend/app/data/
+!backend/app/data/sku_mapping.json
 
 # Environment & secrets
 .env

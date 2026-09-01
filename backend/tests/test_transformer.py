@@ -9,6 +9,7 @@ from app.modules.profiler.adapters import (
     RawRecord,
     ShopeeAdapter,
     TikTokShopAdapter,
+    LazadaAdapter,
 )
 from app.modules.transformer import (
     FoldBackEngine,
@@ -657,3 +658,80 @@ class TestTransformationGoldenOracleMatch:
         assert not any(
             rec.clean_variant.rstrip().endswith(", Fizzy Pop") for rec in result.records
         )
+
+
+class TestLazadaTransformation:
+    """Phase 8: Lazada adapter -> transform, reported/unreported split.
+
+    Simulated oracle (measured from the sample exports):
+    - raw_laz_1_31_Aug26.xlsx: 49 units / Rp 4,533,088 reported.
+    - raw_laz_24_30_Aug2026.xlsx: 9 units / Rp 886,765 reported.
+    """
+
+    def test_lazada_aug_transformation_reported_totals(self, raw_laz_aug_path) -> None:
+        _, raw_rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        raw_records = LazadaAdapter().adapt(raw_rows)
+        assert sum(r.qty_sold for r in raw_records) == 49
+        assert sum(r.revenue for r in raw_records) == 4_533_088
+
+        result = transform_records(raw_records)
+        assert result.total_qty == 49
+        assert result.total_revenue == 4_533_088
+
+    def test_lazada_aug24_transformation_reported_totals(self, raw_laz_aug24_path) -> None:
+        _, raw_rows = extract_spreadsheet_rows(raw_laz_aug24_path)
+        raw_records = LazadaAdapter().adapt(raw_rows)
+        assert sum(r.qty_sold for r in raw_records) == 9
+        assert sum(r.revenue for r in raw_records) == 886_765
+
+        result = transform_records(raw_records)
+        assert result.total_qty == 9
+        assert result.total_revenue == 886_765
+
+    def test_lazada_reverse_order_pair_lands_on_grid(self, raw_laz_aug_path) -> None:
+        """RAEGLT-008-006 reverses to RAEGLT-006-008 ('Energic,08. Gorgeous')
+        and folds into the on-grid 'Energic + Gorgeous' intra-family label."""
+        _, raw_rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        result = transform_records(LazadaAdapter().adapt(raw_rows))
+
+        aggregated: dict[tuple[str, str], dict[str, int]] = {}
+        for rec in result.records:
+            key = (rec.product_group.rstrip(), rec.clean_variant.rstrip())
+            entry = aggregated.setdefault(key, {"qty": 0, "revenue": 0})
+            entry["qty"] += rec.qty_sold
+            entry["revenue"] += rec.revenue
+
+        pair = aggregated[("Bundling Glow Up Tint", "Energic + Gorgeous")]
+        assert pair == {"qty": 1, "revenue": 150_555}
+
+        grid_keys = {(r.product_group, r.clean_variant) for r in generate_full_produk_grid()}
+        assert ("Bundling Glow Up Tint", "Energic + Gorgeous") in grid_keys
+
+    def test_lazada_same_shade_autosku_folds_back(self, raw_laz_aug_path) -> None:
+        """'-Energic-06. Energic' decodes to ', Energic, 06. Energic' and folds
+        back into the 'Glow Up Tint / Energic' single shade."""
+        _, raw_rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        result = transform_records(LazadaAdapter().adapt(raw_rows))
+
+        folded = [
+            r
+            for r in result.records
+            if r.clean_variant == "Energic" and "Folded" in r.raw_variant
+        ]
+        assert len(folded) == 1
+        rec = folded[0]
+        assert rec.product_group == "Glow Up Tint"
+        assert rec.is_bundling is False
+
+    def test_lazada_fallback_rows_stay_off_grid(self, raw_laz_aug_path) -> None:
+        """Unknown SKUs (STD-*, Heart Mirror F/C) fall back to their SKU as the
+        raw variant and never land on the catalog grid (unreported)."""
+        _, raw_rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        result = transform_records(LazadaAdapter().adapt(raw_rows))
+
+        grid_keys = {(r.product_group, r.clean_variant) for r in generate_full_produk_grid()}
+        off_grid = [
+            r for r in result.records if (r.product_group.rstrip(), r.clean_variant.rstrip()) not in grid_keys
+        ]
+        assert len(off_grid) == 6
+        assert all(r.qty_sold == 0 and r.revenue == 0 for r in off_grid)

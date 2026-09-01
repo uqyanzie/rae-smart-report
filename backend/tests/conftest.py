@@ -41,3 +41,13 @@ def raw_tp_path(sample_data_dir):
 def raw_tts_aug_path(sample_data_dir):
     return sample_data_dir / "raw" / "raw_tts_17_23_Aug26.xlsx"
 
+
+@pytest.fixture(scope="session")
+def raw_laz_aug_path(sample_data_dir):
+    return sample_data_dir / "raw" / "raw_laz_1_31_Aug26.xlsx"
+
+
+@pytest.fixture(scope="session")
+def raw_laz_aug24_path(sample_data_dir):
+    return sample_data_dir / "raw" / "raw_laz_24_30_Aug2026.xlsx"
+

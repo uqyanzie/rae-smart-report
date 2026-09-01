@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.modules.profiler.adapters import (
+    LazadaAdapter,
     PlatformEnum,
     ShopeeAdapter,
     TikTokShopAdapter,
@@ -170,6 +171,24 @@ def profile_spreadsheet_headers(headers: list[str], sheet_name: str | None = Non
                     description="Strip marketing and packaging suffixes",
                 ),
             ],
+        )
+
+    elif isinstance(adapter, LazadaAdapter):
+        return ProfilerResult(
+            platform=PlatformEnum.LAZADA,
+            confidence=1.0,
+            column_mapping=ColumnMapping(
+                product_group=LazadaAdapter.COL_PRODUCT,
+                raw_variant=LazadaAdapter.COL_SKU,  # Resolved via sku_mapping.json during ingestion
+                sku=LazadaAdapter.COL_SKU_ID,
+                qty_sold=LazadaAdapter.COL_QTY,
+                revenue=LazadaAdapter.COL_REV,
+            ),
+            parent_row_rule=ParentRowRule(
+                target_column=LazadaAdapter.COL_SKU,
+                ignore_condition=ParentRowIgnoreCondition.EQUALS_DASH,
+            ),
+            suggested_cleaning_rules=[],
         )
 
     # Unknown schema fallback

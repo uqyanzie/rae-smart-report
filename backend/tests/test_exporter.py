@@ -37,8 +37,13 @@ from app.modules.exporter.styles import (
     FORMAT_PERCENTAGE,
 )
 from app.modules.ingestion.reader import extract_spreadsheet_rows
-from app.modules.profiler.adapters import ShopeeAdapter, TikTokShopAdapter, TokopediaAdapter
-from app.modules.storage import AnalyticsRepository
+from app.modules.profiler.adapters import (
+    ShopeeAdapter,
+    TikTokShopAdapter,
+    TokopediaAdapter,
+    LazadaAdapter,
+)
+from app.modules.storage import AnalyticsRepository, SkippedTally
 from app.modules.storage.database import init_db, session_scope
 from app.modules.transformer import (
     PRODUK2_GROUP_ORDER,
@@ -108,6 +113,28 @@ def tiktok_result(raw_tts_path):
 def tokopedia_result(raw_tp_path):
     _, raw_rows = extract_spreadsheet_rows(raw_tp_path)
     return transform_records(TokopediaAdapter().adapt(raw_rows))
+
+
+@pytest.fixture(scope="module")
+def lazada_result(raw_laz_aug_path):
+    _, raw_rows = extract_spreadsheet_rows(raw_laz_aug_path)
+    return transform_records(LazadaAdapter().adapt(raw_rows))
+
+
+@pytest.fixture(scope="module")
+def lazada_batch(factory, lazada_result):
+    """Persists the Lazada reference batch once; returns the PersistResult."""
+    from datetime import datetime
+
+    with session_scope(factory) as session:
+        repo = AnalyticsRepository(session)
+        return repo.persist_batch(
+            "LAZADA-2026-08-01-31",
+            "LAZADA",
+            datetime(2026, 8, 1),
+            datetime(2026, 8, 31, 23, 59, 59),
+            lazada_result.records,
+        )
 
 
 @pytest.fixture(scope="module")
@@ -748,3 +775,90 @@ def test_produk_tp_sheet_number_formats(populated_tp, grids):
     assert ws.cell(row=2, column=8).number_format == FORMAT_INTEGER
     assert ws.cell(row=2, column=9).number_format == FORMAT_CURRENCY_IDR
     assert ws.cell(row=2, column=10).number_format == FORMAT_PERCENTAGE
+
+
+# ---------------------------------------------------------------------------
+# 13. Phase 8: Lazada sheets (Produk Laz, no Produk 2 Laz, Tidak Terlaporkan Laz)
+# ---------------------------------------------------------------------------
+
+GOLDEN_LAZADA_QTY = 49
+GOLDEN_LAZADA_REVENUE = 4_533_088
+
+
+@pytest.fixture(scope="module")
+def populated_laz(factory, lazada_batch, grids):
+    """populate_grid() for the Lazada Produk sheet (real pipeline data)."""
+    with session_scope(factory) as session:
+        repo = AnalyticsRepository(session)
+        return repo.populate_grid(
+            "LAZADA-2026-08-01-31", is_cross_bundling=0, grid=grids["produk"]
+        )
+
+
+@pytest.fixture(scope="module")
+def lazada_unreported(factory, lazada_batch):
+    """Query G for the Lazada batch (6 persisted unreported rows, qty 0)."""
+    with session_scope(factory) as session:
+        repo = AnalyticsRepository(session)
+        return repo.unreported_analytics("LAZADA-2026-08-01-31")
+
+
+@pytest.fixture(scope="module")
+def lazada_workbook_bytes(populated_laz, lazada_unreported, grids):
+    """Lazada-only workbook: Produk Laz + Tidak Terlaporkan Laz (no Produk 2)."""
+    sheets = [
+        ReportSheet(
+            title="Produk Laz",
+            populated=populated_laz,
+            grid=grids["produk"],
+            group_order=PRODUK_GROUP_ORDER,
+        )
+    ]
+    unreported = [UnreportedSheet(title="Tidak Terlaporkan Laz", rows=lazada_unreported)]
+    return generate_executive_workbook(sheets, unreported=unreported)
+
+
+def test_lazada_persist_tallies(lazada_batch):
+    """The Lazada batch persists every child row; reported volume matches the
+    simulated oracle and unreported rows (STD-*, Heart Mirror) stay qty 0."""
+    assert lazada_batch.inserted_count == 77
+    assert lazada_batch.inserted_reported.qty == GOLDEN_LAZADA_QTY
+    assert lazada_batch.inserted_reported.revenue == GOLDEN_LAZADA_REVENUE
+    assert lazada_batch.persisted_unreported.count == 6
+    assert lazada_batch.persisted_unreported.qty == 0
+    assert lazada_batch.skipped_dash_variant == SkippedTally(0, 0, 0)
+
+
+def test_lazada_workbook_sheet_names(lazada_workbook_bytes):
+    """Produk Laz is emitted; Produk 2 Laz is absent; Tidak Terlaporkan Laz
+    carries the persisted unreported rows."""
+    wb = _load(lazada_workbook_bytes)
+    assert wb.sheetnames == ["Produk Laz", "Tidak Terlaporkan Laz"]
+
+    ws = wb["Produk Laz"]
+    groups = [ws.cell(row=r, column=7).value for r in range(2, 2 + len(PRODUK_GROUP_ORDER))]
+    assert groups == list(PRODUK_GROUP_ORDER)
+
+    qty = sum(_cell_int(ws, r, 3) for r in range(2, ws.max_row + 1))
+    rev = sum(_cell_int(ws, r, 4) for r in range(2, ws.max_row + 1))
+    assert (qty, rev) == (GOLDEN_LAZADA_QTY, GOLDEN_LAZADA_REVENUE)
+
+    ws_u = wb["Tidak Terlaporkan Laz"]
+    assert ws_u.max_row == 6 + 1 + 1  # 6 data rows + header + TOTAL
+    for r in range(2, 8):
+        assert ws_u.cell(row=r, column=5).value == 0
+        assert ws_u.cell(row=r, column=6).value == 0
+
+
+def test_lazada_unreported_rows_absent_from_produk_laz(lazada_workbook_bytes):
+    """Unreported Lazada volume (STD-*, Heart Mirror) lives only in the
+    Tidak Terlaporkan sheet, never in Produk Laz."""
+    wb = _load(lazada_workbook_bytes)
+    ws = wb["Produk Laz"]
+    variants = {ws.cell(row=r, column=2).value for r in range(2, ws.max_row + 1)}
+    assert not any(str(v).startswith("STD-") for v in variants if v)
+    assert not any("Heart Mirror" in str(ws.cell(row=r, column=1).value or "") for r in range(2, ws.max_row + 1))
+
+    ws_u = wb["Tidak Terlaporkan Laz"]
+    all_variants = {ws_u.cell(row=r, column=2).value for r in range(2, ws_u.max_row + 1)}
+    assert {"STD-03", "STD-11", "STD-14", "STD-16", "C", "F"} <= all_variants

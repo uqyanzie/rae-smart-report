@@ -6,8 +6,8 @@ export const transformRequestSchema = z
   .object({
     fileId: z.string().min(1, 'File is required.'),
     activeSheet: z.string().min(1, 'Sheet is required.'),
-    platform: z.enum(['SHOPEE', 'TIKTOK_SHOP', 'TOKOPEDIA'], {
-      message: 'Select a platform (SHOPEE, TIKTOK_SHOP or TOKOPEDIA).',
+    platform: z.enum(['SHOPEE', 'TIKTOK_SHOP', 'TOKOPEDIA', 'LAZADA'], {
+      message: 'Select a platform (SHOPEE, TIKTOK_SHOP, TOKOPEDIA or LAZADA).',
     }),
     periodStart: z
       .string()

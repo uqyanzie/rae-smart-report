@@ -42,6 +42,7 @@ TIKTOK_CROSS_QTY = 13
 # Shared batch ids recorded by the transform tests for later report tests.
 shopee_batch_id = ""
 tiktok_batch_id = ""
+lazada_batch_id = ""
 
 
 # ---------------------------------------------------------------------------
@@ -602,6 +603,98 @@ def test_export_unknown_batch_404(client):
     body = resp.json()
     assert body["status"] == "error"
     assert body["code"] == "HTTP_ERROR"
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: Lazada end-to-end flow (appended after the golden-platform tests so
+# the batch-count assertions above remain stable)
+# ---------------------------------------------------------------------------
+
+
+def test_profile_detects_lazada(client, raw_laz_aug_path):
+    file_id = _ingest(client, raw_laz_aug_path)
+    profile = _profile(client, file_id)
+
+    assert profile["isCached"] is False
+    assert profile["platform"] == "LAZADA"
+    assert profile["confidence"] == 1.0
+    assert profile["columnMapping"]["productGroup"] == "Nama Produk"
+    assert profile["columnMapping"]["rawVariant"] == "Seller SKU"
+    assert profile["columnMapping"]["qtySold"] == "Unit Terjual"
+    assert profile["columnMapping"]["revenue"] == "Pendapatan"
+    assert profile["parentRowRule"] == {
+        "targetColumn": "Seller SKU",
+        "ignoreCondition": "EQUALS_DASH",
+    }
+
+
+def test_transform_lazada_golden_totals(client, raw_laz_aug_path):
+    global lazada_batch_id
+    file_id = _ingest(client, raw_laz_aug_path)
+    profile = _profile(client, file_id)
+    payload = {
+        "fileId": file_id,
+        "platform": profile["platform"],
+        "periodStart": "2026-08-01",
+        "periodEnd": "2026-08-31",
+        "columnMapping": profile["columnMapping"],
+        "parentRowRule": profile["parentRowRule"],
+        "cleaningRules": profile["suggestedCleaningRules"],
+        "saveAsTemplate": True,
+    }
+    resp = client.post("/api/transform", json=payload)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    _assert_camel_case(body)
+
+    assert body["platform"] == "LAZADA"
+    # Simulated oracle from the sample export.
+    assert body["reportedTotalQty"] == 49
+    assert body["reportedTotalRevenue"] == 4_533_088
+    assert body["skippedCount"] == 0
+    assert body["unreportedCount"] == 6
+    assert body["unreportedQty"] == 0
+    assert body["unreportedRevenue"] == 0
+    assert body["insertedCount"] == 77
+    lazada_batch_id = body["importBatchId"]
+
+
+def test_lazada_batch_unreported_endpoint(client):
+    """Phase 8: the Lazada unreported endpoint returns the 6 persisted qty-0
+    off-grid rows (STD-* bundles and Heart Mirror C/F)."""
+    resp = client.get(f"/api/reports/batches/{lazada_batch_id}/unreported")
+    assert resp.status_code == 200
+    rows = resp.json()
+    _assert_camel_case(rows)
+    assert len(rows) == 6
+    assert all(r["totalQty"] == 0 and r["totalRevenue"] == 0 for r in rows)
+    variants = {r["cleanVariant"] for r in rows}
+    assert {"STD-03", "STD-11", "STD-14", "STD-16", "C", "F"} <= variants
+
+
+def test_lazada_export_produk_laz_no_produk2(client):
+    """Exporting the Lazada batch yields Produk Laz + Tidak Terlaporkan Laz
+    only; Produk 2 Laz is suppressed and unreported rows stay in their sheet."""
+    resp = client.get("/api/export/excel", params=[("batchIds", lazada_batch_id)])
+    assert resp.status_code == 200, resp.text
+
+    wb = load_workbook(io.BytesIO(resp.content))
+    assert wb.sheetnames == ["Produk Laz", "Tidak Terlaporkan Laz"]
+    assert "Produk 2 Laz" not in wb.sheetnames
+
+    sums = _sheet_qty_sums(resp.content)
+    assert sums["Produk Laz"] == 49
+    assert sums["Tidak Terlaporkan Laz"] == 0
+
+
+def test_lazada_variant_analytics(client):
+    """Lazada variant analytics reflect the reported boundary only."""
+    resp = client.get(f"/api/reports/batches/{lazada_batch_id}/variants")
+    assert resp.status_code == 200
+    rows = resp.json()
+    _assert_camel_case(rows)
+    assert sum(r["totalQty"] for r in rows) == 49
+    assert sum(r["totalRevenue"] for r in rows) == 4_533_088
 
 
 # ---------------------------------------------------------------------------

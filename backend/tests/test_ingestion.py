@@ -21,6 +21,7 @@ from app.modules.profiler.adapters import (
     ShopeeAdapter,
     TikTokShopAdapter,
     TokopediaAdapter,
+    LazadaAdapter,
     detect_adapter,
     get_adapter,
     is_parent_or_summary_row,
@@ -188,6 +189,136 @@ class TestTokopediaIngestion:
         assert isinstance(adapter, TikTokShopAdapter)
 
 
+class TestLazadaIngestion:
+    """Tests for Lazada 'Bisnis Analisis - Kinerja Produk' parsing.
+
+    Lazada exports carry 5 preamble rows (source/description) before the real
+    header at row index 5, and product-level parent rows whose 'Seller SKU' is
+    '-' or empty (verified: parent qty == sum of child SKU qty).
+    """
+
+    def test_lazada_preamble_skip_and_metadata(self, raw_laz_aug_path: Path):
+        assert raw_laz_aug_path.exists(), f"Missing fixture at {raw_laz_aug_path}"
+        meta = read_spreadsheet(raw_laz_aug_path)
+
+        assert meta.active_sheet == "Produk"
+        assert meta.available_sheets == ["Produk"]
+        # 109 data rows after the 5 preamble rows + header (115 total - 6).
+        assert meta.total_rows == 109
+        assert meta.raw_headers[0] == "Kinerja Produk"
+        assert meta.raw_headers[1] == "Nama Produk"
+        assert "Seller SKU" in meta.raw_headers
+        assert "Unit Terjual" in meta.raw_headers
+        assert "Pendapatan" in meta.raw_headers
+        assert len(meta.sample_rows) == 10
+
+    def test_lazada_metadata_aug24(self, raw_laz_aug24_path: Path):
+        meta = read_spreadsheet(raw_laz_aug24_path)
+        assert meta.total_rows == 56
+        assert "Seller SKU" in meta.raw_headers
+
+    def test_lazada_adapter_prunes_parent_rows(self, raw_laz_aug_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        assert len(rows) == 109
+
+        adapter = LazadaAdapter()
+        adapter.validate_headers(headers)
+        records = adapter.adapt(rows)
+
+        # 109 data rows: 32 product-level parents pruned, 77 atomic SKU rows kept.
+        assert len(records) == 77
+        parent_count = sum(
+            1 for r in rows if is_parent_or_summary_row(r.get("Seller SKU"), "EQUALS_DASH")
+        )
+        assert parent_count == 32
+        for rec in records:
+            assert rec.platform == PlatformEnum.LAZADA.value
+            assert rec.sku is not None and rec.sku != "-"
+            assert rec.qty_sold >= 0
+            assert rec.revenue >= 0
+
+    def test_lazada_adapter_prunes_parent_rows_aug24(self, raw_laz_aug24_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_laz_aug24_path)
+        records = LazadaAdapter().adapt(rows)
+        assert len(records) == 32
+
+    def test_lazada_exact_sku_resolution(self, raw_laz_aug_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        records = LazadaAdapter().adapt(rows)
+        by_sku = {rec.sku: rec for rec in records}
+
+        # Exact lookup in sku_mapping.json: product_title is brand-stripped,
+        # raw_variant is the mapped 'Nama Variasi'.
+        raeglt003 = by_sku["RAEGLT-003"]
+        assert raeglt003.product_title == "Glow Up Tint"
+        assert raeglt003.raw_variant == "Cheerfull,Tanpa Keychain"
+
+        raectbl004 = by_sku["RAECTBL-004"]
+        assert raectbl004.product_title == "The Bloom Perfect Matte Lipstick"
+        assert raectbl004.raw_variant == "04 Tulip,Tanpa Keychain"
+
+        rotg001 = by_sku["ROTG-001"]
+        assert rotg001.product_title == "Over The Glaze"
+        assert rotg001.raw_variant == "Over Cute,Tanpa Keychain"
+
+    def test_lazada_reverse_order_sku_resolution(self, raw_laz_aug_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        records = LazadaAdapter().adapt(rows)
+        by_sku = {rec.sku: rec for rec in records}
+
+        # RAEGLT-008-006 reverses to RAEGLT-006-008 (Energic,08. Gorgeous),
+        # which the normalizer folds into the on-grid 'Energic + Gorgeous'.
+        rec = by_sku["RAEGLT-008-006"]
+        assert rec.product_title == "Bundling Raecca Glow Up Tint"
+        assert rec.raw_variant == "Energic,08. Gorgeous"
+        assert rec.qty_sold == 1
+        assert rec.revenue == 150_555
+
+        # RAEGLT-006-003 reverses to RAEGLT-003-006 (Cheerful,06. Energic).
+        rec = by_sku["RAEGLT-006-003"]
+        assert rec.product_title == "Bundling Raecca Glow Up Tint"
+        assert rec.raw_variant == "Cheerful,06. Energic"
+
+    def test_lazada_dash_prefix_auto_sku_decode(self, raw_laz_aug_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        records = LazadaAdapter().adapt(rows)
+        by_sku = {rec.sku: rec for rec in records}
+
+        # '-'-prefixed auto-SKUs decode the variant label ('-' -> ', ') so the
+        # normalizer folds back same-shade 2-packs (qty 0 in this sample).
+        rec = by_sku["-Cheerfull-03. Cheerfull"]
+        assert rec.product_title == "Bundling Raecca Glow Up Tint - Bundle 2 Lip Tint #1stLipSpecialist"
+        assert rec.raw_variant == ", Cheerfull, 03. Cheerfull"
+        assert rec.qty_sold == 0
+
+    def test_lazada_fallback_title_and_sku_variant(self, raw_laz_aug_path: Path):
+        headers, rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        records = LazadaAdapter().adapt(rows)
+        by_sku = {rec.sku: rec for rec in records}
+
+        # Unknown SKUs fall back to the 'Nama Produk' title + the SKU as the
+        # raw variant; they persist as unreported (qty 0 in the sample).
+        rec = by_sku["STD-14"]
+        assert rec.product_title == "Bundling Raecca Swipe To Glow - Bundle 2 Lip Gloss #1stLipSpecialist"
+        assert rec.raw_variant == "STD-14"
+
+        rec = by_sku["F"]
+        assert "Heart Mirror" in rec.product_title
+        assert rec.raw_variant == "F"
+
+    def test_lazada_adapter_detection(self, raw_laz_aug_path: Path):
+        headers, _ = extract_spreadsheet_rows(raw_laz_aug_path)
+        adapter = detect_adapter(headers)
+        assert isinstance(adapter, LazadaAdapter)
+        assert adapter.platform == PlatformEnum.LAZADA
+
+    def test_lazada_get_adapter(self):
+        adapter = get_adapter(PlatformEnum.LAZADA)
+        assert isinstance(adapter, LazadaAdapter)
+        assert adapter.platform == PlatformEnum.LAZADA
+        assert get_adapter("LAZADA").platform == PlatformEnum.LAZADA
+
+
 class TestCSVIngestionAndDelimiters:
     """Tests for CSV parsing across comma, semicolon, tab, and character encodings."""
 
@@ -262,6 +393,22 @@ class TestProfilerAndHeaderSignatures:
         assert profile.platform == PlatformEnum.UNKNOWN
         assert profile.confidence == 0.0
         assert profile.parent_row_rule is None
+
+    def test_profiler_lazada_detection(self, raw_laz_aug_path: Path):
+        headers, _ = extract_spreadsheet_rows(raw_laz_aug_path)
+        profile = profile_spreadsheet_headers(headers)
+
+        assert profile.platform == PlatformEnum.LAZADA
+        assert profile.confidence == 1.0
+        assert profile.column_mapping.product_group == "Nama Produk"
+        assert profile.column_mapping.raw_variant == "Seller SKU"
+        assert profile.column_mapping.qty_sold == "Unit Terjual"
+        assert profile.column_mapping.revenue == "Pendapatan"
+        assert profile.column_mapping.sku == "SKU ID"
+        assert profile.parent_row_rule is not None
+        assert profile.parent_row_rule.target_column == "Seller SKU"
+        assert profile.parent_row_rule.ignore_condition == ParentRowIgnoreCondition.EQUALS_DASH
+        assert profile.suggested_cleaning_rules == []
 
 
 class TestIngestionExceptions:

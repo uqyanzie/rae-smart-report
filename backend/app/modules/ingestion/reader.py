@@ -176,6 +176,14 @@ def _read_xlsx_rows(
         if not row or all(c is None or str(c).strip() == "" for c in row):
             continue
         if not raw_headers:
+            # Preamble skip (Phase 8): Lazada workbooks carry 5 lead-in rows
+            # (source/description, 1 non-empty cell each) before the real header
+            # at index 5. A candidate header must have >= 2 non-empty cells;
+            # Shopee (40) / TikTok / Tokopedia (7) headers already qualify at
+            # row 0, so no regression. Skips the 1-cell preamble rows only.
+            non_empty = sum(1 for c in row if c is not None and str(c).strip() != "")
+            if non_empty < 2:
+                continue
             raw_headers = [str(c).strip() if c is not None else "" for c in row]
             # Prune trailing empty headers
             while raw_headers and not raw_headers[-1]:

@@ -11,7 +11,7 @@ type ParentRowIgnoreCondition = components['schemas']['ParentRowIgnoreCondition'
 type ParentRowRuleDTO = components['schemas']['ParentRowRuleDTO']
 type TransformAndSaveRequestDTO = components['schemas']['TransformAndSaveRequestDTO']
 
-const KNOWN_PLATFORMS = ['SHOPEE', 'TIKTOK_SHOP', 'TOKOPEDIA'] as const
+const KNOWN_PLATFORMS = ['SHOPEE', 'TIKTOK_SHOP', 'TOKOPEDIA', 'LAZADA'] as const
 
 const MAPPING_FIELDS: { key: keyof ColumnMappingDTO; label: string; required: boolean }[] = [
   { key: 'productGroup', label: 'Product group', required: true },

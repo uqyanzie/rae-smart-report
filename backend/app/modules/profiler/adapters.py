@@ -1,4 +1,4 @@
-"""Deterministic platform adapters for marketplace sales exports (Shopee, TikTok Shop, Tokopedia)."""
+"""Deterministic platform adapters for marketplace sales exports (Shopee, TikTok Shop, Tokopedia, Lazada)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from app.core.numeric import is_blank_marker, sanitize_currency, sanitize_integer
+from app.domain.sku_mapping import SkuMapping
 from app.modules.ingestion.exceptions import MissingRequiredColumnError
 
 
@@ -269,6 +270,121 @@ class TokopediaAdapter(TikTokShopAdapter):
     platform = PlatformEnum.TOKOPEDIA
 
 
+class LazadaAdapter(BasePlatformAdapter):
+    """
+    Deterministic adapter for Lazada 'Bisnis Analisis - Kinerja Produk'.
+
+    Target Columns:
+    - Product: 'Nama Produk' (fallback title; authoritative labels come from the SKU mapping)
+    - Variant id: 'Seller SKU' (Lazada's Kode Variasi)
+    - SKU: 'SKU ID' (id)
+    - Qty Sold: 'Unit Terjual'
+    - Revenue: 'Pendapatan'
+
+    Parent-row pruning: drops rows where 'Seller SKU' is '-' or empty
+    (product-level summaries; verified parent qty == child SKU sum).
+
+    SKU resolution order (Phase 8):
+      1. exact lookup in the authoritative ``sku_mapping.json`` (Kode Variasi
+         column) -> product_title = mapped 'Produk' brand-stripped, raw_variant
+         = mapped 'Nama Variasi';
+      2. reverse-order bundle codes (``RAEGLT-008-006`` -> ``RAEGLT-006-008``
+         -> 'Energic + Gorgeous');
+      3. ``-``-prefixed auto-SKUs (``-Cheerfull-03. Cheerfull``) -> decode the
+         variant label (``-`` -> ', ') and let the normalizer fold back
+         same-shade 2-packs;
+      4. fallback -> 'Nama Produk' title + SKU as raw variant (persists as
+         unreported; qty 0 in the sample exports).
+    """
+
+    platform = PlatformEnum.LAZADA
+
+    COL_PRODUCT = "Nama Produk"
+    COL_SKU = "Seller SKU"
+    COL_SKU_ID = "SKU ID"
+    COL_QTY = "Unit Terjual"
+    COL_REV = "Pendapatan"
+
+    REQUIRED_COLS = (COL_PRODUCT, COL_SKU, COL_QTY, COL_REV)
+
+    def __init__(self, sku_mapping: SkuMapping | None = None) -> None:
+        self._sku_mapping = sku_mapping or SkuMapping.load()
+
+    def validate_headers(self, headers: list[str]) -> None:
+        headers_set = set(headers)
+        missing = [col for col in self.REQUIRED_COLS if col not in headers_set]
+        if missing:
+            raise MissingRequiredColumnError(
+                missing_columns=missing,
+                available_headers=headers,
+                platform=self.platform.value,
+            )
+
+    @staticmethod
+    def _resolve_sku(
+        sku: str,
+        nama_produk: str,
+        sku_mapping: SkuMapping,
+    ) -> tuple[str, str]:
+        """Resolves a Seller SKU into (product_title, raw_variant) per the 4-step order."""
+        # 1. Exact lookup in the authoritative SKU mapping.
+        entry = sku_mapping.lookup(sku)
+        if entry is not None:
+            return clean_brand_prefix(entry.product), entry.variant
+
+        # 2. Reverse-order bundle codes.
+        entry = sku_mapping.lookup_reverse(sku)
+        if entry is not None:
+            return clean_brand_prefix(entry.product), entry.variant
+
+        # 3. '-' -prefixed auto-SKUs: decode the label ('-' -> ', ') and let the
+        #    normalizer fold back same-shade 2-packs.
+        if sku.startswith("-"):
+            decoded = re.sub(r"-+", ", ", sku).strip()
+            if decoded:
+                return clean_brand_prefix(nama_produk), decoded
+
+        # 4. Fallback: product title + SKU as the raw variant (unreported).
+        return clean_brand_prefix(nama_produk), sku
+
+    def adapt(self, rows: list[dict[str, Any]]) -> list[RawRecord]:
+        records: list[RawRecord] = []
+        for row in rows:
+            sku_val = row.get(self.COL_SKU)
+            if is_parent_or_summary_row(sku_val, "EQUALS_DASH"):
+                # Product-level summary row ('-' Seller SKU) -- pruned; its
+                # qty equals the sum of its child SKUs, so keeping it would
+                # double-count every product.
+                continue
+            sku = str(sku_val).strip()
+
+            nama_produk = row.get(self.COL_PRODUCT)
+            nama_produk_str = str(nama_produk).strip() if nama_produk is not None else ""
+            if not nama_produk_str or nama_produk_str.lower() in ("total", "nan", "none"):
+                continue
+
+            product_title, raw_variant = self._resolve_sku(
+                sku, nama_produk_str, self._sku_mapping
+            )
+
+            qty_sold = sanitize_integer(row.get(self.COL_QTY, 0))
+            revenue_val = sanitize_currency(row.get(self.COL_REV, 0.0))
+            revenue = round(revenue_val)
+
+            records.append(
+                RawRecord(
+                    platform=self.platform.value,
+                    product_title=product_title,
+                    raw_variant=raw_variant,
+                    qty_sold=qty_sold,
+                    revenue=revenue,
+                    sku=sku,
+                    raw_product=nama_produk_str,
+                )
+            )
+        return records
+
+
 def detect_adapter(headers: list[str], sheet_name: str | None = None) -> BasePlatformAdapter | None:
     """
     Inspects column headers and sheet name to detect matching deterministic platform adapter.
@@ -305,6 +421,16 @@ def detect_adapter(headers: list[str], sheet_name: str | None = None) -> BasePla
     }.issubset(headers_set):
         return TokopediaAdapter()
 
+    # Lazada detection: 'Kinerja Produk' exports carry 'Seller SKU' (the
+    # variant id), 'Unit Terjual' and 'Pendapatan'. Checked after TikTok/
+    # Tokopedia so the shared 7-column schema never collides.
+    if {
+        LazadaAdapter.COL_SKU,
+        LazadaAdapter.COL_QTY,
+        LazadaAdapter.COL_REV,
+    }.issubset(headers_set):
+        return LazadaAdapter()
+
     return None
 
 
@@ -317,4 +443,6 @@ def get_adapter(platform: PlatformEnum | str) -> BasePlatformAdapter:
         return TikTokShopAdapter()
     elif p_str == PlatformEnum.TOKOPEDIA.value:
         return TokopediaAdapter()
+    elif p_str == PlatformEnum.LAZADA.value:
+        return LazadaAdapter()
     raise ValueError(f"No adapter registered for platform '{platform}'")

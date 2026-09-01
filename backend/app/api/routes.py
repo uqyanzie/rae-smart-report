@@ -62,7 +62,17 @@ router = APIRouter(prefix="/api", tags=["api"])
 
 _UPLOADS: dict[str, dict[str, Any]] = {}
 
-_PLATFORM_SUFFIX: dict[str, str] = {"SHOPEE": "S", "TIKTOK_SHOP": "T", "TOKOPEDIA": "TP"}
+_PLATFORM_SUFFIX: dict[str, str] = {
+    "SHOPEE": "S",
+    "TIKTOK_SHOP": "T",
+    "TOKOPEDIA": "TP",
+    "LAZADA": "Laz",
+}
+
+# Platforms that emit a 'Produk 2 <suffix>' cross-bundling sheet. Lazada is
+# deliberately excluded: the SKU mapping shows no Bundling Silang codes and the
+# reference workbook carries no 'Produk 2 Laz' sheet (Phase 8).
+_HAS_PRODUK2: frozenset[str] = frozenset({"SHOPEE", "TIKTOK_SHOP"})
 
 
 def _store_upload(filename: str, content: bytes) -> str:
@@ -453,6 +463,10 @@ async def export_excel(
             platform = next((p for p, s in _PLATFORM_SUFFIX.items() if s == suffix), None)
             if platform not in resolved:
                 continue
+            # Phase 8: 'Produk 2 Laz' is out of scope -- Lazada has no Bundling
+            # Silang SKUs, so the cross sheet is suppressed for LAZADA.
+            if is_cross == 1 and platform not in _HAS_PRODUK2:
+                continue
             batch_id = resolved[platform]["import_batch_id"]
             if is_cross == 0:
                 grid = generate_full_produk_grid()
@@ -487,7 +501,7 @@ async def export_excel(
     if not sheets:
         raise HTTPException(
             status_code=400,
-            detail="No exportable platform selected; supported platforms: SHOPEE, TIKTOK_SHOP, TOKOPEDIA",
+            detail="No exportable platform selected; supported platforms: SHOPEE, TIKTOK_SHOP, TOKOPEDIA, LAZADA",
         )
 
     # Filename derives from the persisted import batch id(s) so the export is

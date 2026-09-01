@@ -88,8 +88,8 @@ export default function ExportPage() {
       {!loading && !error && batches.length > 0 && (
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Select one batch per platform. Exactly one Shopee and/or one TikTok batch is exported — selecting a
-            second batch for the same platform replaces the first.
+            Select one batch per platform. Exactly one batch per platform is exported (Shopee, TikTok Shop, Tokopedia
+            and/or Lazada) — selecting a second batch for the same platform replaces the first.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {platforms.map((platform) => (
@@ -150,8 +150,8 @@ export default function ExportPage() {
               )}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              The workbook contains the Produk / Produk 2 sheets (with and without cross-bundling rows) for each
-              selected platform.
+              The workbook contains the Produk sheets for each selected platform, the Produk 2 (cross-bundling) sheets
+              for Shopee and TikTok Shop, and the per-platform unreported sheets.
             </p>
           </div>
         </div>

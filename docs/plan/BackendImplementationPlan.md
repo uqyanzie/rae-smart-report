@@ -307,17 +307,17 @@ backend/
 
 ---
 
-### Phase 8: Lazada Adapter & Report Generation
+### Phase 8: Lazada Adapter & Report Generation [Completed]
 
 **Goal:** Add a deterministic Lazada adapter that resolves each `Seller SKU` against the authoritative `sku_mapping.csv` (`Kode Variasi` column), prune Lazada product-level parent rows, emit `Produk Laz` / `Tidak Terlaporkan Laz` sheets (suppress `Produk 2 Laz`), and wire LAZADA through the profiler, API, exporter, and frontend.
 
-- [ ] **Reader preamble handling** `backend/app/modules/ingestion/reader.py`:
+- [x] **Reader preamble handling** `backend/app/modules/ingestion/reader.py`:
   - Lazada workbooks carry 5 preamble rows (source/description) before the real header row at index 5.
   - Skip leading rows with **fewer than 2 non-empty cells** before treating a row as the header (verified: Shopee 40-cell, TikTok/TP 7-cell header rows are already row 0, so no regression; Lazada's 1-cell preamble rows are skipped).
-- [ ] **SKU mapping runtime artifact** `backend/app/data/sku_mapping.json`:
-  - Convert `sku_mapping.csv` (`Produk, Nama Variasi, Kode Variasi`) to JSON (256 entries; duplicate codes resolve first-row-wins).
+- [x] **SKU mapping runtime artifact** `backend/app/data/sku_mapping.json`:
+  - Convert `sku_mapping.csv` (`Produk, Nama Variasi, Kode Variasi`) to JSON (256 entries; duplicate codes resolve first-row-wins; the `-` parent/SKU-INDUK marker code is excluded).
   - `backend/app/domain/sku_mapping.py`: `SkuMapping` loader resolving the JSON path via config (repo root for dev; `sys._MEIPASS` / exe dir for packaged builds — pyinstaller-packaging-guardian pattern).
-- [ ] **LazadaAdapter** `backend/app/modules/profiler/adapters.py`:
+- [x] **LazadaAdapter** `backend/app/modules/profiler/adapters.py`:
   - Columns: `Seller SKU` (variant id / `Kode Variasi`), `Nama Produk` (fallback title), `Unit Terjual` (qty), `Pendapatan` (revenue), `SKU ID` (id).
   - **Parent pruning:** drop rows where `Seller SKU` is `-` or empty (product-level summaries; verified parent qty == child SKU sum).
   - **SKU resolution order:**
@@ -326,19 +326,19 @@ backend/
     3. `-`-prefixed auto-SKUs (`-Cheerfull-03. Cheerfull`) → decode variant label (`-` → `, `) and let the normalizer fold back same-shade 2-packs.
     4. fallback → `Nama Produk` title + SKU as raw variant (persists as unreported, qty 0 in samples).
   - Register in `detect_adapter` (headers contain `Seller SKU`, `Unit Terjual`, `Pendapatan`) and `get_adapter`; add the `profile_spreadsheet_headers` branch in `fallback.py`.
-- [ ] **Report generation** `backend/app/api/routes.py`:
+- [x] **Report generation** `backend/app/api/routes.py`:
   - `_PLATFORM_SUFFIX` gains `"LAZADA": "Laz"` → sheet names **`Produk Laz`** and **`Tidak Terlaporkan Laz`**.
   - **Suppress `Produk 2 Laz`:** the cross loop emits `Produk 2` only for platforms flagged `has_produk2` (SHOPEE, TIKTOK_SHOP). Mapping shows no Lazada Bundling Silang SKUs; the reference sheet is out of scope for Lazada.
-- [ ] **Frontend** `frontend/src/utils/validation.ts`, `frontend/src/components/MappingEditor.tsx`:
+- [x] **Frontend** `frontend/src/utils/validation.ts`, `frontend/src/components/MappingEditor.tsx`, `frontend/src/pages/ExportPage.tsx`:
   - Add `LAZADA` to the platform enums; update `ExportPage` copy.
-- [ ] **Tests**:
+- [x] **Tests**:
   - `conftest.py`: Lazada fixture paths.
-  - `test_ingestion.py`: preamble skip, header detection, parent pruning, SKU resolution incl. reverse-order + fold-back decode, `detect_adapter`.
+  - `test_ingestion.py`: preamble skip, header detection, parent pruning, SKU resolution incl. reverse-order + fold-back decode, `detect_adapter`, `get_adapter`, profiler branch.
   - `test_transformer.py` / `test_storage.py`: reported/unreported split vs simulated oracle (Aug: 49 units / Rp 4,533,088 reported; Aug24-30: 9 units / Rp 886,765 reported).
   - `test_api.py` / `test_exporter.py`: `Produk Laz` sheet present, `Produk 2 Laz` absent, `Tidak Terlaporkan Laz` present.
 
 **Success Criteria:**
-- `pytest backend/tests/` passes (existing 249 tests stay green; new Lazada tests pass).
+- `pytest backend/tests/` passes (existing 249 tests stay green; new Lazada tests pass — measured **276 passed**).
 - `Produk Laz` exports with correct reported totals; `Produk 2 Laz` is not emitted; unreported rows land only in `Tidak Terlaporkan Laz`.
 - No golden Shopee/TikTok figures move.
 
@@ -389,7 +389,7 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
 
 # Handoff Brief
 
-- **Current Phase:** Phase 8 (Lazada Adapter & Report Generation) — **planned, docs updated, implementation pending**. Backend suite is green at 249 tests (Phase 7 completed earlier with 233; +16 Tokopedia/Lazada-era additions since).
+- **Current Phase:** Phase 8 (Lazada Adapter & Report Generation) — **completed** (2026-09-02). Backend suite green at **276 tests** (249 pre-Phase-8 + 27 Lazada-era additions).
 - **What was done in Phase 7:**
   - **Schema & migration** `backend/app/modules/storage/`:
     - `models.py`: added indexed `is_reported` Boolean (default `True`) to `TransactionItem`.
@@ -410,12 +410,17 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
     - `test_exporter.py`: `test_unreported_sheets_render_persisted_entries`, `test_unreported_rows_absent_from_produk_sheets`, `test_render_unreported_sheet_empty_emits_zero_total`.
     - `test_api.py`: `test_batch_unreported_endpoint`; transform assertions (Shopee skipped=167 + unreported=13; TikTok skipped=0 + unreported=1); export now asserts the 6-sheet workbook; OpenAPI contract covers the unreported endpoint/DTO/fields.
   - **Measured outcome:** Shopee persists 13 unreported records (12 distinct rows) at Rp 0; TikTok persists 1 off-grid `Tinted Jelly Balm / Default` row (qty 1, Rp 22,637).
-- **What was done in Phase 8 (docs only, no code yet):**
-  - Added the full Phase 8 task breakdown to this plan: preamble-aware reader, `backend/app/data/sku_mapping.json` artifact + `SkuMapping` loader, `LazadaAdapter` (SKU resolution: exact → reverse-order → `-`-prefix decode → fallback), LAZADA wiring in `detect_adapter` / `get_adapter` / `fallback.py`, `_PLATFORM_SUFFIX["LAZADA"]="Laz"` → `Produk Laz` / `Tidak Terlaporkan Laz` with **`Produk 2 Laz` suppressed**, frontend platform enums, and the test matrix.
-  - Analysis grounded in the sample data: `raw_laz_1_31_Aug26.xlsx` (77 SKU rows, 49 units / Rp 4,533,088 reported) and `raw_laz_24_30_Aug2026.xlsx` (32 SKU rows, 9 units / Rp 886,765 reported). Reverse-order resolution recovers `RAEGLT-008-006` → `Energic + Gorgeous`; `-`-prefixed auto-SKUs fold back same-shade 2-packs through the existing normalizer.
+- **What was done in Phase 8 (implementation):**
+  - **Reader** `reader.py`: preamble-aware header detection — leading rows with fewer than 2 non-empty cells are skipped (Lazada's 5 lead-in rows); Shopee/TikTok/Tokopedia 7-40-cell headers unaffected (verified `total_rows` = 109 / 56 for the two Lazada samples).
+  - **SKU mapping artifact** `backend/app/data/sku_mapping.json` (256 entries, first-row-wins, `-` marker code excluded) + `SkuMapping` loader in `backend/app/domain/sku_mapping.py` (exact + reverse-order `RAEGLT-NNN-NNN` lookup); path resolution via `resolve_sku_mapping_path()` in `config.py` (repo root dev / `sys._MEIPASS`+exe dir packaged).
+  - **LazadaAdapter** `adapters.py`: columns `Seller SKU` / `Nama Produk` / `Unit Terjual` / `Pendapatan` / `SKU ID`; prunes product-level `-` parent rows (32 from 109, 24 from 56); 4-step SKU resolution (exact → reverse-order → `-`-prefix decode → `Nama Produk` fallback); registered in `detect_adapter` and `get_adapter`.
+  - **Profiler** `fallback.py`: `LAZADA` branch → column mapping (`Nama Produk`/`Seller SKU`/`Unit Terjual`/`Pendapatan`, sku `SKU ID`), `EQUALS_DASH` parent rule, no cleaning rules.
+  - **Routes/export** `routes.py`: `_PLATFORM_SUFFIX["LAZADA"]="Laz"` → `Produk Laz` / `Tidak Terlaporkan Laz`; `_HAS_PRODUK2 = {SHOPEE, TIKTOK_SHOP}` suppresses `Produk 2 Laz`; error message lists LAZADA.
+  - **Frontend**: `LAZADA` added to `validation.ts` zod enum and `MappingEditor.tsx` `KNOWN_PLATFORMS`; `ExportPage.tsx` copy updated (one batch per platform incl. Lazada; Produk 2 noted for Shopee/TikTok only). Typecheck + oxlint clean.
+  - **Tests** (+27, 249 → 276): `conftest.py` Lazada fixtures; `test_ingestion.py` (preamble skip, 77/32 child-row extraction, exact/reverse/`-`-prefix/fallback SKU resolution, detect/get_adapter, profiler branch); `test_transformer.py` (49/Rp 4,533,088 and 9/Rp 886,765 oracle, `Energic + Gorgeous` reverse-order on-grid, same-shade auto-SKU fold-back, 6 fallback rows off-grid); `test_storage.py` (persist reported/unreported split, Query G, Query A excludes unreported); `test_exporter.py` (`Produk Laz` present with golden totals, `Produk 2 Laz` absent, `Tidak Terlaporkan Laz` carries the 6 rows); `test_api.py` (profile LAZADA, transform totals, unreported endpoint, export sheet list, variant analytics).
+  - **Measured outcome:** Aug 1-31 persists 77 rows (49 units / Rp 4,533,088 reported; 6 unreported at qty 0); Aug 24-30 persists 32 rows (9 units / Rp 886,765 reported; 1 unreported at qty 0). Reverse-order `RAEGLT-008-006` → on-grid `Energic + Gorgeous` (1 / Rp 150,555); `-`-prefixed same-shade auto-SKUs fold back (2 folded records); no golden Shopee/TikTok figure moved.
 - **What is next (fresh session):**
-  - Execute Phase 8 code: reader preamble skip → `sku_mapping.json` + `SkuMapping` loader → `LazadaAdapter` + profiler/fallback wiring → routes/exporter LAZADA + `Produk 2` suppression → frontend enums → tests.
-  - Then frontend **Phase H (Unreported Entries display)** per `FrontendDevelopmentPlan.md` and final **Phase I (Integration & Packaging)**.
+  - Frontend **Phase H (Unreported Entries display)** per `FrontendDevelopmentPlan.md` and final **Phase I (Integration & Packaging)** (bundle `data/sku_mapping.json` into the PyInstaller `--add-data` list).
 - **Artifacts:**
   - Plan: [BackendImplementationPlan.md](BackendImplementationPlan.md)
   - Skill references: `.agents/skills/fullstack-bridge-contract/`, `.agents/skills/pyinstaller-packaging-guardian/`, `.agents/skills/rae-report-template/SKILL.md`

@@ -17,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.domain.models import VariantRecord
 from app.modules.ingestion.reader import extract_spreadsheet_rows
-from app.modules.profiler.adapters import ShopeeAdapter, TikTokShopAdapter
+from app.modules.profiler.adapters import ShopeeAdapter, TikTokShopAdapter, LazadaAdapter
 from app.modules.storage import AnalyticsRepository, SkippedTally
 from app.modules.storage.database import init_db, session_scope
 from app.modules.storage.models import TransactionItem
@@ -816,3 +816,91 @@ def test_mapping_template_save_and_lookup(factory, persisted):
         assert updated["column_mapping_json"] == '{"Produk": "product_group_v2"}'
     finally:
         session.close()
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: Lazada persistence (reported/unreported split vs simulated oracle)
+# ---------------------------------------------------------------------------
+
+
+LAZ_BATCH_AUG = "LAZADA-2026-08-01-31"
+LAZ_BATCH_AUG24 = "LAZADA-2026-08-24-30"
+LAZ_AUG_START = datetime(2026, 8, 1)
+LAZ_AUG_END = datetime(2026, 8, 31, 23, 59, 59)
+LAZ_AUG24_START = datetime(2026, 8, 24)
+LAZ_AUG24_END = datetime(2026, 8, 30, 23, 59, 59)
+# Simulated oracle from the sample exports.
+LAZ_AUG_REPORTED = (49, 4_533_088)
+LAZ_AUG24_REPORTED = (9, 886_765)
+
+
+class TestLazadaStorage:
+    """Phase 8: the Lazada adapter feeds the same persistence boundary and
+    analytical queries; reported volume matches the oracle and unreported rows
+    (STD-*, Heart Mirror, all qty 0) persist only for traceability."""
+
+    def test_lazada_persist_reported_totals(
+        self, factory, raw_laz_aug_path, raw_laz_aug24_path
+    ) -> None:
+        _, raw_rows = extract_spreadsheet_rows(raw_laz_aug_path)
+        result = transform_records(LazadaAdapter().adapt(raw_rows))
+        _, raw_rows24 = extract_spreadsheet_rows(raw_laz_aug24_path)
+        result24 = transform_records(LazadaAdapter().adapt(raw_rows24))
+
+        with session_scope(factory) as session:
+            repo = AnalyticsRepository(session)
+            aug = repo.persist_batch(
+                LAZ_BATCH_AUG, "LAZADA", LAZ_AUG_START, LAZ_AUG_END, result.records
+            )
+            aug24 = repo.persist_batch(
+                LAZ_BATCH_AUG24, "LAZADA", LAZ_AUG24_START, LAZ_AUG24_END, result24.records
+            )
+
+        # Reported volume equals the simulated oracle exactly.
+        assert (aug.inserted_reported.qty, aug.inserted_reported.revenue) == LAZ_AUG_REPORTED
+        assert (aug24.inserted_reported.qty, aug24.inserted_reported.revenue) == LAZ_AUG24_REPORTED
+
+        # Unreported rows are persisted (qty 0 in the samples), never dropped.
+        assert aug.unreported_off_grid.count == 4  # STD-03/11/14/16
+        assert aug.unreported_unresolved_group.count == 2  # Heart Mirror C / F
+        assert aug.persisted_unreported.qty == 0
+        assert aug.skipped_dash_variant == SkippedTally(0, 0, 0)
+        assert aug24.persisted_unreported.count == 1  # Heart Mirror F
+        assert aug24.persisted_unreported.qty == 0
+
+        # Volume invariant: reported + unreported == raw records (no dash drops).
+        assert aug.inserted_count == len(result.records)
+        assert aug.inserted_reported.count + aug.persisted_unreported.count == len(result.records)
+
+    def test_lazada_unreported_analytics(self, factory) -> None:
+        repo, session = _repo(factory)
+        try:
+            aug_unreported = repo.unreported_analytics(LAZ_BATCH_AUG)
+            aug24_unreported = repo.unreported_analytics(LAZ_BATCH_AUG24)
+        finally:
+            session.close()
+
+        assert len(aug_unreported) == 6
+        assert sum(r["total_qty"] for r in aug_unreported) == 0
+        assert sum(r["total_revenue"] for r in aug_unreported) == 0
+        std_rows = [r for r in aug_unreported if r["product_group"] == "Bundling Swipe To Glow"]
+        assert {r["clean_variant"] for r in std_rows} == {"STD-03", "STD-11", "STD-14", "STD-16"}
+        mirror_rows = [r for r in aug_unreported if "Heart Mirror" in r["product_group"]]
+        assert {r["clean_variant"] for r in mirror_rows} == {"C", "F"}
+
+        assert len(aug24_unreported) == 1
+        assert aug24_unreported[0]["clean_variant"] == "F"
+
+    def test_lazada_report_queries_exclude_unreported(self, factory) -> None:
+        """Query A for the Lazada batch reports the oracle totals; unreported
+        rows never leak into the report boundary."""
+        repo, session = _repo(factory)
+        try:
+            rows = repo.variant_analytics(LAZ_BATCH_AUG, is_cross_bundling=0)
+        finally:
+            session.close()
+
+        assert sum(r["total_qty"] for r in rows) == LAZ_AUG_REPORTED[0]
+        assert sum(r["total_revenue"] for r in rows) == LAZ_AUG_REPORTED[1]
+        assert not any(r["clean_variant"].startswith("STD-") for r in rows)
+        assert not any("Heart Mirror" in r["product_group"] for r in rows)
