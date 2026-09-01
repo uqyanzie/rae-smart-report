@@ -30,7 +30,7 @@ This skill provides domain logic, product catalog models, fixed-grid layout spec
    - **Trailing whitespace:** the reference workbook contains 57 manually-entered trailing spaces. Do not reproduce them; normalise with `.rstrip()` on **both** sides of every comparison and join.
 8. **Hand-Ordered Exception:** `Bundling Over The Glaze` does not follow the upper-triangle rule, and one label drops its prefix (`Over Cute + Lovie`). Its 15 intra-bundle labels are supplied verbatim as `OTG_INTRA_BUNDLE_LABELS`.
 9. **16-Sheet Workbook Taxonomy:**
-   - Platform Suffixes: `S` (Shopee), `T` (TikTok Shop), `TP` (Tokopedia), `L` (Lazada).
+   - Platform Suffixes: `S` (Shopee), `T` (TikTok Shop), `TP` (Tokopedia), `Laz` (Lazada).
    - Sheet Types: `Produk` (singles + intra bundles), `Produk 2` (cross bundles), `Tinjauan Data` (daily metrics), `Promosi`, `BC`, `Ekspor`.
    - Phase 1 Target: `Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`.
 10. **Reference-Workbook Defects — Do Not Replicate:** The source workbook is hand-maintained and contains known errors. Emit the corrected form:

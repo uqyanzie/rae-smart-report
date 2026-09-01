@@ -47,6 +47,27 @@ To guarantee 100% precision and eliminate ambiguity, known marketplace exports a
 | `revenue` | `GMV` (Col E) | Gross Merchandise Value / Revenue |
 | `parentRowRule` | `None` | **No parent rows exist** (0 of 270 rows). All rows are atomic at SKU level. |
 
+### 3.3 Lazada Adapter (`Produk` sheet, preamble-skipped)
+
+Lazada exports are a single `Produk` sheet. The first 5 rows are preamble/source metadata (each with 1 populated cell); the real header row sits at index 5 (20 columns). The adapter resolves each SKU row's `Seller SKU` value against the authoritative **`sku_mapping.csv`** (`Kode Variasi` column) to recover the canonical product family and variant label.
+
+| Canonical Field | Exact Source Header | Extraction Logic |
+| :--- | :--- | :--- |
+| `productGroup` | `Nama Produk` (fallback) / `sku_mapping.csv` `Produk` | Primary: mapped `Produk` (brand-stripped); fallback for unmapped SKUs: raw `Nama Produk` |
+| `rawVariant` | `Seller SKU` → `sku_mapping.csv` `Nama Variasi` | Resolved via `Kode Variasi` lookup |
+| `sku` | `Seller SKU` (Col D) | Lazada seller SKU code (the `Kode Variasi`) |
+| `qtySold` | `Unit Terjual` (Col P) | Units sold |
+| `revenue` | `Pendapatan` (Col Q) | Sales revenue (IDR integer) |
+| `parentRowRule` | `targetColumn: "Seller SKU"`, `ignoreCondition: "EQUALS_DASH"` | Product-level parent rows where `Seller SKU == "-"` are pruned |
+
+**SKU Resolution Order (deterministic):**
+1. **Exact lookup** in `sku_mapping.json` (derived from `sku_mapping.csv`; duplicate codes resolve first-row-wins) → `product_title` = mapped `Produk` brand-stripped, `raw_variant` = mapped `Nama Variasi`.
+2. **Reverse-order bundle codes:** swap the two numeric segments (e.g. `RAEGLT-008-006` → `RAEGLT-006-008` = `Energic + Gorgeous`) and retry the lookup.
+3. **`-`-prefixed auto-SKUs:** Lazada encodes the variant label into the Seller SKU when unset (e.g. `-Cheerfull-03. Cheerfull`). Decode `-` → `, ` and feed the label to the normalizer, which handles same-shade fold-back and bundle routing.
+4. **Fallback:** use raw `Nama Produk` as the title and the SKU code as the raw variant → normalizer persists non-catalog / off-grid rows as unreported (`is_reported = 0`).
+
+**Measured coverage:** `raw_laz_1_31_Aug26.xlsx` → 77 SKU rows (63 exact-mapped, 14 resolved via reverse-order/`-`-decode/fallback); `raw_laz_24_30_Aug2026.xlsx` → 32 SKU rows (29 exact-mapped). All qty-1+ sales resolve on-grid; only qty-0 Heart Mirror (`F`, `C`) and Swipe To Glow bundle codes (`STD-*`) fall through to unreported.
+
 ---
 
 ## 4. Tier 2 & 3: Fallback LLM Profiler & Guardrails

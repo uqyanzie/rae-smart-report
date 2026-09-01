@@ -6,6 +6,9 @@ The Storage module provides persistent local data management using an embedded S
 > [!IMPORTANT]
 > **Grid Population Semantics:** SQL aggregation queries are used strictly to **populate metrics into a declaratively generated catalog grid**. The SQL queries do *not* define the output row structure or row order, because the executive report requires fixed combinatorial rows (e.g. $C(n,2)$ bundle grids) that must be emitted even when sales are zero.
 
+> [!NOTE]
+> **Phase 8 (Lazada):** Lazada requires **no storage schema change** — it persists through the same `transaction_items` boundary as Shopee/TikTok/Tokopedia (`platform = "LAZADA"`), and all report queries (A/B/C/D/G + grid left-join) are platform-agnostic. The Lazada adapter resolves `Seller SKU` → canonical product/variant via `sku_mapping.json` (derived from `sku_mapping.csv`) before persistence.
+
 ---
 
 ## 2. Environment & PyInstaller Storage Resolution
@@ -51,8 +54,7 @@ class TransactionItem(Base):
 
     id = Column(String(36), primary_key=True)
     import_batch_id = Column(String(64), nullable=False, index=True)
-    platform = Column(String(32), nullable=False, index=True)  # SHOPEE, TIKTOK_SHOP, TOKOPEDIA, LAZADA
-    
+    platform = Column(String(32), nullable=False, index=True)  # SHOPEE, TIKTOK_SHOP, TOKOPEDIA, LAZADA    
     # Date grain support (for periodic reports and daily-grain Tinjauan Data)
     transaction_date = Column(Date, nullable=True, index=True)
     period_start = Column(Date, nullable=True)

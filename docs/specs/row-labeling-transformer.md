@@ -39,6 +39,16 @@ Atomic Labeled Records Batch (SQLite Transactional Insert)
 ### 3.1 Deterministic Parent Row Elimination
 - **Shopee:** Rows with `Nama Variasi == "-"` represent aggregate product headers. These MUST be dropped prior to insertion to prevent double-counting (~295 rows per monthly export).
 - **TikTok Shop:** Rows are already atomic at the SKU level (`parentRowRule = None`). No rows are dropped.
+- **Lazada:** Rows with `Seller SKU == "-"` represent product-level summaries. These MUST be dropped prior to insertion (verified: the parent row's `Unit Terjual` equals the sum of its child SKU rows). Only SKU-level rows (with a real `Seller SKU` code) are atomic.
+
+### 3.1b Lazada SKU Mapping Resolution
+
+Lazada SKU rows carry only a `Seller SKU` code (the `Kode Variasi`). The product family and variant label are recovered from the authoritative `sku_mapping.csv` (`Produk, Nama Variasi, Kode Variasi`), shipped as `backend/app/data/sku_mapping.json`:
+
+1. **Exact lookup** by `Seller SKU` → mapped `Produk` (brand-stripped) as `product_title`, mapped `Nama Variasi` as `raw_variant`.
+2. **Reverse-order bundle codes:** swap the two numeric segments (`RAEGLT-008-006` → `RAEGLT-006-008`) and retry, recovering bundle pairs Lazada exports in reverse order.
+3. **`-`-prefixed auto-SKUs:** decode the embedded variant label (`-` → `, `) so same-shade 2-packs and bundles flow through the normalizer (incl. fold-back).
+4. **Fallback:** raw `Nama Produk` title + SKU code as variant → persisted as unreported when off-grid / non-catalog.
 
 ### 3.2 Product Group Brand Prefix Reconciliation
 - Standardize `product_group` strings across platforms by normalizing brand prefixes (e.g. stripping leading `Raecca `) so that products from Shopee and TikTok Shop join cleanly under identical canonical master group names.

@@ -60,3 +60,6 @@
 | **Frontend UI** | **React 18+ (Vite + TypeScript)** | Fast HMR, strong typing matching Pydantic DTOs, reactive state management. |
 | **Styling** | **Tailwind CSS** | Clean modern slate design system, responsive layouts, dark/light themes. |
 | **Desktop Packaging** | **PyInstaller** | Bundles FastAPI backend, React SPA static assets, and SQLite runner into a standalone local `.exe`. |
+
+> [!NOTE]
+> **Phase 8 (Lazada):** The Lazada adapter resolves each `Seller SKU` against `sku_mapping.csv` (`Kode Variasi` column), shipped as `backend/app/data/sku_mapping.json`. Lazada exports a single `Produk` sheet with 5 preamble rows before the header; the reader skips leading sparse rows so header detection stays deterministic. Exports render `Produk Laz` / `Tidak Terlaporkan Laz` (no `Produk 2 Laz`).

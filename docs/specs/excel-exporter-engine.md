@@ -9,9 +9,9 @@ The Excel Exporter engine transforms SQL query results and declarative master pr
 
 The complete reporting system encompasses 16 sheets across 4 e-commerce platforms:
 
-| Sheet Type | Suffix `S` (Shopee) | Suffix `T` (TikTok Shop) | Suffix `TP` (Tokopedia) | Suffix `L` (Lazada) | Phase Scope |
+| Sheet Type | Suffix `S` (Shopee) | Suffix `T` (TikTok Shop) | Suffix `TP` (Tokopedia) | Suffix `Laz` (Lazada) | Phase Scope |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **`Produk`** (Single & Intra-Family Bundles) | Y | Y | Y | Y | **Phase 1 (`S`, `T`)** / Phase 2 (`TP`, `L`) |
+| **`Produk`** (Single & Intra-Family Bundles) | Y | Y | Y | Y | **Phase 1 (`S`, `T`)** / Phase 2 (`TP`, `Laz`) |
 | **`Produk 2`** (Cross-Family Bundles / *Bundling Silang*) | Y | Y | — | — | **Phase 1 (`S`, `T`)** |
 | **`Tidak Terlaporkan`** (Unreported Entries, 2026-08-26) | Y | Y | — | — | **Phase 1 (`S`, `T`)** |
 | **`Tinjauan Data`** (Daily Performance Series) | Y | Y | Y | Y | Phase 2 |
@@ -19,8 +19,13 @@ The complete reporting system encompasses 16 sheets across 4 e-commerce platform
 | **`BC`** (Broadcast Chat Performance) | Y | — | — | — | Phase 2 |
 | **`Ekspor`** (Destination Country Breakdown) | Y | — | — | — | Phase 2 |
 
+> [!NOTE]
+> **Lazada sheet naming & scope (Phase 8):** Lazada uses the suffix **`Laz`** (not `L`), so its product sheet renders **`Produk Laz`** and its unreported sheet **`Tidak Terlaporkan Laz`**. The **`Produk 2` (cross-family / *Bundling Silang*) sheet is NOT emitted for Lazada**: the `sku_mapping.csv` contains no cross-family Bundling Silang SKUs, so the reference sheet is out of scope. The export loop suppresses `Produk 2` for platforms without a `has_produk2` flag (Lazada only; Shopee and TikTok Shop continue to emit `Produk 2 S` / `Produk 2 T`).
+
 > [!IMPORTANT]
 > **Phase 1 Target:** Focuses on the four product performance sheets plus the unreported sheets with complete raw exports and verified golden oracle workbooks: `Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`, and `Tidak Terlaporkan S` / `Tidak Terlaporkan T`. The unreported sheets carry **persisted non-reportable** entries (off-grid variants such as standalone `tidak boleh ecer` / `free gift`, and non-catalog product groups); they are additive and never alter the four Produk sheets.
+>
+> **Phase 8 (Lazada):** adds `Produk Laz` and `Tidak Terlaporkan Laz`. No `Produk 2 Laz` (no cross-family Bundling Silang SKUs in `sku_mapping.csv`).
 
 ---
 
@@ -112,7 +117,7 @@ Added by the 2026-08-26 scope extension. One sheet per platform batch present in
 6. **Defect Prevention In Formulas:**
    - **No Double-Counting Range Overruns:** In `Produk 2 S`, ensure formula ranges strictly match exact group boundaries (do NOT replicate the reference-file defect where Group 9 summed `C374:C445`, overrunning into Power Frosted).
    - **Empty-Range Guard:** Never emit `=SUM(...)` for a group with no emitted variant rows; write a literal `0`. See section 3 rule 5.
-   - **Division by Zero Guard:** Contribution cells (Col E, Col J) divide by a group or grand total. When that divisor is `0`, write a literal `0` instead of a formula, so no cell can render `#DIV/0!` as the reference workbook does in `Produk L`.
+   - **Division by Zero Guard:** Contribution cells (Col E, Col J) divide by a group or grand total. When that divisor is `0`, write a literal `0` instead of a formula, so no cell can render `#DIV/0!` as the reference workbook does in its Lazada sheet (reference naming `Produk L`; this app emits `Produk Laz`, see the Phase 8 scope note).
 
 ---
 

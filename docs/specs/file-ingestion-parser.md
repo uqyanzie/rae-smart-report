@@ -20,7 +20,12 @@ The File Ingestion module accepts raw spreadsheet files (`.xlsx`, `.xls`, `.csv`
 - **Platform-Specific Default Sheet Mapping:**
   - **Shopee:** Default to `Produk dengan Performa Terbaik` (the relevant product performance sheet among the 7 sheets present in standard Shopee exports).
   - **TikTok Shop:** Default to `Sheet1`.
+  - **Lazada:** Default to `Produk` (single-sheet workbook).
   - **Fallback / Generic:** Prompt user selection or default to the first active/non-empty data sheet.
+
+#### 1b. Preamble-Aware Header Detection
+- Lazada workbooks prefix the real header row with ~5 metadata/source preamble rows (each populated with exactly 1 cell, e.g. `Sumber Data : Lazada - ...`).
+- The reader skips leading rows with **fewer than 2 non-empty cells** before treating a row as the header row. Verified no regression: Shopee (40-cell), TikTok Shop / Tokopedia (7-cell) header rows are already the first row, so they are unaffected.
 
 #### 2. Deterministic Locale-Pinned Number & Currency Sanitization
 - **Strict id-ID Locale Pinning:** All marketplace exports in scope follow the Indonesian format where `.` is the thousands separator and `,` is the decimal separator.
