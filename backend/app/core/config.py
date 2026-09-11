@@ -22,6 +22,7 @@ __all__ = [
 ]
 
 _APP_DIR_NAME = "RAESmartReport"
+_APP_VERSION = "0.1.0"
 _DEV_DATABASE_URL = "sqlite:///rae_smart_report.db"
 _DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 
@@ -34,6 +35,25 @@ def _is_frozen() -> bool:
 def _exe_dir() -> Path:
     """Directory containing the running executable."""
     return Path(sys.executable).resolve().parent
+
+
+def _resolve_tray() -> bool:
+    """Tray enabled by default only in a frozen build; ``RAE_TRAY`` overrides."""
+    raw = os.environ.get("RAE_TRAY")
+    if raw is not None:
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+    return _is_frozen()
+
+
+def _resolve_idle_shutdown_seconds() -> int:
+    """Auto-exit grace period; ``0`` keeps the app running until tray Exit."""
+    raw = os.environ.get("RAE_IDLE_SHUTDOWN_SECONDS")
+    if raw is None:
+        return 180
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 180
 
 
 def get_writable_app_dir() -> Path:
@@ -116,10 +136,17 @@ class Settings:
     """Application settings resolved at startup."""
 
     app_name: str = "RAESmartReport"
+    version: str = _APP_VERSION
     database_url: str = field(default_factory=resolve_database_url)
     frontend_dist: Path = field(default_factory=resolve_frontend_dist)
-    host: str = "127.0.0.1"
-    port: int = 8000
+    host: str = field(default_factory=lambda: os.environ.get("RAE_HOST", "127.0.0.1"))
+    port: int = field(default_factory=lambda: int(os.environ.get("RAE_PORT", "8000")))
+    skip_browser: bool = field(
+        default_factory=lambda: os.environ.get("RAE_SKIP_BROWSER", "").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+    tray: bool = field(default_factory=_resolve_tray)
+    idle_shutdown_seconds: int = field(default_factory=_resolve_idle_shutdown_seconds)
     max_upload_bytes: int = _DEFAULT_MAX_UPLOAD_BYTES
     cors_allow_origins: list[str] = field(default_factory=lambda: ["*"])
 

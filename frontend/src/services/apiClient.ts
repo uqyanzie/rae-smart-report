@@ -75,6 +75,10 @@ async function toApiError(res: Response): Promise<ApiError> {
 }
 
 export const apiClient = {
+  health(): Promise<components['schemas']['HealthDTO']> {
+    return request('/health')
+  },
+
   uploadFile(file: File, onProgress?: (percent: number) => void): Promise<components['schemas']['IngestionResultDTO']> {
     return new Promise((resolve, reject) => {
       const form = new FormData()

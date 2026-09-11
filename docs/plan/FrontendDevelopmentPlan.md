@@ -229,16 +229,24 @@ The golden boundary is preserved: every report query and the four Produk sheets 
 
 ---
 
-## Phase I: Integration & Packaging [Pending]
+## Phase I: Integration & Packaging [Complete]
 
 **Goal:** Ship a single desktop executable bundling the SPA with the backend (PyInstaller). Renamed from the former Phase H; now runs **last** so the packaged smoke test exercises the new batch dashboard, the unreported display, and the `Tidak Terlaporkan S/T` export sheets.
 
-- [ ] Configure PyInstaller with the SPA build copied into the bundle; verify `sys._MEIPASS` asset resolution and the writable DB path fallback per the `@pyinstaller-packaging-guardian` skill.
-- [ ] Automated browser launch on start (skill-configured), hidden console, and clean shutdown.
-- [ ] End-to-end smoke test on a clean machine: launch → upload sample `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open workbook (golden display + `Tidak Terlaporkan S/T` sheets).
+- [x] Configure PyInstaller with the SPA build copied into the bundle; verify `sys._MEIPASS` asset resolution and the writable DB path fallback per the `@pyinstaller-packaging-guardian` skill.
+- [x] Automated browser launch on start (skill-configured), hidden console, and clean shutdown.
+- [x] End-to-end smoke test on a clean machine: launch → upload sample `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open workbook (golden display + `Tidak Terlaporkan S/T` sheets).
+
+**Implementation artifacts:**
+- `packaging.spec` (repo root): PyInstaller one-file spec bundling `frontend/dist` → `frontend/dist` and `backend/app/data/sku_mapping.json` → `data` (the exact `sys._MEIPASS` locations `app.core.config` resolves), with uvicorn / `python_multipart` / openpyxl / sqlite hidden imports; `console=False` for a hidden console.
+- `backend/run.py`: frozen-safe runtime entrypoint. Starts uvicorn programmatically (`loop=asyncio`, `http=h11`, `ws=none` so no optional C-extension/loop binaries are required), redirects missing windowed-mode stdout/stderr to `%LOCALAPPDATA%/RAESmartReport/rae_smart_report.log`, and opens the default browser from a daemon thread once `/api/health` answers. Honors `RAE_HOST` / `RAE_PORT` / `RAE_SKIP_BROWSER`.
+- `backend/app/api/routes.py` + `dtos.py`: new `GET /api/health` → `HealthDTO` (liveness probe for the launcher); `Settings` gains `version` and host/port/browser env overrides.
+- `scripts/build.ps1`: builds the Vite SPA then runs `python -m PyInstaller packaging.spec --noconfirm --clean`.
+- `scripts/smoke_test.py`: launches the packaged `.exe` on an isolated port, asserts the writable DB is created under `%LOCALAPPDATA%/RAESmartReport`, serves the SPA index + hashed asset, exposes the health/unreported routes, reproduces the golden Shopee 6,910 / Rp 525,973,986 and TikTok 11,575 / Rp 658,458,817 totals, returns the persisted unreported rows, and streams a workbook containing all six `Produk` / `Tidak Terlaporkan` sheets.
+- `backend/requirements-dev.txt` + `backend/pyproject.toml` dev extras gain `pyinstaller>=6.0`.
 
 **Success Criteria:**
-- The packaged `.exe` serves the SPA (including the new batch dashboard and unreported display), persists to `%LOCALAPPDATA%/RAESmartReport`, and reproduces the golden workbook from the sample files plus the unreported sheets.
+- The packaged `.exe` serves the SPA (including the new batch dashboard and unreported display), persists to `%LOCALAPPDATA%/RAESmartReport`, and reproduces the golden workbook from the sample files plus the unreported sheets. **Verified:** `python scripts/smoke_test.py` reports `PASS: packaged executable end-to-end`; backend suite **283 passed**, `ruff` clean, frontend typecheck clean.
 
 ---
 
@@ -256,7 +264,8 @@ npm run typecheck
 npm run build
 
 # Packaging (Phase I)
-pyinstaller packaging.spec   # then launch the produced .exe
+powershell -ExecutionPolicy Bypass -File scripts/build.ps1   # builds SPA + PyInstaller one-file exe
+python scripts/smoke_test.py                                 # launches dist/RAE-Smart-Report.exe end-to-end
 ```
 
 Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986; TikTok 11,575 / Rp 658,458,817), and the R1 reconciliation invariant must hold per platform: `reported grid qty + unreported persisted qty + dash-skipped qty == raw record qty` (the 2026-08-26 extension moved off-grid/non-catalog rows from the skipped bucket into the persisted-unreported partition).
@@ -265,7 +274,7 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
 
 # Handoff Brief
 
-- **Current Phase:** Phase H (Unreported Entries — Persistence & Display) — **complete**.
+- **Current Phase:** Phase I (Integration & Packaging) — **complete**. All phases of this plan (A–I) are done.
 - **2026-08-25 Scope extension applied:** `DevelopmentFeedback20260825.md` added two feature phases — **Phase F (Exported Excel Golden Display, backend exporter)** and **Phase G (Batch-Scoped Dashboard Redesign, backend `isBundling` filter + frontend recharts)** — and renamed the packaging work to **Phase H** (the final milestone, runs after F/G). Per the STOP protocol, the next session starts the final **Phase H**. This Handoff Brief will be updated again at the end of each phase.
 - **2026-08-26 Scope extension applied:** `DevelopmentFeedback20260826.md` adds **Phase H (Unreported Entries)** — persist non-dash unreported entries (`tidak boleh ecer`, `free gift`, off-grid variants, non-catalog products) into `transaction_items` with `is_reported = 0`, show their qty/revenue on `HomePage` and batch data display, and emit `Tidak Terlaporkan S/T` export sheets. The packaging milestone is **renamed Phase I** and now runs **after** the unreported work so the packaged smoke test exercises it. Backend implementation is Phase 7 of `BackendImplementationPlan.md`; golden figures stay fixed because every report query filters `is_reported = 1`.
 - **Done so far (Phase H):**
@@ -277,8 +286,18 @@ Regression anchors: golden totals must stay fixed (Shopee 6,910 / Rp 525,973,986
     - Live smoke: seeded both sample batches through `ingest → transform`; Shopee transform reports `reportedTotalQty 6,910` / `skippedCount 167` / `unreportedCount 13` (qty 0); TikTok `reportedTotalQty 11,575` / `skippedCount 0` / `unreportedCount 1` (qty 1, Rp 22,637). `/unreported` returns 12 Shopee rows + the single TikTok `Tinted Jelly Balm / Default` orphan. The SPA mount served the freshly built bundle at `/`.
   - **2026-08-26 Dashboard chart display** (`DevelopmentFeedback20260826.md`, landed with Phase H): `HomePage` pie chart merges slices < 5% of the active-subset quantity into an "Other" slice (gray, tooltip shows how many groups merged); pie and bar tooltips show the contribution percentage, truncate long product-group labels (> 24 chars) unless the group is a major contributor (≥ 5%) or the new "Show all labels" toggle is enabled.
   - **No regression** in the dashboard filters, BatchDetail, or Export flows — the reported dataset paths are unchanged.
-- **What is next (fresh session):**
-  1. **Phase I (Integration & Packaging)** — the final milestone: PyInstaller with the SPA build bundled, `sys._MEIPASS` asset resolution, writable DB path fallback (`%LOCALAPPDATA%/RAESmartReport`), automated browser launch, hidden console, clean shutdown, and the clean-machine smoke test reproducing the golden workbook from the sample files (launch → upload `raw_shopee_13_19_Jul26.xlsx` → transform → view the new batch dashboard → view unreported qty/revenue → export → open the workbook incl. `Tidak Terlaporkan S/T`).
+- **Done (Phase I, Integration & Packaging):**
+  - **Runtime entrypoint** `backend/run.py`: starts uvicorn programmatically with frozen-safe choices (`loop=asyncio`, `http=h11`, `ws=none`), points windowed-mode stdout/stderr at `%LOCALAPPDATA%/RAESmartReport/rae_smart_report.log`, and opens the default browser from a daemon thread after `/api/health` returns 200. Env overrides: `RAE_HOST`, `RAE_PORT`, `RAE_SKIP_BROWSER`.
+  - **Health probe** `GET /api/health` → `HealthDTO` (`status`, `version`) in `routes.py`/`dtos.py`; `Settings` gained `version` + host/port/browser resolution. Bridge `api_endpoints.md` + `frontend_dtos.ts` synced.
+  - **PyInstaller spec** `packaging.spec`: one-file, `console=False`; bundles `frontend/dist` → `frontend/dist` and `backend/app/data/sku_mapping.json` → `data` (matching `app.core.config`'s `sys._MEIPASS` lookups), with uvicorn/`python_multipart`/openpyxl/sqlite hidden imports. Entry script `backend/run.py` with `pathex=backend`.
+  - **Build + smoke tooling**: `scripts/build.ps1` (Vite build → PyInstaller) and `scripts/smoke_test.py` (launch exe → health → writable DB check → SPA/index+asset → openapi → ingest/profile/transform both golden files → unreported → export sheet check). `pyinstaller>=6.0` added to `backend/requirements-dev.txt` and the backend dev extras.
+  - **Measured outcome:** `dist/RAE-Smart-Report.exe` (~20 MB) builds clean; `python scripts/smoke_test.py` → **PASS**. Frozen DB resolved to `%LOCALAPPDATA%/RAESmartReport/app_data.db`; sample batches reproduced golden Shopee 6,910 / Rp 525,973,986 and TikTok 11,575 / Rp 658,458,817; the bundled Lazada `data/sku_mapping.json` resolved frozen (49 / Rp 4,533,088); unreported rows returned (12 Shopee + 1 TikTok + 6 Lazada); exported workbook contained all eight sheets (`Produk S/T/Laz`, `Produk 2 S/T`, `Tidak Terlaporkan S/T/Laz`) with `Produk 2 Laz` correctly suppressed. Backend suite **283 passed**, `ruff` clean, frontend `typecheck` clean (one pre-existing oxlint fast-refresh warning in `UploadModalContext.tsx`).
+- **Follow-up (2026-09-11): Desktop tray + idle auto-shutdown**
+  - **Tray UX** `backend/app/core/tray.py`: `pystray` icon with default **Open Dashboard** action and an **Exit** item that sets `uvicorn.Server.should_exit` for a graceful lifespan/engine shutdown. `backend/run.py` serves uvicorn on a worker thread while the tray owns the main thread (uvicorn skips signal-handler installation off the main thread). Enabled by default only in frozen builds; `RAE_TRAY=0` disables.
+  - **Idle auto-shutdown** `backend/app/core/lifecycle.py` + `app.main` activity middleware: every HTTP request refreshes an activity clock; the launcher's watchdog (`_watch_idle`) stops the server once `RAE_IDLE_SHUTDOWN_SECONDS` (default 180; `0` disables) elapse with no client. The SPA keeps the clock fresh via a new `useHeartbeat` hook pinging `/api/health` every 15 s, so closing the dashboard tab auto-exits while an open (even idle) tab keeps the app alive.
+  - **Dependencies**: `pystray>=0.19.5` + `Pillow>=10.0.0` (runtime + PyInstaller hidden imports `pystray._win32`, `PIL.Image`, `PIL.ImageDraw`).
+  - **Verification:** backend **289 passed**, `ruff` clean, frontend `typecheck` clean. Packaged checks: `python scripts/smoke_test.py` → PASS (headless pipeline); `--tray` → PASS with log proof `app.core.tray: System tray ready.`; `--idle-exit` → `server auto-exited as expected`. Watchdog/settings covered by `tests/test_lifecycle.py`.
+- **What is next:** No outstanding phase. Optional follow-up: regenerate `frontend/src/services/api.ts` from a live `/openapi.json` to pick up the new `/api/health` route (the heartbeat calls it; regenerating keeps the generated client 1:1 with the backend).
 - **Artifacts:**
   - This plan: `docs/plan/FrontendDevelopmentPlan.md`
   - Backend plan: `docs/plan/BackendImplementationPlan.md`

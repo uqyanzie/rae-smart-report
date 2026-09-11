@@ -8,6 +8,7 @@ Shopee/TikTok batches that the later report/export/delete tests consume.
 from __future__ import annotations
 
 import io
+import time
 from pathlib import Path
 from typing import Any
 
@@ -920,6 +921,25 @@ def test_api_only_mode_root_404(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Phase A4: OpenAPI contract checks
 # ---------------------------------------------------------------------------
+
+
+def test_health_liveness_probe(client):
+    """Phase I: the launcher polls /api/health before opening the browser."""
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["version"]
+
+
+def test_activity_middleware_records_requests(client):
+    """Phase I: every request refreshes the idle watchdog's activity clock."""
+    from app.core import lifecycle
+
+    time.sleep(0.05)
+    before = lifecycle.idle_seconds()
+    client.get("/api/health")
+    assert lifecycle.idle_seconds() < before
 
 
 def test_openapi_response_schemas_camelcase(client):

@@ -19,6 +19,7 @@ from app.api.dtos import (
     CleaningRuleDTO,
     ColumnMappingDTO,
     DeleteBatchResponseDTO,
+    HealthDTO,
     IngestionResultDTO,
     ParentRowRuleDTO,
     ProductSummaryDTO,
@@ -144,6 +145,17 @@ def _reported_records(records: list[Any]) -> list[Any]:
         and rec.clean_variant.strip() not in ("-", "")
         and (rec.product_group.strip(), rec.clean_variant.strip()) in grid_keys
     ]
+
+
+# ---------------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------------
+
+
+@router.get("/health", response_model=HealthDTO)
+async def health() -> HealthDTO:
+    """Liveness probe; the desktop launcher polls this before opening the browser."""
+    return HealthDTO(status="ok", version=get_settings().version)
 
 
 # ---------------------------------------------------------------------------

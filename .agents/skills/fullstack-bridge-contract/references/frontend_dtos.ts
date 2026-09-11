@@ -1,5 +1,10 @@
 export type ParentRowIgnoreCondition = "EQUALS_DASH" | "IS_EMPTY" | "CONTAINS_TOTAL";
 
+export interface HealthDTO {
+  status: string;
+  version: string;
+}
+
 export interface IngestionResultDTO {
   fileId: string;
   fileName: string;

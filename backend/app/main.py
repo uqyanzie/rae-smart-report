@@ -9,13 +9,14 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.engine import Engine
 
 from app.api.errors import register_exception_handlers
 from app.api.routes import router as api_router
 from app.api.spa import mount_frontend_spa
+from app.core import lifecycle
 from app.core.config import get_settings
 from app.modules.storage.database import create_db_engine, init_db, session_factory_for
 
@@ -39,7 +40,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             resolved_engine.dispose()
 
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -48,6 +49,13 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def track_client_activity(request: Request, call_next):
+        # Any request proves a client is still around; the packaged launcher's
+        # idle watchdog reads this clock to auto-exit once the tabs are closed.
+        lifecycle.touch()
+        return await call_next(request)
 
     register_exception_handlers(app)
     app.include_router(api_router)

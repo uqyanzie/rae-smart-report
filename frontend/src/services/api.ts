@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health
+         * @description Liveness probe; the desktop launcher polls this before opening the browser.
+         */
+        get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest": {
         parameters: {
             query?: never;
@@ -342,6 +362,16 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HealthDTO
+         * @description Runtime liveness probe used by the desktop launcher before opening the browser.
+         */
+        HealthDTO: {
+            /** Status */
+            status: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * IngestionResultDTO
          * @description Result of uploading and structurally inspecting a spreadsheet.
          */
@@ -570,6 +600,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    health_api_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthDTO"];
+                };
+            };
+        };
+    };
     ingest_spreadsheet_api_ingest_post: {
         parameters: {
             query?: never;

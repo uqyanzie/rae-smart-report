@@ -7,6 +7,7 @@
 
 | Method | Endpoint | Description | Request | Response |
 | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/health` | Liveness probe; the packaged desktop launcher polls this before opening the browser | None | `HealthDTO` |
 | `POST` | `/api/ingest` | Uploads a spreadsheet, returns structural metadata + sample rows | `multipart/form-data` field `file` | `IngestionResultDTO` |
 | `POST` | `/api/profile` | Detects the platform adapter, or returns a cached mapping template by header signature | `ProfileRequestDTO` | `ProfilerResponseDTO` |
 | `POST` | `/api/transform` | Runs the ELT pipeline, persists the batch to SQLite, returns the report summary + audit tally | `TransformAndSaveRequestDTO` | `TransformResponseDTO` |

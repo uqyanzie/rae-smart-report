@@ -23,6 +23,7 @@ __all__ = [
     "CleaningRuleDTO",
     "ColumnMappingDTO",
     "DeleteBatchResponseDTO",
+    "HealthDTO",
     "IngestionResultDTO",
     "ParentRowIgnoreCondition",
     "ParentRowRuleDTO",
@@ -34,6 +35,13 @@ __all__ = [
     "UnreportedVariantDTO",
     "VariantPerformanceDTO",
 ]
+
+
+class HealthDTO(CamelModel):
+    """Runtime liveness probe used by the desktop launcher before opening the browser."""
+
+    status: str
+    version: str
 
 
 class IngestionResultDTO(CamelModel):

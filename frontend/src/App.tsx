@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { UploadModalProvider, useUploadModal } from './context/UploadModalContext'
+import { useHeartbeat } from './hooks/useHeartbeat'
 import BatchDetailPage from './pages/BatchDetailPage'
 import BatchesPage from './pages/BatchesPage'
 import ExportPage from './pages/ExportPage'
@@ -52,6 +53,8 @@ function HeaderBar() {
 }
 
 function App() {
+  useHeartbeat()
+
   return (
     <UploadModalProvider>
       <div className="flex min-h-screen flex-col bg-slate-100 font-sans text-slate-800 antialiased">
