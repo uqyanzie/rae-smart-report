@@ -211,10 +211,18 @@ export interface paths {
         };
         /**
          * Export Excel
-         * @description Streams a 4-sheet executive workbook for the selected batches.
+         * @description Streams a multi-sheet executive workbook for the selected batches.
          *
          *     Exactly one batch per platform is required; sheets are emitted in
-         *     canonical order ``Produk S, Produk T, Produk 2 S, Produk 2 T``.
+         *     canonical order ``Produk <S|T|TP>`` then ``Produk 2 <S|T|TP>``.
+         *
+         *     ``includeCaseColors`` (default false) expands the Produk 2 cross-family
+         *     groups that involve Tinted Jelly Balm into one row per case colour (plus a
+         *     case-less catch-all row per shade pair) for every selected cross platform.
+         *     ``caseColorBatchIds`` narrows that expansion to the listed batch ids so the
+         *     UI can toggle case colours per platform; a batch is expanded when it is
+         *     listed there or when the global ``includeCaseColors`` flag is set. The
+         *     option is ignored for the non-cross Produk sheets.
          */
         get: operations["export_excel_api_export_excel_get"];
         put?: never;
@@ -428,9 +436,15 @@ export interface components {
             activeSheet?: string | null;
             /** Platform */
             platform: string;
-            /** Periodstart */
+            /**
+             * Periodstart
+             * Format: date
+             */
             periodStart: string;
-            /** Periodend */
+            /**
+             * Periodend
+             * Format: date
+             */
             periodEnd: string;
             columnMapping: components["schemas"]["ColumnMappingDTO"];
             parentRowRule?: components["schemas"]["ParentRowRuleDTO"] | null;
@@ -843,6 +857,8 @@ export interface operations {
         parameters: {
             query?: {
                 batchIds?: string[];
+                includeCaseColors?: boolean;
+                caseColorBatchIds?: string[];
             };
             header?: never;
             path?: never;

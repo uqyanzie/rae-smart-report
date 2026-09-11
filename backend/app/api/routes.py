@@ -434,6 +434,7 @@ async def delete_batch(
 async def export_excel(
     batch_ids: list[str] = Query(default=[], alias="batchIds"),
     include_case_colors: bool = Query(default=False, alias="includeCaseColors"),
+    case_color_batch_ids: list[str] = Query(default=[], alias="caseColorBatchIds"),
     repo: AnalyticsRepository = Depends(_get_repository),
 ) -> StreamingResponse:
     """Streams a multi-sheet executive workbook for the selected batches.
@@ -443,9 +444,13 @@ async def export_excel(
 
     ``includeCaseColors`` (default false) expands the Produk 2 cross-family
     groups that involve Tinted Jelly Balm into one row per case colour (plus a
-    case-less catch-all row per shade pair), matching the opt-in per-case
-    export view. It is ignored for the non-cross Produk sheets.
+    case-less catch-all row per shade pair) for every selected cross platform.
+    ``caseColorBatchIds`` narrows that expansion to the listed batch ids so the
+    UI can toggle case colours per platform; a batch is expanded when it is
+    listed there or when the global ``includeCaseColors`` flag is set. The
+    option is ignored for the non-cross Produk sheets.
     """
+    case_color_ids = set(case_color_batch_ids)
     history = repo.batch_history()
     by_id = {item["import_batch_id"]: item for item in history}
 
@@ -474,12 +479,13 @@ async def export_excel(
             if is_cross == 1 and platform not in _HAS_PRODUK2:
                 continue
             batch_id = resolved[platform]["import_batch_id"]
+            expand_case_colors = include_case_colors or batch_id in case_color_ids
             if is_cross == 0:
                 grid = generate_full_produk_grid()
                 group_order = PRODUK_GROUP_ORDER
                 title = f"Produk {suffix}"
             else:
-                grid = generate_full_produk2_grid(include_case_colors=include_case_colors)
+                grid = generate_full_produk2_grid(include_case_colors=expand_case_colors)
                 group_order = PRODUK2_GROUP_ORDER
                 title = f"Produk 2 {suffix}"
             sheets.append(
@@ -489,7 +495,7 @@ async def export_excel(
                         batch_id,
                         is_cross_bundling=is_cross,
                         grid=grid,
-                        include_case_colors=include_case_colors,
+                        include_case_colors=expand_case_colors,
                     ),
                     grid=grid,
                     group_order=group_order,

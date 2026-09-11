@@ -641,6 +641,40 @@ def test_export_excel_include_case_colors_expands_tjb_grid(client):
         assert not any(g and "Lipcare" in g for g in group_cells), sheet
 
 
+def test_export_excel_case_colors_can_be_scoped_per_platform(client):
+    """``caseColorBatchIds`` expands only the listed platform's Produk 2 sheet;
+    the other platform keeps its compact (case-less) cross rows while the
+    reported per-sheet totals are unchanged."""
+    params = [("batchIds", shopee_batch_id), ("batchIds", tiktok_batch_id)]
+
+    resp_plain = client.get("/api/export/excel", params=params)
+    assert resp_plain.status_code == 200
+    wb_plain = load_workbook(io.BytesIO(resp_plain.content))
+
+    resp_scoped = client.get(
+        "/api/export/excel",
+        params=params + [("caseColorBatchIds", tiktok_batch_id)],
+    )
+    assert resp_scoped.status_code == 200
+    wb_scoped = load_workbook(io.BytesIO(resp_scoped.content))
+
+    def _variant_labels(worksheet):
+        return {
+            worksheet.cell(row=row, column=2).value for row in range(2, worksheet.max_row + 1)
+        }
+
+    # TikTok (listed) is expanded; Shopee (not listed) stays compact.
+    assert _variant_labels(wb_scoped["Produk 2 T"]) != _variant_labels(wb_plain["Produk 2 T"])
+    assert "Bunny Pink + Over React, Fizzy Pop" in _variant_labels(wb_scoped["Produk 2 T"])
+    assert _variant_labels(wb_scoped["Produk 2 S"]) == _variant_labels(wb_plain["Produk 2 S"])
+
+    # Row expansion never changes the reported per-sheet totals.
+    plain_sums = _sheet_qty_sums(resp_plain.content)
+    scoped_sums = _sheet_qty_sums(resp_scoped.content)
+    for sheet in ("Produk 2 S", "Produk 2 T"):
+        assert scoped_sums[sheet] == plain_sums[sheet], sheet
+
+
 def test_export_unknown_batch_404(client):
     resp = client.get("/api/export/excel", params=[("batchIds", "no-such-batch")])
     assert resp.status_code == 404

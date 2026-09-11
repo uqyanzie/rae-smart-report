@@ -165,12 +165,13 @@ export const apiClient = {
   },
 
   async exportExcel(
-    batchIds: string[],
-    includeCaseColors = false,
+    selections: Array<{ batchId: string; includeCaseColours: boolean }>,
   ): Promise<{ blob: Blob; filename: string }> {
     const search = new URLSearchParams()
-    for (const id of batchIds) search.append('batchIds', id)
-    if (includeCaseColors) search.append('includeCaseColors', 'true')
+    for (const selection of selections) {
+      search.append('batchIds', selection.batchId)
+      if (selection.includeCaseColours) search.append('caseColorBatchIds', selection.batchId)
+    }
     const res = await fetch(`${API_BASE}/export/excel?${search.toString()}`)
     if (!res.ok) throw await toApiError(res)
     const filename = parseFilenameFromDisposition(res.headers.get('content-disposition')) ?? 'rae_smart_report.xlsx'
