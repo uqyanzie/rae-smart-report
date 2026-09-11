@@ -433,12 +433,18 @@ async def delete_batch(
 @router.get("/export/excel")
 async def export_excel(
     batch_ids: list[str] = Query(default=[], alias="batchIds"),
+    include_case_colors: bool = Query(default=False, alias="includeCaseColors"),
     repo: AnalyticsRepository = Depends(_get_repository),
 ) -> StreamingResponse:
     """Streams a multi-sheet executive workbook for the selected batches.
 
     Exactly one batch per platform is required; sheets are emitted in
     canonical order ``Produk <S|T|TP>`` then ``Produk 2 <S|T|TP>``.
+
+    ``includeCaseColors`` (default false) expands the Produk 2 cross-family
+    groups that involve Tinted Jelly Balm into one row per case colour (plus a
+    case-less catch-all row per shade pair), matching the opt-in per-case
+    export view. It is ignored for the non-cross Produk sheets.
     """
     history = repo.batch_history()
     by_id = {item["import_batch_id"]: item for item in history}
@@ -473,13 +479,18 @@ async def export_excel(
                 group_order = PRODUK_GROUP_ORDER
                 title = f"Produk {suffix}"
             else:
-                grid = generate_full_produk2_grid()
+                grid = generate_full_produk2_grid(include_case_colors=include_case_colors)
                 group_order = PRODUK2_GROUP_ORDER
                 title = f"Produk 2 {suffix}"
             sheets.append(
                 ReportSheet(
                     title=title,
-                    populated=repo.populate_grid(batch_id, is_cross_bundling=is_cross, grid=grid),
+                    populated=repo.populate_grid(
+                        batch_id,
+                        is_cross_bundling=is_cross,
+                        grid=grid,
+                        include_case_colors=include_case_colors,
+                    ),
                     grid=grid,
                     group_order=group_order,
                 )

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from app.domain.catalog import (
     CASE_COLORS,
+    CROSS_PAIRABLE_FAMILY_NAMES,
     FAMILIES,
     FAMILY_BY_NAME,
     LIPCARE_INTRA_BUNDLE_LABELS,
@@ -155,6 +156,13 @@ class VariantNormalizer:
     def __init__(self) -> None:
         self._families = FAMILIES
         self._family_by_name = FAMILY_BY_NAME
+        # Families that may participate in a cross-family (Bundling Silang)
+        # listing. Lipcare is a Produk-sheet family only: it is not part of the
+        # cross-bundling catalog, so no cross group may pair it with another
+        # family.
+        self._cross_pairable = {
+            name: self._family_by_name[name] for name in CROSS_PAIRABLE_FAMILY_NAMES
+        }
 
     def normalize_product_group(self, raw_title: str) -> tuple[str, Family | None, bool, bool]:
         """Resolves the canonical report product group, family, is_bundling, is_cross_bundling.
@@ -168,13 +176,16 @@ class VariantNormalizer:
         title_lower = title_clean.casefold()
 
         # 1. Check for cross-family bundling (e.g. contains '&' or ' x ' joining 2 families)
+        # Only cross-pairable (colour) families participate; Lipcare cannot be
+        # part of a Bundling Silang combination, so titles pairing it with a
+        # colour family fall through to the Lipcare / single-family branches.
         if (
             "&" in title_clean
             or re.search(r"\bsilang\b", title_clean, re.IGNORECASE)
             or ("bundling" in title_lower and re.search(r"\bx\b", title_clean, re.IGNORECASE))
         ):
             detected: list[Family] = []
-            for fam in self._families:
+            for fam in self._cross_pairable.values():
                 if fam.name.casefold() in title_lower or any(
                     alias.casefold() in title_lower for alias in fam.aliases
                 ):

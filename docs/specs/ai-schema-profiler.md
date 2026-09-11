@@ -15,7 +15,7 @@ All ingested data must resolve to these canonical attributes:
 - `sku` (string, optional): Stock Keeping Unit identifier.
 - `qtySold` (integer, required): Units sold within the period (must strictly reflect shipped/ready-to-ship orders).
 - `revenue` (number / integer cents, required): Total net sales value (must strictly reflect shipped/ready-to-ship orders).
-- `caseColor` (string, optional): Tinted Jelly Balm case colour (e.g. "Fizzy Pop", "Buttered Yellow"). Captured for SKU traceability only — **not a reporting dimension**; TJB totals aggregate by shade across all case colours.
+- `caseColor` (string, optional): Tinted Jelly Balm case colour (e.g. "Fizzy Pop", "Buttered Yellow"). Captured for SKU traceability only — **not a reporting dimension by default**; TJB totals aggregate by shade across all case colours (the opt-in Produk 2 per-case export view is the single exception).
 - `parentRowRule` (object, optional): Rule to identify and prune aggregated parent rows or summary rows (omitted for platforms with purely atomic SKU-level rows).
 
 ---

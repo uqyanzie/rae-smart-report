@@ -26,7 +26,15 @@ class VariantRecord:
 
 @dataclass(frozen=True, slots=True)
 class GridRow:
-    """Represents a row in the declarative product report grid."""
+    """Represents a row in the declarative product report grid.
+
+    ``match_variant`` is the plain case-colour-free label used to join a
+    persisted transaction onto the row. It only differs from ``clean_variant``
+    on the opt-in per-case-colour rows of the Produk 2 grid (e.g. a row whose
+    display label is ``'Bunny Pink + Over React, Fizzy Pop'`` matches records
+    whose stored label is the plain ``'Bunny Pink, Over React'`` plus a
+    ``case_color`` of ``'Fizzy Pop'``).
+    """
 
     product_group: str
     clean_variant: str
@@ -34,6 +42,7 @@ class GridRow:
     is_cross_bundling: bool
     expected_label: str
     case_color: str | None = None
+    match_variant: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

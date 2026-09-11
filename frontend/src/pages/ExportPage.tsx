@@ -21,6 +21,7 @@ export default function ExportPage() {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportedFile, setExportedFile] = useState<string | null>(null)
+  const [includeCaseColors, setIncludeCaseColors] = useState(false)
 
   const platforms = Array.from(new Set(batches.map((batch) => batch.platform)))
 
@@ -45,7 +46,7 @@ export default function ExportPage() {
     setExportError(null)
     setExportedFile(null)
     try {
-      const { blob, filename } = await apiClient.exportExcel(selectedIds)
+      const { blob, filename } = await apiClient.exportExcel(selectedIds, includeCaseColors)
       downloadBlob(blob, filename)
       setExportedFile(filename)
     } catch (err) {
@@ -139,7 +140,23 @@ export default function ExportPage() {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <p className="text-sm text-slate-600">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={includeCaseColors}
+                onChange={(event) => {
+                  setIncludeCaseColors(event.target.checked)
+                  setExportedFile(null)
+                }}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Include case colours (Produk 2 · Tinted Jelly Balm)
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              When enabled, the Produk 2 cross-bundling groups that involve Tinted Jelly Balm are
+              expanded into one row per case colour (plus a case-less catch-all row per shade pair).
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
               Selected:{' '}
               {Object.keys(selectedByPlatform).length === 0 ? (
                 <span className="text-slate-400">none</span>

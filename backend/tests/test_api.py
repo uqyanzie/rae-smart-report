@@ -597,6 +597,50 @@ def test_export_excel_streams_workbook(client):
     assert sums["Tidak Terlaporkan T"] == 1
 
 
+def test_export_excel_include_case_colors_expands_tjb_grid(client):
+    """Exporting with includeCaseColors=true expands the Produk 2 Tinted
+    Jelly Balm cross-family groups into per-case-colour rows (plus a case-less
+    catch-all row per shade pair); reported sheet totals are unchanged and no
+    'Bundling ... & Lipcare' group is ever emitted."""
+    params = [("batchIds", shopee_batch_id), ("batchIds", tiktok_batch_id)]
+
+    resp_plain = client.get("/api/export/excel", params=params)
+    assert resp_plain.status_code == 200
+    wb_plain = load_workbook(io.BytesIO(resp_plain.content))
+
+    resp_col = client.get(
+        "/api/export/excel",
+        params=params + [("includeCaseColors", "true")],
+    )
+    assert resp_col.status_code == 200
+    wb_col = load_workbook(io.BytesIO(resp_col.content))
+
+    sums_plain = _sheet_qty_sums(resp_plain.content)
+    sums_col = _sheet_qty_sums(resp_col.content)
+    for sheet in ("Produk 2 S", "Produk 2 T"):
+        assert sums_col[sheet] == sums_plain[sheet], sheet
+
+    def _variant_labels(ws):
+        return {ws.cell(row=r, column=2).value for r in range(2, ws.max_row + 1)}
+
+    plain_t = _variant_labels(wb_plain["Produk 2 T"])
+    col_t = _variant_labels(wb_col["Produk 2 T"])
+
+    # Catch-all rows (plain label) exist in both views.
+    assert "Bunny Pink, Over React" in plain_t
+    assert "Bunny Pink, Over React" in col_t
+    # Per-case-colour rows exist only in the expanded view.
+    assert "Bunny Pink + Over React, Fizzy Pop" not in plain_t
+    assert "Bunny Pink + Over React, Fizzy Pop" in col_t
+
+    # Lipcare never appears in a Produk 2 cross-family group.
+    for sheet in ("Produk 2 S", "Produk 2 T"):
+        group_cells = {
+            wb_col[sheet].cell(row=r, column=1).value for r in range(2, wb_col[sheet].max_row + 1)
+        }
+        assert not any(g and "Lipcare" in g for g in group_cells), sheet
+
+
 def test_export_unknown_batch_404(client):
     resp = client.get("/api/export/excel", params=[("batchIds", "no-such-batch")])
     assert resp.status_code == 404

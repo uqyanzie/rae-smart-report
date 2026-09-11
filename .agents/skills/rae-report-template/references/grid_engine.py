@@ -5,8 +5,8 @@ Generates the declarative report grid:
 2. Cross-family n x m combinations.
 3. Same-shade fold-back arithmetic (x2 qty, x1 rev, aggregate duplicates).
 
-CASE COLOUR IS NOT A GRID DIMENSION
------------------------------------
+CASE COLOUR IS NOT A GRID DIMENSION (BY DEFAULT)
+------------------------------------------------
 Tinted Jelly Balm case colours are SKU metadata, not a reporting axis. TJB
 totals aggregate by shade across every colour, so cross-family TJB grids are
 ``n x m``, never ``n x m x 3``. Verified: the reference workbook reports shade
@@ -14,9 +14,13 @@ totals aggregate by shade across every colour, so cross-family TJB grids are
 three 108-row case grids (324 rows) are entirely empty, and no raw export
 contains a single cross-family TJB bundle sale.
 
-``include_case_colors=True`` is retained only for backward compatibility and
-should not be used for report generation -- it emits rows that can never carry
-data.
+The single exception is the backend's **opt-in** Produk 2 export view
+(``include_case_colors=True``, default OFF, added 2026-09-08): for Tinted Jelly
+Balm cross-family pairs it emits each shade pair's case-less catch-all row
+(``s1, s2``) plus one row per enumerated ``CASE_COLORS`` entry
+(``s1 + s2, {colour}``), so colour-less sales stay attributable and coloured
+sales split per case. Pairs that do not involve Tinted Jelly Balm are always
+``n x m``. Everything in the default report is untouched.
 """
 
 from typing import List, Dict, Any, Tuple, Optional
@@ -101,11 +105,13 @@ def generate_cross_family_grid(
     singles and the intra-family pair orderings.
 
     Args:
-        include_case_colors: **Deprecated, do not use for reporting.** Expands
-            to ``n x m x len(CASE_COLORS)`` with labels shaped
-            'Over Cute + Bunny Pink, Fizzy Pop'. Case colour is not a reporting
-            dimension (see module docstring), so every row this produces is
-            guaranteed empty. Retained only so existing callers do not break.
+        include_case_colors: **Opt-in only; do not use for the default report.**
+            When True AND one family is Tinted Jelly Balm, expands that pair to
+            n x m shade pairs, each emitting its case-less catch-all row plus
+            one row per enumerated ``CASE_COLORS`` entry, with labels shaped
+            's1 + s2, Fizzy Pop'. Case colour is not a reporting dimension in
+            the default report; every colour row this produces in the reference
+            era was empty. Non-TJB pairs ignore the flag.
     """
     f1 = FAMILY_BY_NAME.get(family_name_1)
     f2 = FAMILY_BY_NAME.get(family_name_2)
@@ -117,18 +123,14 @@ def generate_cross_family_grid(
     right = f2.order_for_cross()
     rows: List[Dict[str, Any]] = []
 
-    if include_case_colors:
-        for s1, s2, case_color in product(left, right, CASE_COLORS):
-            label = f"{s1} + {s2}, {case_color}"
-            rows.append({
-                "product_group": group_name,
-                "clean_variant": label,
-                "is_bundling": True,
-                "is_cross_bundling": True,
-                "case_color": case_color,
-                "expected_label": label,
-            })
-    else:
+    # Case colours belong to the Tinted Jelly Balm SKU; the opt-in per-case
+    # expansion only applies to pairs that include it. Non-TJB pairs always
+    # emit plain n x m rows.
+    expand_cases = include_case_colors and (
+        f1.name == "Tinted Jelly Balm" or f2.name == "Tinted Jelly Balm"
+    )
+
+    if not expand_cases:
         for s1, s2 in product(left, right):
             label = f"{s1}, {s2}"
             rows.append({
@@ -137,6 +139,32 @@ def generate_cross_family_grid(
                 "is_bundling": True,
                 "is_cross_bundling": True,
                 "case_color": None,
+                "expected_label": label,
+            })
+        return rows
+
+    for s1, s2 in product(left, right):
+        # Case-less catch-all row (joins stored colour-less records).
+        plain = f"{s1}, {s2}"
+        rows.append({
+            "product_group": group_name,
+            "clean_variant": plain,
+            "is_bundling": True,
+            "is_cross_bundling": True,
+            "case_color": None,
+            "expected_label": plain,
+        })
+        for case_color in CASE_COLORS:
+            label = f"{s1} + {s2}, {case_color}"
+            rows.append({
+                "product_group": group_name,
+                "clean_variant": label,
+                "is_bundling": True,
+                "is_cross_bundling": True,
+                "case_color": case_color,
+                # Records are stored with the case-colour-free label; colour
+                # lives in their case_color column, so the join base is plain.
+                "match_variant": plain,
                 "expected_label": label,
             })
 

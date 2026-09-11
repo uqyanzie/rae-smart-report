@@ -904,3 +904,80 @@ class TestLazadaStorage:
         assert sum(r["total_revenue"] for r in rows) == LAZ_AUG_REPORTED[1]
         assert not any(r["clean_variant"].startswith("STD-") for r in rows)
         assert not any("Heart Mirror" in r["product_group"] for r in rows)
+
+
+# ---------------------------------------------------------------------------
+# Opt-in per-case-colour Produk 2 export view
+# ---------------------------------------------------------------------------
+
+
+def test_produk2_include_case_colors_export_path(raw_tts_aug_path) -> None:
+    """The opt-in per-case-colour Produk 2 population (include_case_colors)
+    attaches Aug cross TJB sales to their case-colour rows (and case-less sales
+    to the plain catch-all rows) while preserving every cross group's totals
+    exactly versus the default case-colour-free view."""
+    eng = create_engine(
+        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+    )
+    init_db(eng)
+    factory = sessionmaker(bind=eng, autoflush=False, expire_on_commit=False)
+    try:
+        _, raw_rows = extract_spreadsheet_rows(raw_tts_aug_path)
+        result = transform_records(TikTokShopAdapter().adapt(raw_rows))
+
+        batch = "TIKTOK-AUG17-23"
+        with session_scope(factory) as session:
+            AnalyticsRepository(session).persist_batch(
+                batch,
+                "TIKTOK_SHOP",
+                datetime(2026, 8, 17),
+                datetime(2026, 8, 23, 23, 59, 59),
+                result.records,
+            )
+
+        default_grid = generate_full_produk2_grid()
+        case_grid = generate_full_produk2_grid(include_case_colors=True)
+
+        with session_scope(factory) as session:
+            repo = AnalyticsRepository(session)
+            off = repo.populate_grid(batch, is_cross_bundling=1, grid=default_grid)
+            on = repo.populate_grid(
+                batch, is_cross_bundling=1, grid=case_grid, include_case_colors=True
+            )
+
+        assert len(off) == 690
+        assert len(on) == 1740
+
+        def _by_group(rows) -> dict[str, tuple[int, int]]:
+            totals: dict[str, tuple[int, int]] = {}
+            for row in rows:
+                qty, rev = totals.get(row["product_group"], (0, 0))
+                totals[row["product_group"]] = (qty + row["total_qty"], rev + row["total_revenue"])
+            return totals
+
+        # No cross-group total moves between the default and expanded views.
+        assert _by_group(off) == _by_group(on)
+
+        on_by_key = {
+            (row["product_group"], row["clean_variant"]): (row["total_qty"], row["total_revenue"])
+            for row in on
+        }
+
+        otg_tjb = "Bundling Tinted Jelly Balm & Over The Glaze"
+        # Fizzy Pop case sale splits out of the plain aggregate cell.
+        assert on_by_key[(otg_tjb, "Bunny Pink + Over React, Fizzy Pop")] == (1, 178_770)
+        assert on_by_key[(otg_tjb, "Bunny Pink, Over React")] == (0, 0)
+
+        pfvm_tjb = "Bundling Power Frosted Velvet Matte & Tinted Jelly Balm"
+        assert on_by_key[(pfvm_tjb, "Classy Power + Wild Mauve, Matcha Strawberry")] == (
+            1,
+            115_908,
+        )
+        assert on_by_key[(pfvm_tjb, "Classy Power, Wild Mauve")] == (0, 0)
+
+        gut_tjb = "Bundling Glow Up Tint & Tinted Jelly Balm"
+        # Case-less sales stay attributable on the plain catch-all rows.
+        assert on_by_key[(gut_tjb, "Joyful, Hippie Rose")] == (1, 115_033)
+        assert on_by_key[(gut_tjb, "Cheerful, Hippie Rose")] == (1, 114_581)
+    finally:
+        eng.dispose()

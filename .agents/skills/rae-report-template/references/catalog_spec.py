@@ -337,7 +337,10 @@ FAMILY_BY_NAME: Final[Mapping[str, Family]] = MappingProxyType(
 #
 # The list is therefore NOT exhaustive and does not need to be: new colours
 # (e.g. "Buttered Yellow", "Matcha Strawberry") are safe to leave out because
-# the shade total already includes their sales. Never use this to expand a grid.
+# the shade total already includes their sales. Never use this to expand a grid
+# in the default report. The single exception is the opt-in Produk 2 export
+# view (default OFF) which enumerates this full set to attribute TJB cross
+# sales per case colour (backend runtime catalog is the source of truth).
 CASE_COLORS: Final[Tuple[str, ...]] = (
     "Fizzy Pop", "Sweetie Pop", "Cherry Pop", "Buttered Yellow", "Matcha Strawberry",
 )

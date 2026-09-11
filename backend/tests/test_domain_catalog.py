@@ -85,7 +85,7 @@ def test_power_frosted_velvet_matte_orderings_and_short_labels():
 
 
 def test_tinted_jelly_balm_and_case_colors():
-    """Verifies Tinted Jelly Balm shades and 3D case colors."""
+    """Verifies Tinted Jelly Balm shades and the enumerated case colour set."""
     tjb = FAMILY_BY_NAME["Tinted Jelly Balm"]
     expected_shades = [
         "Bunny Pink", "Wild Mauve", "Nudy Caramel",
@@ -93,7 +93,37 @@ def test_tinted_jelly_balm_and_case_colors():
     ]
 
     assert list(tjb.order_for_singles()) == expected_shades
-    assert list(CASE_COLORS) == ["Fizzy Pop", "Sweetie Pop", "Cherry Pop"]
+    assert list(CASE_COLORS) == [
+        "Fizzy Pop",
+        "Sweetie Pop",
+        "Cherry Pop",
+        "Buttered Yellow",
+        "Matcha Strawberry",
+    ]
+
+
+def test_cross_pairable_families_exclude_lipcare():
+    """Verifies the Bundling Silang (Produk 2) catalog pairs the six colour
+    families only -- Lipcare is a Produk-sheet family and is never available to
+    a cross-family combination."""
+    from app.domain.catalog import CROSS_PAIRABLE_FAMILY_NAMES
+
+    assert list(CROSS_PAIRABLE_FAMILY_NAMES) == [
+        "Glow Up Tint",
+        "Swipe To Glow",
+        "Power Frosted Velvet Matte",
+        "Tinted Jelly Balm",
+        "The Bloom Perfect Matte Lipstick",
+        "Over The Glaze",
+    ]
+    assert "Lipcare" not in CROSS_PAIRABLE_FAMILY_NAMES
+    # Order must follow the master FAMILIES sequence (minus Lipcare) so the
+    # cross group names match the normalizer's emission order.
+    from app.domain.catalog import FAMILIES
+
+    assert list(CROSS_PAIRABLE_FAMILY_NAMES) == [
+        f.name for f in FAMILIES if f.name != "Lipcare"
+    ]
 
 
 def test_the_bloom_lipstick_orderings():

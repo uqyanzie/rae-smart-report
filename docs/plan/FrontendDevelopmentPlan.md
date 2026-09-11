@@ -159,14 +159,14 @@ The golden boundary is preserved: every report query and the four Produk sheets 
 
 **Reference:** `sample_data/expected_output/output_13_19_Jul26.xlsx` (`Produk S`, `Produk T`, `Produk 2 S`, `Produk 2 T`).
 
-- [x] **Full-grid left table** in `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): emit EVERY catalog grid row per group (remove the `qty <= 0` skip). Produk sheets emit the full 181-row grid; Produk 2 sheets emit the full 813-row grid.
+- [x] **Full-grid left table** in `backend/app/modules/exporter/report_builder.py` (`render_side_by_side_sheet`): emit EVERY catalog grid row per group (remove the `qty <= 0` skip). Produk sheets emit the full 181-row grid; Produk 2 sheets emit the full grid (was 813 rows across 21 groups; since Phase 9 / 2026-09-08 it is **690 rows across 15 groups** because Lipcare is not part of the Bundling Silang catalog).
 - [x] **Unsold variant cells:** write the variant name in col B; leave C (qty) and D (revenue) blank exactly like the golden; still write the E contribution formula for every row.
 - [x] **Unguarded contribution formulas:** E always `=(C{r}/$H${summary})*100%` (remove `_contribution_or_zero`); zero-total groups therefore cache `#DIV/0!`, reproducing the golden workbook's known defect (user-confirmed). Right-table J stays `=(H{r}/$H$grand_total)*100%` for every group.
 - [x] **Always-on SUM ranges:** every group's H/I is `=SUM(C{start}:C{end})` / `=SUM(D{start}:D{end})` over its full contiguous grid span (the Empty-Group literal-0 rule is removed because ranges always exist). TOTAL row unchanged (`=SUM(H2:H{last})`, `=SUM(I2:I{last})`).
 - [x] Update the `report_builder.py` docstring (sparse → full) and remove dead helpers.
-- [x] **Golden-grid note:** the reference workbook's Produk 2 grids are inconsistent (Produk 2 S = 516 rows vs Produk 2 T = 840 rows, both hand-scaffolded subsets); this app emits its canonical 813-row grid in both sheets as the superset satisfying "show all product groups and variants".
+- [x] **Golden-grid note:** the reference workbook's Produk 2 grids are inconsistent (Produk 2 S = 516 rows vs Produk 2 T = 840 rows, both hand-scaffolded subsets); this app emits its canonical grid in both sheets as the superset satisfying "show all product groups and variants" (813 rows across 21 groups at Phase F; 690 rows across 15 groups since Phase 9).
 - [x] Rewrite `backend/tests/test_exporter.py` to the new contract:
-  - Left-table row count equals the full grid size per sheet (181 / 181 / 813 / 813).
+  - Left-table row count equals the full grid size per sheet (181 / 181 / 690 / 690 after Phase 9).
   - Unsold variant rows carry blank C/D plus a formula E; sold rows unchanged.
   - Every group has an in-bounds `=SUM` over its span (replaces `test_empty_groups_have_literal_zero` and `test_no_sum_formula_on_empty_groups`).
   - Zero-total groups' E cells are unguarded formulas (golden `#DIV/0!` behavior; replaces `test_no_div_zero_anywhere`).

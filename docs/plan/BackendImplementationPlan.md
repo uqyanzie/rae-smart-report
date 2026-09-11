@@ -64,7 +64,7 @@ backend/
 1. **The STOP Protocol:** Each execution session MUST work on exactly ONE phase. When a phase is completed and its success criteria are proven, execution STOPS. The next phase MUST be initiated in a fresh session to preserve context hygiene.
 2. **Golden-File Scope Boundary:** The target is reproducing the golden report. **Anything the golden workbook does not report is out of scope for report figures** and must never reach a report figure. This covers dash-variant rows (`clean_variant == '-'`) and case colour as a dimension. Verified necessity: including the single non-zero dash row would push golden's Tinted Jelly Balm total from 24 to 25 units and break the match. Full raw-export reconciliation is a separate, later concern.
    - **Phase 7 amendment (DevelopmentFeedback20260826):** non-dash unreported entries — off-grid variant labels (standalone `tidak boleh ecer`, `free gift`, etc.) and non-catalog product groups (Body Toner, Face Toner, Lippie Serum, Blurring Powder, deleted listings) — are **persisted into `transaction_items` with `is_reported = 0`** instead of being excluded. Dash rows remain excluded and are counted in an auditable tally. Persisted unreported volume is reviewable via `GET /api/reports/batches/{id}/unreported` and the `Tidak Terlaporkan S/T` export sheets, but **every report query and the four Produk sheets filter `is_reported = 1`**, so golden totals are byte-identical.
-3. **Case Colour Is Not A Dimension:** Tinted Jelly Balm case colours are SKU metadata. Report totals aggregate by shade across all colours. `case_color` is stored for traceability but must never appear in a reporting `GROUP BY`, and must never expand a grid. Verified: golden reports `Bunny Pink` = 15 units spanning four case colours as ONE row, and all 324 case-colour grid rows in the reference workbook are empty scaffolding.
+3. **Case Colour Is Not A Dimension (by default):** Tinted Jelly Balm case colours are SKU metadata. Report totals aggregate by shade across all colours. `case_color` is stored for traceability but must never appear in a reporting `GROUP BY` and never expand a grid **in the default report**. Verified: golden reports `Bunny Pink` = 15 units spanning four case colours as ONE row, and all 324 case-colour grid rows in the reference workbook are empty scaffolding. Exception: the Produk 2 export exposes an **opt-in** `includeCaseColors` view (default OFF) that expands the five Tinted Jelly Balm cross-family groups into one row per enumerated case colour plus a case-less catch-all row per shade pair; the default grids, report queries, dashboards, and golden totals are untouched by it.
 4. **No Deviations:** Code must strictly adhere to the verified domain rules (zero LLM math, declarative grid generation, integer IDR, 0-1 unit share, same-shade fold-back).
 5. **Proactive Updates:** If any unforeseen edge case is discovered during execution, stop and discuss before making plan changes.
 6. **History Preservation:** Mark completed phases with `[Completed]` and retain all task items.
@@ -248,7 +248,7 @@ backend/
   - Slate palette fills (`FILL_HEADER`, `FILL_TOTAL`), typography (`Segoe UI`), thin/double borders.
 - [x] Implement `backend/app/modules/exporter/report_builder.py`:
   - Dual-table layout: Left Table (Cols A-E: Variant Breakdown), Col F (Blank 4px separator), Right Table (Cols G-J: Group Summary).
-  - **Left Table = sparse.** Emit only variant rows with non-zero quantity (measured survival: `Produk S` 102/181, `Produk T` 92/181, `Produk 2 S` 7/516, `Produk 2 T` 13/840). Note: the 516/840 denominators are reference-workbook measurements; this app's Produk 2 grid is 813 rows across 21 groups (measured this period: `Produk 2 S` 7/813, `Produk 2 T` 13/813).
+  - **Left Table = sparse.** Emit only variant rows with non-zero quantity (measured survival: `Produk S` 102/181, `Produk T` 92/181, `Produk 2 S` 7/516, `Produk 2 T` 13/840). Note: the 516/840 denominators are reference-workbook measurements; this app's Produk 2 grid is 813 rows across 21 groups (measured this period: `Produk 2 S` 7/813, `Produk 2 T` 13/813). Superseded 2026-09-08 (Phase 9): the app grid is now **690 rows across 15 groups** (Lipcare excluded from the Bundling Silang catalog); the opt-in case-colour export expands it to 1,740 rows.
   - **Right Table = complete.** Always emit every catalog group in `PRODUK_GROUP_ORDER` sequence, even when it contributed no sales, so the group list is stable period-over-period and matches the reference template.
   - **Empty-Group Rule (required):** when a group has **zero** emitted left-table rows, write a literal `0` into Cols H and I instead of a `=SUM(...)` formula. A SUM over an empty/absent range is invalid and would produce a broken reference. This is not a rare edge case — measured fully-zero groups: `Produk S` 1/16, `Produk T` 1/16, **`Produk 2 S` 7/10**, **`Produk 2 T` 7/13** (reference-workbook counts; on this app's 21-group Produk 2 grids the measured fully-zero groups are `Produk 2 S` 18/21 and `Produk 2 T` 15/21).
   - **Contribution Guard:** Col E and Col J divide by a group or grand total. When the divisor is `0`, write a literal `0` rather than a formula, to avoid reproducing the reference workbook's `#DIV/0!` defect.
@@ -371,6 +371,32 @@ backend/
 
 ---
 
+### Phase 9: Cross-Catalog Lipcare Exclusion + Opt-In TJB Case-Colour Export [Completed]
+
+**Goal:** Remove Lipcare from the cross-bundling catalog everywhere (grid + dashboards) because no Bundling Silang listing ever combines a Lipcare item with another family, and add an **opt-in** Produk 2 export option that expands the Tinted Jelly Balm cross-family groups into per-case-colour rows.
+
+- [x] **Catalog** `backend/app/domain/catalog.py`:
+  - New `CROSS_PAIRABLE_FAMILY_NAMES` (the six Bundling Silang colour families; derived from `FAMILIES` minus Lipcare, order preserved).
+  - `CASE_COLORS` widened from 3 to **5** enumerated colours (adds `Buttered Yellow`, `Matcha Strawberry`) so every observed case colour is extracted and can be attributed in the expanded export view.
+- [x] **Normalizer** `normalizer.py`: cross-family detection only considers `CROSS_PAIRABLE_FAMILY_NAMES`; a title pairing Lipcare with another family can no longer produce a `Bundling ... & Lipcare` cross group.
+- [x] **Grid** `grid.py`:
+  - Produk 2 full grid now pairs 6 families → **15 groups / 690 rows** (was 21 / 813). `PRODUK2_GROUP_ORDER` recomputed from `CROSS_PAIRABLE_FAMILY_NAMES`.
+  - `generate_cross_family_grid(..., include_case_colors=True)` (TJB pairs only): each shade pair emits its case-less **catch-all** plain row plus one row per enumerated case colour (`{a} + {b}, {colour}`), each colour row carrying `GridRow.match_variant` = the plain pair label.
+  - `GridRow` gained `match_variant` (join base when a row is a per-colour cell).
+- [x] **Storage** `repository.py`:
+  - `_CANONICAL_GROUPS` cross groups from `CROSS_PAIRABLE_FAMILY_NAMES` (Lipcare pairs are no longer canonical → would persist as unreported if they ever appeared).
+  - `populate_grid(..., include_case_colors=True)` aggregates reported cross rows at `(product_group, clean_variant, case_color)` grain (new Query H) and attaches them onto the expanded grid in Python; per-colour rows join on `match_variant` + colour, case-less rows land on the catch-all rows. Default path unchanged.
+- [x] **API / Export** `routes.py`: `GET /api/export/excel?includeCaseColors=true` feeds the expanded grid into the Produk 2 sheets; defaults preserved.
+- [x] **Frontend**: `ExportPage` gains an "Include case colours (Produk 2 · Tinted Jelly Balm)" checkbox (default OFF) wired through `apiClient.exportExcel(batchIds, includeCaseColors)`.
+- [x] **Tests** (+5, 276 → **281**): domain (cross-pairable names + 5 case colours), transformer (15-group/690 grid without Lipcare, ON grid 1,740 rows with catch-all + colour rows), storage (dedicated-engine Aug TikTok persist → ON population places `Fizzy Pop`/`Matcha Strawberry` colour sales and case-less GUT-TJB sales while group totals equal the default view), API (export with `includeCaseColors=true` expands Produk 2 rows, sheet sums unchanged, no `& Lipcare` group).
+
+**Success Criteria:**
+- `pytest backend/tests/` green (**281 passed**); ruff clean; frontend `typecheck` + `lint` clean.
+- Default report figures (golden Shopee/TikTok totals) byte-identical — Lipcare never carried cross sales and default grids still aggregate by shade.
+- `includeCaseColors=true` exports per-case rows for TJB cross groups with no loss/addition to any group total.
+
+---
+
 ## Verification Plan
 
 ### Automated Tests
@@ -389,7 +415,7 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
 
 # Handoff Brief
 
-- **Current Phase:** Phase 8 (Lazada Adapter & Report Generation) — **completed** (2026-09-02). Backend suite green at **276 tests** (249 pre-Phase-8 + 27 Lazada-era additions).
+- **Current Phase:** Phase 9 (Cross-Catalog Lipcare Exclusion + Opt-In TJB Case-Colour Export) — **completed** (2026-09-08). Backend suite green at **281 tests** (276 pre-Phase-9 + 5 Phase-9 additions).
 - **What was done in Phase 7:**
   - **Schema & migration** `backend/app/modules/storage/`:
     - `models.py`: added indexed `is_reported` Boolean (default `True`) to `TransactionItem`.
@@ -419,6 +445,11 @@ Execute a full pipeline run against `sample_data/raw/raw_shopee_13_19_Jul26.xlsx
   - **Frontend**: `LAZADA` added to `validation.ts` zod enum and `MappingEditor.tsx` `KNOWN_PLATFORMS`; `ExportPage.tsx` copy updated (one batch per platform incl. Lazada; Produk 2 noted for Shopee/TikTok only). Typecheck + oxlint clean.
   - **Tests** (+27, 249 → 276): `conftest.py` Lazada fixtures; `test_ingestion.py` (preamble skip, 77/32 child-row extraction, exact/reverse/`-`-prefix/fallback SKU resolution, detect/get_adapter, profiler branch); `test_transformer.py` (49/Rp 4,533,088 and 9/Rp 886,765 oracle, `Energic + Gorgeous` reverse-order on-grid, same-shade auto-SKU fold-back, 6 fallback rows off-grid); `test_storage.py` (persist reported/unreported split, Query G, Query A excludes unreported); `test_exporter.py` (`Produk Laz` present with golden totals, `Produk 2 Laz` absent, `Tidak Terlaporkan Laz` carries the 6 rows); `test_api.py` (profile LAZADA, transform totals, unreported endpoint, export sheet list, variant analytics).
   - **Measured outcome:** Aug 1-31 persists 77 rows (49 units / Rp 4,533,088 reported; 6 unreported at qty 0); Aug 24-30 persists 32 rows (9 units / Rp 886,765 reported; 1 unreported at qty 0). Reverse-order `RAEGLT-008-006` → on-grid `Energic + Gorgeous` (1 / Rp 150,555); `-`-prefixed same-shade auto-SKUs fold back (2 folded records); no golden Shopee/TikTok figure moved.
+- **What was done in Phase 9 (2026-09-08):**
+  - Lipcare removed from the cross-bundling catalog everywhere: `CROSS_PAIRABLE_FAMILY_NAMES` (6 families, derived from `FAMILIES`), Produk 2 grid now **15 groups / 690 rows**, normalizer cross-detection + `_CANONICAL_GROUPS` exclude Lipcare → no `Bundling ... & Lipcare` row exists on any grid or cross dashboard.
+  - `CASE_COLORS` widened to 5 enumerated colours (`Fizzy Pop`, `Sweetie Pop`, `Cherry Pop`, `Buttered Yellow`, `Matcha Strawberry`); `extract_case_color` now captures the two newest colours.
+  - Opt-in Produk 2 **case-colour export**: `GET /api/export/excel?includeCaseColors=true` (ExportPage checkbox) expands the five Tinted Jelly Balm cross-family groups into per-case-colour rows + a case-less catch-all row per shade pair (1,740-row grid), populated via a new per-case aggregation path in `populate_grid`. Default export, report queries, dashboards, and golden totals unchanged.
+  - Tests +5 → **281 passed**; ruff + frontend typecheck/lint clean.
 - **What is next (fresh session):**
   - Frontend **Phase H (Unreported Entries display)** per `FrontendDevelopmentPlan.md` and final **Phase I (Integration & Packaging)** (bundle `data/sku_mapping.json` into the PyInstaller `--add-data` list).
 - **Artifacts:**

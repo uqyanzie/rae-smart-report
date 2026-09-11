@@ -23,6 +23,7 @@ from typing import Final
 
 __all__ = [
     "CASE_COLORS",
+    "CROSS_PAIRABLE_FAMILY_NAMES",
     "FAMILIES",
     "FAMILY_BY_NAME",
     "LIPCARE_INTRA_BUNDLE_LABELS",
@@ -427,7 +428,33 @@ PRODUK_GROUP_ORDER: Final[tuple[str, ...]] = (
 
 FAMILY_BY_NAME: Final[Mapping[str, Family]] = MappingProxyType({family.name: family for family in FAMILIES})
 
-CASE_COLORS: Final[tuple[str, ...]] = ("Fizzy Pop", "Sweetie Pop", "Cherry Pop")
+# Lipcare is a full master product family on the Produk (non-cross) report, but
+# it is NOT part of the Bundling Silang (cross-bundling) catalog: no marketplace
+# listing ever combines a Lipcare item with another family (verified against
+# raw Shopee/TikTok exports and the reference workbook -- no 'Bundling X &
+# Lipcare' group exists). Cross-family (Produk 2) grids, the normalizer's
+# cross-family detection, and the canonical group set therefore pair only these
+# six families (C(6,2) = 15 groups). Derive from FAMILIES order minus Lipcare so
+# the sequence can never drift from the master catalog.
+CROSS_PAIRABLE_FAMILY_NAMES: Final[tuple[str, ...]] = tuple(
+    family.name for family in FAMILIES if family.name != "Lipcare"
+)
+
+# Tinted Jelly Balm ships in a coloured case. This is SKU metadata, NOT a
+# report axis by default: TJB report totals aggregate by shade across every
+# colour. The Produk 2 export offers an opt-in 'include case colour' view that
+# expands the TJB cross-family groups into per-case rows (default OFF). The
+# enumerated set covers every colour observed in raw exports so the optional
+# expanded grid can attribute sales per case (legacy Fizzy Pop / Sweetie Pop /
+# Cherry Pop plus Buttered Yellow and Matcha Strawberry from the 2026-08
+# launches).
+CASE_COLORS: Final[tuple[str, ...]] = (
+    "Fizzy Pop",
+    "Sweetie Pop",
+    "Cherry Pop",
+    "Buttered Yellow",
+    "Matcha Strawberry",
+)
 
 PACKAGING_TOKENS: Final[tuple[str, ...]] = (
     "random keychain",
@@ -438,11 +465,13 @@ PACKAGING_TOKENS: Final[tuple[str, ...]] = (
     "default",
     "tidak boleh ecer",
     # Tinted Jelly Balm case-colour tokens: recognised-and-ignorable so the
-    # warning channel carries real signal only. Covers the two colours added
-    # after CASE_COLORS was pinned (Buttered Yellow, Matcha Strawberry) plus
-    # the truncated forms observed in bundle listings (Fizzy, Sweetie, Cherry,
-    # Matcha, But Yellow). Same treatment as "random keychain": the shade
-    # total already includes these units, so ignoring them costs nothing.
+    # warning channel carries real signal only. Covers the truncated forms
+    # observed in bundle listings (Fizzy, Sweetie, Cherry, Matcha, But Yellow)
+    # plus the two newest full colour names -- they are now enumerated in
+    # CASE_COLORS so extract_case_color consumes them first; leaving them here
+    # is harmless defence if a truncated token ever survives. Same treatment as
+    # "random keychain": the shade total already includes these units, so
+    # ignoring them costs nothing.
     "buttered yellow",
     "matcha strawberry",
     "fizzy",

@@ -81,11 +81,15 @@ class TransactionItem(Base):
     # ("Fizzy Pop", "Sweetie Pop", "Cherry Pop", "Buttered Yellow",
     # "Matcha Strawberry", and any future colour). NULL for every other family.
     #
-    # NOT A REPORTING DIMENSION. TJB totals are aggregated by shade across all
-    # case colours. Verified against the reference workbook: "Bunny Pink" = 15
-    # units spanning four distinct case colours, reported as ONE row. Never
-    # include this column in a reporting GROUP BY -- doing so splits one
-    # expected row into several. Stored for traceability and future analysis.
+    # NOT A REPORTING DIMENSION (BY DEFAULT). TJB totals are aggregated by
+    # shade across all case colours. Verified against the reference workbook:
+    # "Bunny Pink" = 15 units spanning four distinct case colours, reported as
+    # ONE row. Never include this column in a reporting GROUP BY -- doing so
+    # splits one expected row into several. Stored for traceability and future
+    # analysis. Single exception: the opt-in Produk 2 export view aggregates
+    # reported cross rows at (product_group, clean_variant, case_color) grain
+    # (Query H) to feed per-case-colour TJB grid rows; it is OFF by default and
+    # never touches Queries A-G or the default report.
     case_color = Column(String(32), nullable=True)
     sku = Column(String(100), nullable=True)
 
@@ -105,7 +109,8 @@ class TransactionItem(Base):
         Index("ix_transaction_batch_prod_cross", "import_batch_id", "is_cross_bundling", "product_group"),
         Index("ix_transaction_platform_period", "platform", "period_start", "period_end"),
         # Grid population joins on (product_group, clean_variant) within a batch.
-        # case_color is excluded -- it is not part of the reporting key.
+        # case_color is excluded from the default reporting key; the opt-in
+        # per-case export view aggregates cross rows separately (Query H).
         Index("ix_transaction_grid_key", "import_batch_id", "product_group", "clean_variant"),
     )
 

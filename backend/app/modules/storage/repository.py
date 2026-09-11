@@ -19,7 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
-from app.domain.catalog import FAMILIES, PRODUK_GROUP_ORDER
+from app.domain.catalog import CROSS_PAIRABLE_FAMILY_NAMES, PRODUK_GROUP_ORDER
 from app.domain.models import GridRow, VariantRecord
 from app.modules.storage.models import MappingTemplate, TransactionItem
 from app.modules.transformer.grid import generate_full_produk2_grid, generate_full_produk_grid
@@ -31,10 +31,15 @@ __all__ = [
 ]
 
 # Canonical catalog groups: the 16 PRODUK_GROUP_ORDER entries plus every
-# cross-family "Bundling A & B" group the normalizer can emit (C(7,2) = 21).
+# cross-family "Bundling A & B" group the normalizer can emit. Cross groups pair
+# only the six Bundling Silang families (C(6,2) = 15); Lipcare is a Produk-sheet
+# family only and never appears in a cross group.
 _CANONICAL_GROUPS: frozenset[str] = frozenset(
     {group.strip() for group in PRODUK_GROUP_ORDER}
-    | {f"Bundling {family_a.name} & {family_b.name}" for family_a, family_b in combinations(FAMILIES, 2)}
+    | {
+        f"Bundling {family_a} & {family_b}"
+        for family_a, family_b in combinations(CROSS_PAIRABLE_FAMILY_NAMES, 2)
+    }
 )
 
 # Catalog grid keys, indexed by report boundary. persist_batch rejects rows
@@ -201,6 +206,25 @@ _QUERY_F_TEMPLATE_LOOKUP = """
 SELECT platform_name, column_mapping_json, cleaning_rules_json, parent_row_rule_json
 FROM mapping_templates
 WHERE header_signature_hash = :signature_hash
+"""
+
+# -- Query H: Per-case-colour cross-family aggregation (opt-in export view) ---
+# Aggregates reported cross rows to (product_group, clean_variant, case_color)
+# grain so populate_grid can attach them onto the per-case-colour Produk 2
+# rows (include_case_colors=True). Colour-less rows keep an empty case key and
+# land on the shade pair's plain catch-all row.
+_QUERY_CASE_COLOR_CROSS_AGG = """
+SELECT
+    rtrim(product_group) AS product_group,
+    clean_variant,
+    COALESCE(case_color, '') AS case_color,
+    SUM(qty_sold) AS total_qty,
+    SUM(revenue) AS total_revenue
+FROM transaction_items
+WHERE import_batch_id = :batch_id
+  AND is_cross_bundling = 1
+  AND is_reported = 1
+GROUP BY rtrim(product_group), clean_variant, COALESCE(case_color, '')
 """
 
 # -- Grid population: catalog grid left-joined onto persisted aggregates -----
@@ -565,22 +589,34 @@ class AnalyticsRepository:
         import_batch_id: str,
         is_cross_bundling: bool | int = 0,
         grid: Sequence[GridRow] | None = None,
+        include_case_colors: bool = False,
     ) -> list[dict[str, Any]]:
         """Left-joins catalog grid rows onto persisted aggregates.
 
         Every grid row is preserved; variants with no sales coalesce to
         qty 0 / revenue 0 while keeping group presence. Join keys are
         rtrim()-normalized on both sides (rule 7).
+
+        ``include_case_colors=True`` (Produk 2 export option) switches to the
+        per-case-colour aggregation path: grid rows carrying a ``case_color``
+        are matched to reported rows by their plain ``match_variant`` plus that
+        case colour, colour-less rows land on the plain catch-all rows, and the
+        default SQL path is bypassed (its 5-field VALUES join cannot express
+        the case-aware key).
         """
         grid_rows = list(grid) if grid is not None else list(generate_full_produk_grid())
         if not grid_rows:
             return []
 
+        is_cross = int(bool(is_cross_bundling))
+        if include_case_colors and is_cross == 1:
+            return self._populate_grid_case_colors(import_batch_id, grid_rows)
+
         # Host-parameter ceiling: SQLite binds at most 32,766 parameters, and
         # each grid row binds 5 (product_group, clean_variant, is_bundling,
         # is_cross_bundling, expected_label) plus 2 fixed batch params. The
-        # current Produk 2 grid (813 rows -> 4,067 params) has ~8x headroom;
-        # the ceiling lands at ~6,550 grid rows. Chunk the VALUES list if the
+        # Produk 2 grid (690 rows -> 3,452 params) has ~9x headroom; the
+        # ceiling lands at ~6,550 grid rows. Chunk the VALUES list if the
         # catalog ever approaches that size (R10).
 
         placeholders = ", ".join(
@@ -588,7 +624,7 @@ class AnalyticsRepository:
         )
         params: dict[str, Any] = {
             "batch_id": import_batch_id,
-            "is_cross_bundling": int(bool(is_cross_bundling)),
+            "is_cross_bundling": is_cross,
         }
         for i, row in enumerate(grid_rows):
             params[f"p{i * 5 + 0}"] = row.product_group
@@ -600,6 +636,50 @@ class AnalyticsRepository:
         sql = _GRID_LEFT_JOIN_TEMPLATE.format(placeholders=placeholders)
         rows = self._session.execute(text(sql), params).mappings().all()
         return [dict(row) for row in rows]
+
+    def _populate_grid_case_colors(
+        self, import_batch_id: str, grid_rows: Sequence[GridRow]
+    ) -> list[dict[str, Any]]:
+        """Attaches reported cross rows onto the per-case-colour Produk 2 grid.
+
+        Aggregates stored rows at ``(product_group, clean_variant, case_color)``
+        grain (Query H) and matches each grid row by its plain match base:
+        ``GridRow.match_variant`` when present (per-colour row), else its own
+        ``clean_variant``; ``case_color`` separates the colour rows from the
+        plain catch-all row. Unmatched grid rows emit literal zeros.
+        """
+        rows = (
+            self._session.execute(
+                text(_QUERY_CASE_COLOR_CROSS_AGG),
+                {"batch_id": import_batch_id},
+            )
+            .mappings()
+            .all()
+        )
+        aggregates: dict[tuple[str, str, str], tuple[int, int]] = {}
+        for row in rows:
+            key = (row["product_group"], row["clean_variant"].strip(), row["case_color"].strip())
+            aggregates[key] = (int(row["total_qty"]), int(row["total_revenue"]))
+
+        result: list[dict[str, Any]] = []
+        for gr in grid_rows:
+            group = gr.product_group.rstrip()
+            match_variant = (gr.match_variant or gr.clean_variant).rstrip()
+            case_key = "" if gr.case_color is None else gr.case_color.rstrip()
+            total_qty, total_revenue = aggregates.get((group, match_variant, case_key), (0, 0))
+            result.append(
+                {
+                    "product_group": group,
+                    "clean_variant": gr.clean_variant.rstrip(),
+                    "is_bundling": gr.is_bundling,
+                    "is_cross_bundling": gr.is_cross_bundling,
+                    "expected_label": gr.expected_label.rstrip(),
+                    "case_color": gr.case_color,
+                    "total_qty": total_qty,
+                    "total_revenue": total_revenue,
+                }
+            )
+        return result
 
     # ------------------------------------------------------------------
     # Mapping templates (Query F)

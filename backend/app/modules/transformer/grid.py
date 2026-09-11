@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from itertools import combinations, product
+from itertools import combinations
 from typing import Final
 
 from app.domain.catalog import (
     CASE_COLORS,
+    CROSS_PAIRABLE_FAMILY_NAMES,
     FAMILIES,
     FAMILY_BY_NAME,
 )
@@ -101,8 +102,15 @@ class FixedGridGenerator:
         """Generates cross-category bundling (Bundling Silang) combinations.
 
         - Plain cross-family: n x m rows, joined with ', ' (e.g. 'Active, Over Cute').
-        - With Case Colors: n x m x 3 rows, joined with ' + ' then ', ' before case color
-          (e.g. 'Over Cute + Bunny Pink, Fizzy Pop').
+        - Tinted Jelly Balm cross-family with ``include_case_colors=True``: each
+          shade pair emits its plain (case-colour-free) catch-all row PLUS one
+          row per enumerated case colour, joined with ' + ' then ', ' before the
+          colour (e.g. 'Bunny Pink, Over React' followed by
+          'Bunny Pink + Over React, Fizzy Pop'). The catch-all row keeps any
+          case-less sale attributable to the pair inside its group totals.
+          Case colour is not a reporting axis by default -- this is the opt-in
+          Produk 2 export view only, and it is a no-op for pairs that do not
+          involve Tinted Jelly Balm.
         """
         f1 = self._family_by_name.get(family_name_1)
         f2 = self._family_by_name.get(family_name_2)
@@ -114,32 +122,60 @@ class FixedGridGenerator:
         right = f2.order_for_cross()
         rows: list[GridRow] = []
 
-        if include_case_colors:
-            for s1, s2, case_color in product(left, right, CASE_COLORS):
-                label = f"{s1} + {s2}, {case_color}".rstrip()
-                rows.append(
-                    GridRow(
-                        product_group=group_name.rstrip(),
-                        clean_variant=label,
-                        is_bundling=True,
-                        is_cross_bundling=True,
-                        expected_label=label,
-                        case_color=case_color.rstrip(),
+        # Case colours belong to the Tinted Jelly Balm SKU; the per-colour
+        # expansion is only meaningful (and only ever requested) for pairs that
+        # include it.
+        expand_cases = include_case_colors and (
+            f1.name == "Tinted Jelly Balm" or f2.name == "Tinted Jelly Balm"
+        )
+
+        if not expand_cases:
+            for s1 in left:
+                for s2 in right:
+                    label = f"{s1}, {s2}".rstrip()
+                    rows.append(
+                        GridRow(
+                            product_group=group_name.rstrip(),
+                            clean_variant=label,
+                            is_bundling=True,
+                            is_cross_bundling=True,
+                            expected_label=label,
+                            case_color=None,
+                        )
                     )
-                )
-        else:
-            for s1, s2 in product(left, right):
-                label = f"{s1}, {s2}".rstrip()
+            return rows
+
+        for s1 in left:
+            for s2 in right:
+                # Case-less catch-all: matches stored records whose variant
+                # carried no case colour (plain label, case_color NULL).
+                plain = f"{s1}, {s2}".rstrip()
                 rows.append(
                     GridRow(
                         product_group=group_name.rstrip(),
-                        clean_variant=label,
+                        clean_variant=plain,
                         is_bundling=True,
                         is_cross_bundling=True,
-                        expected_label=label,
+                        expected_label=plain,
                         case_color=None,
                     )
                 )
+                for case_color in CASE_COLORS:
+                    label = f"{s1} + {s2}, {case_color}".rstrip()
+                    rows.append(
+                        GridRow(
+                            product_group=group_name.rstrip(),
+                            clean_variant=label,
+                            is_bundling=True,
+                            is_cross_bundling=True,
+                            expected_label=label,
+                            case_color=case_color.rstrip(),
+                            # Records are stored with the case-colour-free
+                            # label; the colour lives in their case_color
+                            # column, so the join base is the plain pair label.
+                            match_variant=plain,
+                        )
+                    )
 
         return rows
 
@@ -170,21 +206,29 @@ def generate_full_produk_grid() -> list[GridRow]:
     return FixedGridGenerator().generate_full_produk_grid()
 
 
-def generate_full_produk2_grid() -> list[GridRow]:
-    """Generates all cross-family rows for the 'Produk 2' sheets (21 groups).
+def generate_full_produk2_grid(include_case_colors: bool = False) -> list[GridRow]:
+    """Generates all cross-family rows for the 'Produk 2' sheets (15 groups).
 
-    Iterates ``combinations(FAMILIES, 2)`` in canonical family order so the
-    per-group names match the normalizer's emission order
-    (``Bundling {a.name} & {b.name}``), and so each group's rows follow the
-    families' ``cross_order`` token sequences.
+    Iterates ``combinations(CROSS_PAIRABLE_FAMILY_NAMES, 2)`` so the per-group
+    names match the normalizer's emission order (``Bundling {a.name} &
+    {b.name}``), and so each group's rows follow the families' ``cross_order``
+    token sequences. Lipcare is deliberately absent: it is a Produk-sheet
+    family only and never pairs in the Bundling Silang catalog.
+
+    ``include_case_colors=True`` requests the opt-in per-case-colour expansion
+    for the five Tinted Jelly Balm cross-family groups (plain catch-all row per
+    shade pair plus one row per enumerated case colour). Non-TJB groups are
+    unaffected.
     """
     rows: list[GridRow] = []
-    for a, b in combinations(FAMILIES, 2):
-        rows.extend(generate_cross_family_grid(a.name, b.name))
+    for a_name, b_name in combinations(CROSS_PAIRABLE_FAMILY_NAMES, 2):
+        rows.extend(generate_cross_family_grid(a_name, b_name, include_case_colors))
     return rows
 
 
-# Canonical 21 cross-family groups in emission order (C(7, 2) = 21 pairs).
+# Canonical 15 cross-family groups in emission order (C(6, 2) = 15 pairs).
+# Lipcare never participates in the Bundling Silang catalog.
 PRODUK2_GROUP_ORDER: Final[tuple[str, ...]] = tuple(
-    f"Bundling {a.name} & {b.name}" for a, b in combinations(FAMILIES, 2)
+    f"Bundling {a_name} & {b_name}"
+    for a_name, b_name in combinations(CROSS_PAIRABLE_FAMILY_NAMES, 2)
 )

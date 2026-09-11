@@ -452,18 +452,79 @@ class TestFixedGridGenerator:
         assert len(grid) == 181
 
     def test_cross_family_grid_counts(self) -> None:
-        # GUT & OTG: 11 x 6 = 66
+        # GUT & OTG: 11 x 6 = 66 (no Tinted Jelly Balm -> no case expansion)
         gut_otg = generate_cross_family_grid("Glow Up Tint", "Over The Glaze")
         assert len(gut_otg) == 66
         assert gut_otg[0].clean_variant == "Active, Over Cute"
 
-        # OTG & TJB with case colors: 6 x 6 x 3 = 108
+        # OTG & TJB with the opt-in case expansion: 36 shade pairs, each
+        # emitting one case-less catch-all row plus one row per enumerated
+        # case colour (5): 36 x (1 + 5) = 216.
         otg_tjb = generate_cross_family_grid(
             "Over The Glaze", "Tinted Jelly Balm", include_case_colors=True
         )
-        assert len(otg_tjb) == 108
-        assert otg_tjb[0].clean_variant == "Over Cute + Bunny Pink, Fizzy Pop"
-        assert otg_tjb[0].case_color == "Fizzy Pop"
+        assert len(otg_tjb) == 216
+        assert otg_tjb[0].clean_variant == "Over Cute, Bunny Pink"
+        assert otg_tjb[0].case_color is None
+        assert otg_tjb[1].clean_variant == "Over Cute + Bunny Pink, Fizzy Pop"
+        assert otg_tjb[1].case_color == "Fizzy Pop"
+        assert otg_tjb[1].match_variant == "Over Cute, Bunny Pink"
+
+        # A non-TJB pair ignores the case expansion flag (no-op).
+        swipe_bloom = generate_cross_family_grid(
+            "Swipe To Glow", "The Bloom Perfect Matte Lipstick", include_case_colors=True
+        )
+        assert len(swipe_bloom) == 36
+
+    def test_full_produk2_grid_excludes_lipcare(self) -> None:
+        """Cross-family (Produk 2) grid pairs the six Bundling Silang colour
+        families only: 15 groups, 690 rows, no 'Bundling ... & Lipcare' group."""
+        from app.domain.catalog import CROSS_PAIRABLE_FAMILY_NAMES
+
+        from app.modules.transformer import PRODUK2_GROUP_ORDER
+
+        assert len(CROSS_PAIRABLE_FAMILY_NAMES) == 6
+        assert len(PRODUK2_GROUP_ORDER) == 15
+        assert not any("Lipcare" in group for group in PRODUK2_GROUP_ORDER)
+
+        grid = generate_full_produk2_grid()
+        assert len(grid) == 690
+        groups = {row.product_group for row in grid}
+        assert groups == set(PRODUK2_GROUP_ORDER)
+        assert not any("Lipcare" in row.product_group for row in grid)
+
+    def test_full_produk2_grid_case_expansion(self) -> None:
+        """The opt-in per-case-colour view expands only the five Tinted Jelly
+        Balm cross-family groups; every shade pair keeps its case-less
+        catch-all row plus 5 colour rows. Non-TJB groups stay n x m."""
+        grid = generate_full_produk2_grid(include_case_colors=True)
+        # 480 non-TJB plain rows + 5 TJB cross groups, each shade pair emitting
+        # one plain catch-all + 5 colour rows (210 plain + 1050 coloured rows).
+        assert len(grid) == 1740
+        assert len({row.product_group for row in grid}) == 15
+
+        # Non-TJB rows are unchanged plain cross pairs: 690 - 210 = 480.
+        non_tjb = [
+            row
+            for row in grid
+            if "Tinted Jelly Balm" not in row.product_group
+        ]
+        assert len(non_tjb) == 480
+
+        tjb_groups = [row for row in grid if "Tinted Jelly Balm" in row.product_group]
+        assert len(tjb_groups) == 1740 - 480
+
+        # GUT-TJB: 11 x 6 pairs, each with a plain catch-all + 5 colour rows.
+        gut_tjb = [row for row in grid if row.product_group == "Bundling Glow Up Tint & Tinted Jelly Balm"]
+        assert len(gut_tjb) == 11 * 6 * (1 + 5)  # 396
+
+        plain_keys = {row.clean_variant for row in gut_tjb if row.case_color is None}
+        assert len(plain_keys) == 66
+        assert "Joyful, Hippie Rose" in plain_keys
+
+        colored_keys = {row.clean_variant for row in gut_tjb if row.case_color is not None}
+        assert len(colored_keys) == 330
+        assert "Joyful + Hippie Rose, Matcha Strawberry" in colored_keys
 
 
 def _canonicalize_oracle_group(raw_group: str) -> str:

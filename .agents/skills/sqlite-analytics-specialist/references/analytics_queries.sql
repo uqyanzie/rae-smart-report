@@ -5,11 +5,13 @@
 
 -- Query A: Variant-Level Performance & Contribution Ratio (Table 1)
 -- Parameter :is_cross_bundling: 0 for Sheet 'Produk S'/'Produk T', 1 for Sheet 'Produk 2 S'/'Produk 2 T'
--- NOTE: case_color is deliberately EXCLUDED from the grouping key. Tinted Jelly
--- Balm totals are reported by shade, aggregated across every case colour.
--- Verified against the reference workbook: 'Bunny Pink' = 15 units spanning
--- four distinct case colours, reported as ONE row. Adding case_color here would
--- split that single expected row into four.
+-- NOTE: case_color is deliberately EXCLUDED from the grouping key in the DEFAULT
+-- report. Tinted Jelly Balm totals are reported by shade, aggregated across
+-- every case colour. Verified against the reference workbook: 'Bunny Pink' =
+-- 15 units spanning four distinct case colours, reported as ONE row. Adding
+-- case_color here would split that single expected row into four. The opt-in
+-- Produk 2 per-case export uses a separate per-case aggregation query
+-- (Query H) that is OFF by default and never feeds Queries A-G.
 WITH product_totals AS (
     SELECT 
         product_group,
